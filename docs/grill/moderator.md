@@ -145,10 +145,10 @@ Flow C (solo personal project), hackathon time box. Dev facts: `docs/dev-brief.m
 
 - [x] 1. Idea (decided 31 Oct; stop criterion = gate 1a, fallback = sweep)
 - [x] 2. Research (docs-private 01, 04; competitor claims in the brief are search-based, not exhaustive)
-- [ ] 3. Spec: to-spec after this grill
-- [ ] 4. Design: design-options for the display and camera pages; ADR for stack
-- [ ] 5. Scaffold: skipped CI, labels, board, milestones, because 4 days; keep one check command and the repo layout
-- [ ] 6. Backlog: to-tickets
+- [x] 3. Spec: approved 31 Oct (`docs/spec/moderator.md`)
+- [ ] 4. Design: stack ADR written (`docs/adr/0001-stack.md`, status proposed, needs Charlie's OK); design-options for the display and camera pages still to do
+- [ ] 5. Scaffold: this is slice S0 (skipped CI, labels, board, milestones, because 4 days; keep one check command and the repo layout)
+- [x] 6. Backlog: 11 slices approved 31 Oct (spec, Slices heading); no issues or PRs, by decision
 - [ ] 7. Each slice test-first (engine first)
 - [ ] 8. Release: submission before 22:00, 4 Nov
 - [ ] 9. Retro: after the event
