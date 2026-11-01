@@ -1,43 +1,44 @@
-# Moderator glossary
-Moderator is an AI game master for in-person Werewolf. Players never hold a phone; they point and raise a hand.
+# Shrimp size glossary
+The app measures shrimp from one phone photo next to a ruler and tells a pond farmer how fast they grow.
 
-## Setup and devices
-**Moderator**: the AI game master that runs a whole game, reads the players' gestures and speaks the narration.
-_Avoid_: bot, host, narrator app
+## Measuring
+**Sample**: one photo of about 10 shrimp on a tray, with its measurements, taken on one day.
+_Avoid_: scan, upload
 
-**Camera phone**: the phone at the open end of the U, about 2 m high and tilted down, that watches every player and plays the narration.
-_Avoid_: camera device, top phone
+**Tray**: the flat surface the shrimp are laid on, in a single layer.
+_Avoid_: plate, board
 
-**Display phone**: the phone lying flat in the table centre that shows seats, roles and results to whoever is being called.
-_Avoid_: floor screen, second screen
+**Reference object**: the thing of known size in the photo that gives the scale: a ruler first, a credit card as the fallback.
+_Avoid_: marker, calibration card
 
-**U layout**: players sit on three sides of a table, facing the camera phone.
-_Avoid_: circle, round table
+**Scale**: pixels per millimetre, taken from the reference object.
+_Avoid_: zoom
 
-**Seat**: a player's numbered place in the U layout, counted clockwise from the camera's left. Gestures belong to seats, not to names.
-_Avoid_: slot, player ID
+**Length**: the distance along a shrimp's curved body, in millimetres. Not the bounding box.
+_Avoid_: size (size means shrimp per kg)
 
-## Playing
-**Night step**: one role's turn at night, lasting a random wait so its length reveals nothing. Dead roles still get their step.
-_Avoid_: phase (a phase is a whole night or a whole day)
+**Overlapped shrimp**: a shrimp whose body end touches another shrimp or the image edge. It is listed but left out of the average.
+_Avoid_: bad shrimp, rejected
 
-**Selector**: how a called player names a seat: by finger count, or by the sweep. Pointing is not the selector.
-_Avoid_: pointer, vote gesture
+**Measured / left out**: the two counts on the result screen ("N measured, M left out").
+_Avoid_: valid / invalid
 
-**Finger count**: the player holds up as many fingers as the seat number, palm toward the camera phone.
-_Avoid_: finger vote
+## Sizing and money
+**Size**: shrimp per kg, looked up from the length table. Fewer per kg means bigger shrimp.
+_Avoid_: weight
 
-**Silent confirmation**: the way every night choice is locked in: the player shows a seat with the selector, the display phone shows that seat, holding it for 2 seconds locks it (with the sweep, a raised hand on the lit seat locks it), showing another seat changes it. No sound.
-_Avoid_: confirm screen, voting UI
+**Length table**: the hatchery's table (CP) that maps average length to shrimp per kg. Lives in a data file.
+_Avoid_: conversion formula
 
-**Decision snapshot**: the single camera frame taken at the moment a choice is made and used to read the selector and seat identity.
-_Avoid_: screenshot, live frame
+**Stall flag**: shows when the average length grew less than a set threshold between two samples. The farmer decides what to do.
+_Avoid_: alarm, harvest alert
 
-**Peek**: a player who is not being called has open eyes during the night. The warning is anonymous; names appear only in the summary. Not built in the first version.
-_Avoid_: cheating, eye leak
+**Cost of a stall day**: feed kg per day times feed price, in VND, for a day without growth.
+_Avoid_: loss, damage
 
-**Sweep**: the fallback to finger count: the display phone lights seats one by one and the player raises a hand on their target.
-_Avoid_: cycling, carousel
+**Demo data**: seeded samples, made for the demo and not measured from a pond. Always labelled on screen and in the video.
+_Avoid_: fake data, mock data
 
-**Lie report**: the end-of-game comparison of what players claimed in the day transcript against their real roles.
-_Avoid_: fact check
+## The old method
+**Cast net sample**: the farmer's current way: catch about 1 kg with a net, weigh it, count by hand. Takes about 15 minutes and two people, hurts the shrimp, and depends on luck.
+_Avoid_: net test

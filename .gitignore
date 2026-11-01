@@ -1,0 +1,8 @@
+pics/
+vids/
+records/
+docs-private/
+docs/research/
+.env
+__pycache__/
+*.pyc
