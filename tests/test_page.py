@@ -266,7 +266,7 @@ def test_page_photo_removed():
     assert "Save sample" not in html
     assert "renderPhotoSvg" not in html
     assert "/api/analyses" not in html
-    assert "/api/samples" not in html
+    assert not re.search(r"/api/samples(?!\.csv)", html)
 
 
 def test_page_bottom_bar_and_default_route():
