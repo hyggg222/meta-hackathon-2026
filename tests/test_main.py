@@ -16,6 +16,9 @@ from shrimp.conversation import HELP_TEXT
 from shrimp.main import build, read_setting
 from tests.conftest import FakeSegmenter
 
+# Suppress httpx request logging to prevent query tokens appearing in test logs
+logging.getLogger("httpx").setLevel(logging.WARNING)
+
 
 class RecordingTransport:
     # Test transport capturing sent messages and downloads
@@ -80,6 +83,67 @@ def test_setting_reader_priority(tmp_path: Any) -> None:
     assert read_setting("ONLY_ENV", root=tmp_path, env=env) == "from_env"
     assert read_setting("SINGLE_QUOTED", root=tmp_path, env=env) == "single"
     assert read_setting("NON_EXISTENT", root=tmp_path, env=env) is None
+
+
+def test_dotenv_and_process_env_build(tmp_path: Any) -> None:
+    # Read .env when setting missing and prefer process environment when present
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        'META_API_KEY="dotenv_key"\n'
+        'MESSENGER_PAGE_TOKEN="dotenv_page"\n'
+        'MESSENGER_APP_SECRET="dotenv_sec"\n'
+        'MESSENGER_VERIFY_TOKEN="dotenv_tok"\n'
+    )
+    segmenter = FakeSegmenter()
+
+    # Case 1: env mapping lacks MESSENGER_VERIFY_TOKEN; falls back to .env
+    env1 = {
+        "META_API_KEY": "dotenv_key",
+        "MESSENGER_PAGE_TOKEN": "dotenv_page",
+        "MESSENGER_APP_SECRET": "dotenv_sec",
+    }
+    app1 = build(root=tmp_path, env=env1, segmenter=segmenter)
+    client1 = TestClient(app1)
+    resp1 = client1.get(
+        "/webhook/messenger",
+        params={
+            "hub.mode": "subscribe",
+            "hub.verify_token": "dotenv_tok",
+            "hub.challenge": "ch1",
+        },
+    )
+    assert resp1.status_code == 200
+    assert resp1.text == "ch1"
+
+    # Case 2: env mapping has MESSENGER_VERIFY_TOKEN; process env wins over .env
+    env2 = {
+        "META_API_KEY": "dotenv_key",
+        "MESSENGER_PAGE_TOKEN": "dotenv_page",
+        "MESSENGER_APP_SECRET": "dotenv_sec",
+        "MESSENGER_VERIFY_TOKEN": "override_tok",
+    }
+    app2 = build(root=tmp_path, env=env2, segmenter=segmenter)
+    client2 = TestClient(app2)
+    resp2 = client2.get(
+        "/webhook/messenger",
+        params={
+            "hub.mode": "subscribe",
+            "hub.verify_token": "override_tok",
+            "hub.challenge": "ch2",
+        },
+    )
+    assert resp2.status_code == 200
+    assert resp2.text == "ch2"
+
+    resp3 = client2.get(
+        "/webhook/messenger",
+        params={
+            "hub.mode": "subscribe",
+            "hub.verify_token": "dotenv_tok",
+            "hub.challenge": "ch2",
+        },
+    )
+    assert resp3.status_code == 403
 
 
 def test_messenger_disabled_without_settings(
