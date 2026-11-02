@@ -26,12 +26,19 @@ class FakeTransport:
     def __init__(self, download_bytes: bytes = b"fake_jpeg"):
         self.download_bytes = download_bytes
         self.sent: List[Tuple[str, str, Any]] = []
+        self.quick_replies: List[Optional[List[Tuple[str, str]]]] = []
         self.download_exc: Optional[Exception] = None
         self.download_started: Optional[threading.Event] = None
         self.download_event: Optional[threading.Event] = None
 
-    def send_text(self, recipient_id: str, text: str) -> None:
+    def send_text(
+        self,
+        recipient_id: str,
+        text: str,
+        quick_replies: Optional[List[Tuple[str, str]]] = None,
+    ) -> None:
         self.sent.append(("text", recipient_id, text))
+        self.quick_replies.append(quick_replies)
 
     def send_image(self, recipient_id: str, jpeg: bytes) -> None:
         self.sent.append(("image", recipient_id, jpeg))
@@ -680,7 +687,7 @@ def test_sender_serialisation():
 def test_help_text_lists_every_function():
     # The guide names each thing the farmer can do, one per numbered line
     lines = [ln for ln in HELP_TEXT.splitlines() if ln.strip()]
-    assert lines[0].upper().startswith("HƯỚNG DẪN")
+    assert lines[0] == "Cách dùng"
     numbered = [ln for ln in lines if ln[:2] in ("1.", "2.", "3.", "4.", "5.", "6.", "7.", "8.", "9.")]
     assert len(numbered) == 9
     for needle in (
@@ -816,3 +823,159 @@ def test_unexpected_error_on_status_still_answers():
     service.dashboard = boom
     convo.handle(FakeIncoming(sender_id="u1", text="tình hình"))
     assert transport.sent == [("text", "u1", SORRY_TEXT)]
+
+
+def test_conversation_quick_reply_buttons_on_photo_ok():
+    # After photo with status ok and left-out shrimp: 3 buttons
+    store = Store(":memory:")
+    # Ok segmenter with 6 shrimp, min_measured is 5, so 1 left out if we have 7 or overlapped
+    ruler = np.zeros((300, 300), bool)
+    ruler[20:50, 20:200] = True
+    shrimp = [np.zeros((300, 300), bool) for _ in range(7)]
+    for i, s in enumerate(shrimp):
+        s[100 + i * 20 : 110 + i * 20, 50:150] = True
+    # 7 shrimp, 1 overlapped
+    shrimp[-1][100:110, 50:150] = True
+    seg = FakeSegmenter({"ruler": [ruler], "shrimp": shrimp})
+    service = make_test_service(seg=seg, store=store, table=FakeTable())
+    transport = FakeTransport()
+    convo = Conversation(
+        service=service,
+        transport=transport,
+        render=fake_render,
+        write_reply=fake_write_reply,
+        write_status=fake_write_status,
+    )
+
+    convo.handle(FakeIncoming(sender_id="u1", image_urls=["http://example.com/p.jpg"]))
+    assert len(transport.sent) == 2
+    assert transport.quick_replies[-1] == [
+        ("Lưu mẫu", "có"),
+        ("Xem con bị loại", "xem loại"),
+        ("Hủy", "hủy"),
+    ]
+
+
+def test_conversation_quick_reply_buttons_on_photo_ok_no_left_out():
+    # After photo with status ok and 0 left out: 2 buttons (no "Xem con bị loại")
+    store = Store(":memory:")
+    service = make_test_service(seg=make_ok_segmenter(), store=store, table=FakeTable())
+    transport = FakeTransport()
+    convo = Conversation(
+        service=service,
+        transport=transport,
+        render=fake_render,
+        write_reply=fake_write_reply,
+        write_status=fake_write_status,
+    )
+
+    convo.handle(FakeIncoming(sender_id="u1", image_urls=["http://example.com/p.jpg"]))
+    assert len(transport.sent) == 2
+    assert transport.quick_replies[-1] == [
+        ("Lưu mẫu", "có"),
+        ("Hủy", "hủy"),
+    ]
+
+
+def test_conversation_quick_reply_buttons_on_too_few():
+    # After photo with status too_few: "Xem con bị loại" (if left out) and "Hủy"
+    store = Store(":memory:")
+    ruler = np.zeros((300, 300), bool)
+    ruler[20:50, 20:200] = True
+    # 3 shrimp, 1 overlapped -> 2 measured, 1 left out (< min 5)
+    shrimp = [np.zeros((300, 300), bool) for _ in range(3)]
+    for i, s in enumerate(shrimp):
+        s[100 + i * 20 : 110 + i * 20, 50:150] = True
+    shrimp[-1][100:110, 50:150] = True
+    seg = FakeSegmenter({"ruler": [ruler], "shrimp": shrimp})
+    service = make_test_service(seg=seg, store=store, table=FakeTable())
+    transport = FakeTransport()
+    convo = Conversation(
+        service=service,
+        transport=transport,
+        render=fake_render,
+        write_reply=fake_write_reply,
+        write_status=fake_write_status,
+    )
+
+    convo.handle(FakeIncoming(sender_id="u1", image_urls=["http://example.com/p.jpg"]))
+    assert len(transport.sent) == 2
+    assert transport.quick_replies[-1] == [
+        ("Xem con bị loại", "xem loại"),
+        ("Hủy", "hủy"),
+    ]
+
+
+def test_conversation_quick_replies_after_save_help_and_cancel():
+    # Successful save gives Tình hình and Hướng dẫn; help gives Tình hình; cancel gives none
+    store = Store(":memory:")
+    service = make_test_service(seg=make_ok_segmenter(), store=store, table=FakeTable())
+    transport = FakeTransport()
+    convo = Conversation(
+        service=service,
+        transport=transport,
+        render=fake_render,
+        write_reply=fake_write_reply,
+        write_status=fake_write_status,
+    )
+
+    # 1. Photo then save ("có")
+    convo.handle(FakeIncoming(sender_id="u1", image_urls=["http://example.com/p.jpg"]))
+    transport.sent.clear()
+    transport.quick_replies.clear()
+    convo.handle(FakeIncoming(sender_id="u1", text="có"))
+    assert transport.quick_replies[-1] == [
+        ("Tình hình", "tình hình"),
+        ("Hướng dẫn", "hướng dẫn"),
+    ]
+
+    # 2. Help text ("hướng dẫn")
+    transport.sent.clear()
+    transport.quick_replies.clear()
+    convo.handle(FakeIncoming(sender_id="u1", text="hướng dẫn"))
+    assert transport.quick_replies[-1] == [("Tình hình", "tình hình")]
+
+    # 3. Photo then cancel ("hủy")
+    convo.handle(FakeIncoming(sender_id="u1", image_urls=["http://example.com/p.jpg"]))
+    transport.sent.clear()
+    transport.quick_replies.clear()
+    convo.handle(FakeIncoming(sender_id="u1", text="hủy"))
+    assert transport.quick_replies[-1] is None
+
+
+def test_conversation_left_out_view_quick_replies():
+    # Left-out view gets "Thêm tất cả" and "Hủy"
+    convo, transport = _convo_with_left_out_view()
+    transport.sent.clear()
+    transport.quick_replies.clear()
+    convo.handle(FakeIncoming(sender_id="u1", text="xem loại"))
+    assert transport.quick_replies[-1] == [
+        ("Thêm tất cả", "chọn hết"),
+        ("Hủy", "hủy"),
+    ]
+
+
+def test_conversation_tapping_is_same_as_typing():
+    # Feeding payload strings as incoming.text behaves identically to typing commands
+    store = Store(":memory:")
+    service = make_test_service(seg=make_ok_segmenter(), store=store, table=FakeTable())
+    transport = FakeTransport()
+    convo = Conversation(
+        service=service,
+        transport=transport,
+        render=fake_render,
+        write_reply=fake_write_reply,
+        write_status=fake_write_status,
+    )
+
+    # Tap "có" (payload from button) saves pending
+    convo.handle(FakeIncoming(sender_id="u1", image_urls=["http://example.com/p.jpg"]))
+    assert len(store.samples()) == 0
+    convo.handle(FakeIncoming(sender_id="u1", text="có"))
+    assert len(store.samples()) == 1
+
+    # Tap "tình hình" queries status
+    transport.sent.clear()
+    convo.handle(FakeIncoming(sender_id="u1", text="tình hình"))
+    assert "STATUS:empty=False" in transport.sent[-1][2]
+
