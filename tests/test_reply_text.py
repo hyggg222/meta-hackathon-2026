@@ -110,6 +110,7 @@ def test_template_reply_ok():
     assert "Đo được 8 con, bỏ ra 2 con." in reply_pending
     assert "Dài trung bình 95.2 mm, khoảng 71 con/kg." in reply_pending
     assert 'Trả lời "có" để lưu mẫu này, hoặc gõ số các con cần tính, ví dụ: 1 3 5.' in reply_pending
+    assert 'Gõ "chọn" hoặc "bỏ" kèm số con để thêm hoặc bỏ từng con.' in reply_pending
 
     reply_saved = template_reply(t_pending, min_measured=5, saved=True)
     assert "Đo được 8 con, bỏ ra 2 con." in reply_saved

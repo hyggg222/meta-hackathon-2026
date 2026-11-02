@@ -328,6 +328,93 @@ def test_numbers_choose_shrimp_and_save():
     assert samples[0].n_measured == 5
 
 
+def _convo_with_pending(store=None):
+    # A conversation whose sender u1 has a pending 6-shrimp result with everything counted
+    store = store or Store(":memory:")
+    service = make_test_service(seg=make_ok_segmenter(), store=store, table=FakeTable())
+    transport = FakeTransport()
+    convo = Conversation(
+        service=service,
+        transport=transport,
+        render=fake_render,
+        write_reply=fake_write_reply,
+        write_status=fake_write_status,
+    )
+    convo.handle(FakeIncoming(sender_id="u1", image_urls=["http://example.com/p.jpg"]))
+    assert transport.sent[-1] == ("text", "u1", "REPLY:ok:n=6:min=5:saved=None")
+    transport.sent.clear()
+    return convo, transport, store
+
+
+def test_remove_and_add_change_the_current_choice():
+    # "bỏ 1 3" and "chọn 1" work on what is counted now; the farmer never retypes the list
+    convo, transport, _ = _convo_with_pending()
+
+    convo.handle(FakeIncoming(sender_id="u1", text="bỏ 1 3"))
+    assert transport.sent == [
+        ("image", "u1", b"RENDERED_JPEG"),
+        ("text", "u1", "REPLY:too_few:n=4:min=5:saved=None"),
+    ]
+
+    transport.sent.clear()
+    convo.handle(FakeIncoming(sender_id="u1", text="chọn 1"))
+    assert transport.sent[1] == ("text", "u1", "REPLY:ok:n=5:min=5:saved=None")
+
+    # adding what is already counted, or removing what is already out, changes nothing
+    transport.sent.clear()
+    convo.handle(FakeIncoming(sender_id="u1", text="chọn 1"))
+    assert transport.sent[1] == ("text", "u1", "REPLY:ok:n=5:min=5:saved=None")
+    transport.sent.clear()
+    convo.handle(FakeIncoming(sender_id="u1", text="bỏ 3"))
+    assert transport.sent[1] == ("text", "u1", "REPLY:ok:n=5:min=5:saved=None")
+
+
+@pytest.mark.parametrize("text", ["chon 2,4", "Chọn 2, 4", "thêm 2 4", "them 2 4"])
+def test_add_variants_after_removing(text):
+    # Accent, case, commas and the word "thêm" all add to the choice
+    convo, transport, _ = _convo_with_pending()
+    convo.handle(FakeIncoming(sender_id="u1", text="bỏ 2 4 6"))
+    assert transport.sent[-1] == ("text", "u1", "REPLY:too_few:n=3:min=5:saved=None")
+    transport.sent.clear()
+    convo.handle(FakeIncoming(sender_id="u1", text=text))
+    assert transport.sent[-1] == ("text", "u1", "REPLY:ok:n=5:min=5:saved=None")
+
+
+def test_add_all_and_remove_all():
+    # "chọn hết" counts every shrimp and "bỏ hết" counts none
+    convo, transport, _ = _convo_with_pending()
+    convo.handle(FakeIncoming(sender_id="u1", text="bỏ hết"))
+    assert transport.sent[-1] == ("text", "u1", "REPLY:too_few:n=0:min=5:saved=None")
+    transport.sent.clear()
+    convo.handle(FakeIncoming(sender_id="u1", text="chọn tất cả"))
+    assert transport.sent[-1] == ("text", "u1", "REPLY:ok:n=6:min=5:saved=None")
+
+
+def test_add_remove_out_of_range_missing_numbers_and_no_pending():
+    # Bad numbers or no result to change get a short answer and change nothing
+    convo, transport, _ = _convo_with_pending()
+    for text in ("bỏ 9", "chọn 0", "chọn 1 99", "bỏ", "chọn"):
+        transport.sent.clear()
+        convo.handle(FakeIncoming(sender_id="u1", text=text))
+        assert len(transport.sent) == 1 and transport.sent[0][0] == "text", text
+        assert "từ 1 đến 6" in transport.sent[0][2], text
+
+    # the choice is unchanged: saving still saves all six
+    convo.handle(FakeIncoming(sender_id="u1", text="có"))
+    assert transport.sent[-1] == ("text", "u1", "REPLY:ok:n=6:min=5:saved=True")
+
+    # nothing pending now
+    transport.sent.clear()
+    convo.handle(FakeIncoming(sender_id="u1", text="bỏ 1"))
+    assert transport.sent == [
+        (
+            "text",
+            "u1",
+            'Bạn gửi ảnh khay tôm trước nhé, mình sẽ đo rồi bạn trả lời "có" để lưu.',
+        )
+    ]
+
+
 def test_numbers_out_of_range_and_empty():
     # Numbers 0, 99, 1 99 or empty list send range message and do not change pending
     store = Store(":memory:")
@@ -594,9 +681,18 @@ def test_help_text_lists_every_function():
     # The guide names each thing the farmer can do, one per numbered line
     lines = [ln for ln in HELP_TEXT.splitlines() if ln.strip()]
     assert lines[0].upper().startswith("HƯỚNG DẪN")
-    numbered = [ln for ln in lines if ln[:2] in ("1.", "2.", "3.", "4.", "5.", "6.")]
-    assert len(numbered) == 6
-    for needle in ("ảnh", '"có"', "1 3 5", '"hủy"', '"tình hình"', '"hướng dẫn"'):
+    numbered = [ln for ln in lines if ln[:2] in ("1.", "2.", "3.", "4.", "5.", "6.", "7.", "8.")]
+    assert len(numbered) == 8
+    for needle in (
+        "ảnh",
+        '"có"',
+        '"chọn 1 3"',
+        '"bỏ 1 3"',
+        "1 3 5",
+        '"hủy"',
+        '"tình hình"',
+        '"hướng dẫn"',
+    ):
         assert any(needle in ln for ln in numbered), needle
     assert len(HELP_TEXT) < 1000
 

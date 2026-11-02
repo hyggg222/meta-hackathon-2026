@@ -71,13 +71,15 @@ def render_reply(photo: bytes, tray: TrayResult) -> bytes:
 
     # Scaling metrics from long side
     line_thick = max(2, int(round(long_side / 700.0)))
-    badge_radius = max(10, int(round(long_side * 0.015)))
-    badge_font_scale = max(0.35, badge_radius * 0.032)
-    badge_font_thick = max(1, int(round(badge_radius * 0.10)))
+    # sized to stay readable when Messenger shows the 1280 px photo at about 400 px
+    badge_radius = max(12, int(round(long_side * 0.028)))
+    badge_font_scale = max(0.5, badge_radius * 0.034)
+    badge_font_thick = max(2, int(round(badge_radius * 0.12)))
+    badge_ring = max(2, int(round(badge_radius * 0.12)))
 
-    text_font_scale = max(0.4, 0.45 * (long_side / 700.0))
-    text_thin_thick = max(1, int(round(line_thick / 2.0)))
-    text_thick_thick = text_thin_thick + max(2, line_thick)
+    text_font_scale = max(0.6, 1.0 * (long_side / 700.0))
+    text_thin_thick = max(2, int(round(line_thick * 1.5)))
+    text_thick_thick = text_thin_thick + max(3, 2 * line_thick)
 
     dash_len = max(8.0, 4.0 * line_thick)
     gap_len = max(6.0, 3.0 * line_thick)
@@ -117,6 +119,7 @@ def render_reply(photo: bytes, tray: TrayResult) -> bytes:
             cy = int(round(s.path[0][1]))
             circle_color = COLOR_DARK if s.index in included_set else COLOR_GREY
             cv2.circle(img, (cx, cy), badge_radius, circle_color, -1)
+            cv2.circle(img, (cx, cy), badge_radius, COLOR_WHITE, badge_ring, cv2.LINE_AA)
 
             text = str(s.index + 1)
             (tw, th), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, badge_font_scale, badge_font_thick)

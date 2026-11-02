@@ -176,9 +176,10 @@ def test_badge_drawn_for_shrimp():
     dec = cv2.imdecode(np.frombuffer(out, np.uint8), cv2.IMREAD_COLOR)
     assert dec is not None
 
-    # Patch around shrimp 1 first point (400, 150) is dark, not grey-mid
-    badge_patch = dec[147:154, 397:404]
-    plain_patch = plain_dec[147:154, 397:404]
+    # Patch on the left half of the badge at shrimp 1 first point (400, 150): dark, not grey-mid,
+    # away from the white digit in the middle
+    badge_patch = dec[147:154, 381:388]
+    plain_patch = plain_dec[147:154, 381:388]
     assert abs(plain_patch.mean() - 128) < 6
     assert badge_patch.mean() < 85
 

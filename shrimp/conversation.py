@@ -18,16 +18,21 @@ CANCEL_WORDS = {"huy", "cancel", "thoi"}
 STATUS_WORDS = {"tinh hinh", "status", "dashboard", "ket qua"}
 
 HELP_WORDS = {"huong dan", "help", "menu", "tro giup"}
+ADD_WORDS = {"chon", "them", "add"}
+REMOVE_WORDS = {"bo", "xoa", "remove"}
+ALL_WORDS = {"het", "tat ca", "tatca", "all"}
 
 NO_PENDING_TEXT = 'Bạn gửi ảnh khay tôm trước nhé, mình sẽ đo rồi bạn trả lời "có" để lưu.'
 HELP_TEXT = (
     "HƯỚNG DẪN SỬ DỤNG\n"
     "1. Đo tôm: gửi 1 ảnh khay tôm (tôm nằm phẳng, không chạm nhau, có thước bên cạnh).\n"
     '2. Lưu mẫu: trả lời "có" sau khi xem kết quả.\n'
-    "3. Chọn lại con tôm: gõ số các con cần tính, ví dụ: 1 3 5.\n"
-    '4. Bỏ kết quả vừa đo: gõ "hủy".\n'
-    '5. Xem tình hình các lần đo: gõ "tình hình".\n'
-    '6. Xem lại hướng dẫn này: gõ "hướng dẫn".'
+    '3. Thêm con vào kết quả: gõ "chọn 1 3" (hoặc "chọn hết").\n'
+    '4. Bỏ con khỏi kết quả: gõ "bỏ 1 3" (hoặc "bỏ hết").\n'
+    "5. Chỉ tính một số con: gõ số các con đó, ví dụ: 1 3 5.\n"
+    '6. Bỏ kết quả vừa đo: gõ "hủy".\n'
+    '7. Xem tình hình các lần đo: gõ "tình hình".\n'
+    '8. Xem lại hướng dẫn này: gõ "hướng dẫn".'
 )
 
 
@@ -138,6 +143,30 @@ class Conversation:
             # the farmer always gets an answer, never silence
             self._safe_send_text(incoming.sender_id, SORRY_TEXT)
 
+    def _apply_choice(self, sender_id: str, pending: PendingAnalysis, include: List[int]) -> None:
+        # Recompute the result for exactly these shrimp, resend photo and text, remember the choice
+        try:
+            tray = self._service.summary(pending.analysis_id, include)
+        except AnalysisNotFound:
+            self._drop_pending(sender_id)
+            self._safe_send_text(sender_id, "Ảnh này đã hết hạn, bạn gửi lại giúp mình nhé.")
+            return
+
+        try:
+            jpeg = self._render(pending.photo, tray)
+            self._safe_send_image(sender_id, jpeg)
+            min_measured = self._service.settings().min_measured
+            text = self._write_reply(tray, min_measured, None)
+            self._safe_send_text(sender_id, text)
+        except Exception:
+            logger.exception("Render/send failure in choice for sender %s", sender_id)
+            return
+
+        pending.include = include
+        pending.tray = tray
+        pending.updated_at = self._clock()
+        self._set_pending(sender_id, pending)
+
     def _handle_sender(self, incoming: IncomingLike) -> None:
         sender_id = incoming.sender_id
 
@@ -205,28 +234,33 @@ class Conversation:
                 self._safe_send_text(sender_id, f"Số con phải từ 1 đến {num_shrimp}. Ví dụ: 1 3 5.")
                 return
 
-            include = sorted(set(n - 1 for n in nums))
-            try:
-                tray = self._service.summary(pending.analysis_id, include)
-            except AnalysisNotFound:
-                self._drop_pending(sender_id)
-                self._safe_send_text(sender_id, "Ảnh này đã hết hạn, bạn gửi lại giúp mình nhé.")
-                return
+            self._apply_choice(sender_id, pending, sorted(set(n - 1 for n in nums)))
+            return
 
-            try:
-                jpeg = self._render(pending.photo, tray)
-                self._safe_send_image(sender_id, jpeg)
-                min_measured = self._service.settings().min_measured
-                text = self._write_reply(tray, min_measured, None)
-                self._safe_send_text(sender_id, text)
-            except Exception:
-                logger.exception("Render/send failure in numbers for sender %s", sender_id)
+        # "chọn 1 3" adds and "bỏ 1 3" removes, on top of what is counted now
+        parts = raw_text.split(None, 1)
+        command = _normalize(parts[0])
+        if command in ADD_WORDS or command in REMOVE_WORDS:
+            pending = self._get_pending(sender_id)
+            if pending is None:
+                self._safe_send_text(sender_id, NO_PENDING_TEXT)
                 return
-
-            pending.include = include
-            pending.tray = tray
-            pending.updated_at = self._clock()
-            self._set_pending(sender_id, pending)
+            rest = parts[1] if len(parts) > 1 else ""
+            num_shrimp = len(pending.tray.shrimp)
+            if _normalize(rest) in ALL_WORDS:
+                picked = set(range(num_shrimp))
+            else:
+                nums = [int(x) for x in re.findall(r"\d+", rest)]
+                if not nums or any(n < 1 or n > num_shrimp for n in nums):
+                    self._safe_send_text(
+                        sender_id,
+                        f"Số con phải từ 1 đến {num_shrimp}. Ví dụ: chọn 1 3 hoặc bỏ 2.",
+                    )
+                    return
+                picked = set(n - 1 for n in nums)
+            current = set(pending.include if pending.include is not None else pending.tray.included)
+            changed = current | picked if command in ADD_WORDS else current - picked
+            self._apply_choice(sender_id, pending, sorted(changed))
             return
 
         # Word commands

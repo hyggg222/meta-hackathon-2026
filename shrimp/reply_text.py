@@ -105,6 +105,7 @@ def template_reply(
         parts.append(
             'Trả lời "có" để lưu mẫu này, hoặc gõ số các con cần tính, ví dụ: 1 3 5.'
         )
+        parts.append('Gõ "chọn" hoặc "bỏ" kèm số con để thêm hoặc bỏ từng con.')
     elif saved is True:
         parts.append("Đã lưu mẫu.")
     elif saved is False:
