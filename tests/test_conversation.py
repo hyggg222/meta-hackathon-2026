@@ -946,6 +946,7 @@ def test_conversation_quick_replies_after_save_help_and_cancel():
 def test_conversation_left_out_view_quick_replies():
     # Left-out view gets "Thêm tất cả" and "Hủy"
     convo, transport = _convo_with_left_out_view()
+    convo.handle(FakeIncoming(sender_id="u1", text="bỏ 2 5"))
     transport.sent.clear()
     transport.quick_replies.clear()
     convo.handle(FakeIncoming(sender_id="u1", text="xem loại"))

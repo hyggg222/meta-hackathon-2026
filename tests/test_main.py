@@ -534,7 +534,9 @@ def test_spark_replies_wires_photo_to_template_and_status_to_spark(
 
     # Photo uses template_reply, NOT spark.write_reply
     transport.sent_texts.clear()
-    transport.download_bytes = b"fakephoto"
+    img = np.zeros((80, 80, 3), dtype=np.uint8)
+    _, enc = cv2.imencode(".jpg", img)
+    transport.download_bytes = enc.tobytes()
     payload = {
         "object": "page",
         "entry": [

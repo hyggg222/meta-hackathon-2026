@@ -6,7 +6,7 @@ import re
 import string
 import threading
 import time
-from typing import Any, Callable, Dict, List, Optional, Protocol
+from typing import Any, Callable, Dict, List, Optional, Protocol, Tuple
 import unicodedata
 
 from shrimp.models import AnalysisNotFound, Dashboard, SegmentationError, TrayResult
@@ -25,16 +25,16 @@ LEFT_OUT_WORDS = {"xem loai", "loai", "con bi loai"}
 
 NO_PENDING_TEXT = 'Bạn gửi ảnh khay tôm trước nhé, mình sẽ đo rồi bạn trả lời "có" để lưu.'
 HELP_TEXT = (
-    "HƯỚNG DẪN SỬ DỤNG\n"
-    "1. Đo tôm: gửi 1 ảnh khay tôm (tôm nằm phẳng, không chạm nhau, có thước bên cạnh).\n"
-    '2. Lưu mẫu: trả lời "có" sau khi xem kết quả.\n'
-    '3. Thêm con vào kết quả: gõ "chọn 1 3" (hoặc "chọn hết").\n'
-    '4. Bỏ con khỏi kết quả: gõ "bỏ 1 3" (hoặc "bỏ hết").\n'
-    "5. Chỉ tính một số con: gõ số các con đó, ví dụ: 1 3 5.\n"
-    '6. Xem các con đang bị loại để thêm lại: gõ "xem loại".\n'
-    '7. Bỏ kết quả vừa đo: gõ "hủy".\n'
-    '8. Xem tình hình các lần đo: gõ "tình hình".\n'
-    '9. Xem lại hướng dẫn này: gõ "hướng dẫn".'
+    "Cách dùng\n"
+    "1. Gửi 1 ảnh khay tôm để đo.\n"
+    '2. Nhấn "có" để lưu mẫu.\n'
+    '3. Gõ "chọn 1 3" để thêm con.\n'
+    '4. Gõ "bỏ 1 3" để bớt con.\n'
+    "5. Gõ 1 3 5 để chỉ tính các con này.\n"
+    '6. Gõ "xem loại" để xem các con bị loại.\n'
+    '7. Gõ "hủy" để bỏ kết quả vừa đo.\n'
+    '8. Gõ "tình hình" để xem biểu đồ các lần đo.\n'
+    '9. Gõ "hướng dẫn" để xem lại trợ giúp.'
 )
 
 
@@ -49,7 +49,12 @@ class IncomingLike(Protocol):
 
 
 class TransportLike(Protocol):
-    def send_text(self, recipient_id: str, text: str) -> None: ...
+    def send_text(
+        self,
+        recipient_id: str,
+        text: str,
+        quick_replies: Optional[List[Tuple[str, str]]] = None,
+    ) -> None: ...
     def send_image(self, recipient_id: str, jpeg: bytes) -> None: ...
     def download(self, url: str) -> bytes: ...
 
@@ -71,6 +76,23 @@ def _normalize(text: str) -> str:
     s = "".join(c for c in s if unicodedata.category(c) != "Mn")
     s = "".join(c for c in s if not unicodedata.category(c).startswith("P") and c not in string.punctuation)
     return " ".join(s.split())
+
+
+def _quick_replies_for_tray(tray: TrayResult) -> Optional[List[Tuple[str, str]]]:
+    # Return quick-reply button pairs based on tray result status and left out shrimp
+    if tray.status == "ok":
+        buttons = [("Lưu mẫu", "có")]
+        if tray.n_left_out > 0:
+            buttons.append(("Xem con bị loại", "xem loại"))
+        buttons.append(("Hủy", "hủy"))
+        return buttons
+    elif tray.status == "too_few":
+        buttons = []
+        if tray.n_left_out > 0:
+            buttons.append(("Xem con bị loại", "xem loại"))
+        buttons.append(("Hủy", "hủy"))
+        return buttons
+    return None
 
 
 class Conversation:
@@ -123,9 +145,14 @@ class Conversation:
         with self._lock:
             self._pending.pop(sender_id, None)
 
-    def _safe_send_text(self, recipient_id: str, text: str) -> None:
+    def _safe_send_text(
+        self,
+        recipient_id: str,
+        text: str,
+        quick_replies: Optional[List[Tuple[str, str]]] = None,
+    ) -> None:
         try:
-            self._transport.send_text(recipient_id, text)
+            self._transport.send_text(recipient_id, text, quick_replies=quick_replies)
         except Exception:
             logger.exception("Failed to send text to %s", recipient_id)
 
@@ -161,7 +188,8 @@ class Conversation:
             self._safe_send_image(sender_id, jpeg)
             min_measured = self._service.settings().min_measured
             text = self._write_reply(tray, min_measured, None)
-            self._safe_send_text(sender_id, text)
+            quick_replies = _quick_replies_for_tray(tray)
+            self._safe_send_text(sender_id, text, quick_replies=quick_replies)
         except Exception:
             logger.exception("Render/send failure in choice for sender %s", sender_id)
             return
@@ -192,6 +220,7 @@ class Conversation:
             sender_id,
             "Đây là các con đang bị loại (màu cam), kèm độ dài tính bằng cm. "
             f'Gõ "chọn {example}" để thêm con vào kết quả.',
+            quick_replies=[("Thêm tất cả", "chọn hết"), ("Hủy", "hủy")],
         )
 
     def _handle_sender(self, incoming: IncomingLike) -> None:
@@ -224,7 +253,8 @@ class Conversation:
                 self._safe_send_image(sender_id, jpeg)
                 min_measured = self._service.settings().min_measured
                 text = self._write_reply(tray, min_measured, None)
-                self._safe_send_text(sender_id, text)
+                quick_replies = _quick_replies_for_tray(tray)
+                self._safe_send_text(sender_id, text, quick_replies=quick_replies)
             except Exception:
                 logger.exception("Render/send failure for sender %s", sender_id)
                 return
@@ -243,7 +273,9 @@ class Conversation:
         # 2. Text message or empty
         raw = incoming.text
         if raw is None or not raw.strip():
-            self._safe_send_text(sender_id, HELP_TEXT)
+            self._safe_send_text(
+                sender_id, HELP_TEXT, quick_replies=[("Tình hình", "tình hình")]
+            )
             return
 
         raw_text = raw.strip()
@@ -308,16 +340,24 @@ class Conversation:
             saved = (tray.status == "ok")
             min_measured = self._service.settings().min_measured
             text = self._write_reply(tray, min_measured, saved)
-            self._safe_send_text(sender_id, text)
             if saved:
+                self._safe_send_text(
+                    sender_id,
+                    text,
+                    quick_replies=[("Tình hình", "tình hình"), ("Hướng dẫn", "hướng dẫn")],
+                )
                 self._drop_pending(sender_id)
             else:
+                quick_replies = _quick_replies_for_tray(tray)
+                self._safe_send_text(sender_id, text, quick_replies=quick_replies)
                 pending.tray = tray
                 self._set_pending(sender_id, pending)
             return
 
         if norm in HELP_WORDS:
-            self._safe_send_text(sender_id, HELP_TEXT)
+            self._safe_send_text(
+                sender_id, HELP_TEXT, quick_replies=[("Tình hình", "tình hình")]
+            )
             return
 
         if norm in LEFT_OUT_WORDS:
@@ -338,4 +378,6 @@ class Conversation:
             return
 
         # Anything else
-        self._safe_send_text(sender_id, HELP_TEXT)
+        self._safe_send_text(
+            sender_id, HELP_TEXT, quick_replies=[("Tình hình", "tình hình")]
+        )
