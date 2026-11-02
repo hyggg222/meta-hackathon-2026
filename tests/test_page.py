@@ -515,3 +515,16 @@ def test_page_dash_enter_feed_button():
 
 
 
+
+
+def test_page_num_class_is_not_a_round_badge():
+    # The numbers in the dashboard use class num for tabular digits, never a round badge
+    service = make_test_service()
+    app = create_app(service)
+    client = TestClient(app)
+
+    html = client.get("/").text
+
+    for rule in re.findall(r"(?m)^\s*(?:\.dash\s+)?\.num[^{]*\{([^}]*)\}", html):
+        assert "border-radius:50%" not in rule
+        assert "width:28px" not in rule
