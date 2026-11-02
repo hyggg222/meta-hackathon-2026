@@ -1,9 +1,11 @@
 # Tests for error table script comparing hand measurements against the pipeline
 from datetime import date
 from pathlib import Path
+import cv2
+import numpy as np
 import pytest
 
-from shrimp.models import Analysis, Settings, ShrimpMeasure, TrayResult
+from shrimp.models import Analysis, ShrimpMeasure, TrayResult
 from shrimp.store import Store
 from tests.conftest import FakeSegmenter
 
@@ -220,3 +222,58 @@ def test_list_output_in_memory_store():
     assert "demo.jpg" not in output
     assert f"{sid1} 2026-11-02 8 tray1.jpg" in lines[0]
     assert f"{sid2} 2026-11-03 8 tray2.jpg" in lines[1]
+
+
+def test_run_error_table_with_fake_segmenter(tmp_path: Path):
+    # End-to-end run of error table pipeline with FakeSegmenter without network
+    db_path = tmp_path / "test_shrimp.db"
+    store = Store(db_path)
+    photo_file = tmp_path / "tray1.png"
+    img = np.zeros((100, 100, 3), dtype=np.uint8)
+    ok, enc = cv2.imencode(".png", img)
+    assert ok
+    photo_file.write_bytes(enc.tobytes())
+
+    fake_tray = TrayResult(
+        status="ok",
+        reference="ruler",
+        scale_px_per_mm=1.0,
+        shrimp=[],
+        n_measured=1,
+        n_left_out=0,
+        mean_length_mm=80.0,
+    )
+    sid = store.save_sample(
+        date(2026, 11, 2), fake_tray, photo_path=str(photo_file), demo=False
+    )
+
+    csv_path = tmp_path / "trays.csv"
+    csv_path.write_text(
+        f"sample_id,shrimp,length_mm,length_postorbital_mm\n{sid},1,80.0,72.0\n",
+        encoding="utf-8",
+    )
+    out_path = tmp_path / "results" / "error-table.md"
+
+    ruler_mask = np.zeros((100, 100), dtype=bool)
+    ruler_mask[10:90, 10:20] = True
+    shrimp_mask = np.zeros((100, 100), dtype=bool)
+    shrimp_mask[30:50, 40:80] = True
+    segmenter = FakeSegmenter(
+        {
+            "ruler": [ruler_mask],
+            "credit card": [],
+            "shrimp": [shrimp_mask],
+        }
+    )
+
+    report, md = run_error_table(
+        csv_path=csv_path,
+        db_path=db_path,
+        out_path=out_path,
+        segmenter=segmenter,
+        store=store,
+    )
+    assert isinstance(report, ComparisonReport)
+    assert out_path.exists()
+    assert "# Error Table Report" in md
+
