@@ -25,7 +25,8 @@ def _calc_stall(
     if cur.mean_length_mm is None or prev.mean_length_mm is None:
         return None
     growth_per_day = (cur.mean_length_mm - prev.mean_length_mm) / days
-    return round(growth_per_day, 4) < settings.stall_mm_per_day
+    # Float guard avoids rounding up actual stalls while tolerating float imprecision
+    return growth_per_day < settings.stall_mm_per_day - 1e-9
 
 
 def build_dashboard(
@@ -108,11 +109,12 @@ def build_dashboard(
         stall = _calc_stall(previous, latest, settings)
 
     chart: List[ChartPoint] = []
-    samples_with_mean = [s for s in sorted_samples if s.mean_length_mm is not None]
-    for i, s in enumerate(samples_with_mean):
+    for i, s in enumerate(sorted_samples):
+        if s.mean_length_mm is None:
+            continue
         pt_stall = False
         if i > 0:
-            pt_stall = _calc_stall(samples_with_mean[i - 1], s, settings) is True
+            pt_stall = _calc_stall(sorted_samples[i - 1], s, settings) is True
         chart.append(
             ChartPoint(
                 day=s.day,
@@ -120,8 +122,6 @@ def build_dashboard(
                 stall=pt_stall,
             )
         )
-    if chart and samples_with_mean[-1] is latest:
-        chart[-1].stall = stall is True
 
     at_harvest = (
         latest_size_per_kg is not None
@@ -132,7 +132,9 @@ def build_dashboard(
     feed_notice: Optional[str] = None
     stall_day_cost_vnd: Optional[int] = None
     if qualifying_feeds:
-        latest_feed = max(qualifying_feeds, key=lambda f: f.day)
+        latest_feed = max(
+            enumerate(qualifying_feeds), key=lambda item: (item[1].day, item[0])
+        )[1]
         stall_day_cost_vnd = int(round(latest_feed.kg_per_day * latest_feed.price_vnd))
     else:
         feed_notice = "no_feed"
