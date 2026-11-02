@@ -285,3 +285,61 @@ def test_feed_entries_same_day_later_wins():
     d2 = build_dashboard([s1], [f2, f1], Settings(), FakeTable())
     assert d2.stall_day_cost_vnd == 4000000
 
+
+def test_growth_mm_per_day():
+    # Two samples 3 days apart calculate daily growth rate
+    s1 = SampleRecord(1, date(2026, 11, 1), 8, 0, 90.0, False, None)
+    s2 = SampleRecord(2, date(2026, 11, 4), 8, 0, 91.0, False, None)
+    d = build_dashboard([s1, s2], [], Settings(), FakeTable())
+    assert d.growth_mm_per_day == pytest.approx(1 / 3)
+
+
+def test_growth_same_day():
+    # Same day samples give growth None
+    s1 = SampleRecord(1, date(2026, 11, 1), 8, 0, 90.0, False, None)
+    s2 = SampleRecord(2, date(2026, 11, 1), 8, 0, 91.0, False, None)
+    d = build_dashboard([s1, s2], [], Settings(), FakeTable())
+    assert d.growth_mm_per_day is None
+
+
+def test_growth_single_sample():
+    # Single sample gives growth None
+    s1 = SampleRecord(1, date(2026, 11, 1), 8, 0, 90.0, False, None)
+    d = build_dashboard([s1], [], Settings(), FakeTable())
+    assert d.growth_mm_per_day is None
+
+
+def test_growth_missing_mean():
+    # Sample with no mean length gives growth None
+    s1 = SampleRecord(1, date(2026, 11, 1), 8, 0, None, False, None)
+    s2 = SampleRecord(2, date(2026, 11, 4), 8, 0, 91.0, False, None)
+    d1 = build_dashboard([s1, s2], [], Settings(), FakeTable())
+    assert d1.growth_mm_per_day is None
+
+    s3 = SampleRecord(3, date(2026, 11, 1), 8, 0, 90.0, False, None)
+    s4 = SampleRecord(4, date(2026, 11, 4), 8, 0, None, False, None)
+    d2 = build_dashboard([s3, s4], [], Settings(), FakeTable())
+    assert d2.growth_mm_per_day is None
+
+
+def test_thresholds_copied():
+    # Settings thresholds are copied to normal dashboard
+    settings = Settings(stall_mm_per_day=0.5, harvest_per_kg=60.0, min_measured=7)
+    s1 = SampleRecord(1, date(2026, 11, 1), 8, 0, 90.0, False, None)
+    d = build_dashboard([s1], [], settings, FakeTable())
+    assert d.stall_threshold_mm_per_day == 0.5
+    assert d.harvest_threshold_per_kg == 60.0
+    assert d.min_measured == 7
+
+
+def test_empty_thresholds_copied():
+    # Settings thresholds are copied to empty dashboard
+    settings = Settings(stall_mm_per_day=0.5, harvest_per_kg=60.0, min_measured=7)
+    d = build_dashboard([], [], settings, FakeTable())
+    assert d.empty is True
+    assert d.growth_mm_per_day is None
+    assert d.stall_threshold_mm_per_day == 0.5
+    assert d.harvest_threshold_per_kg == 60.0
+    assert d.min_measured == 7
+
+

@@ -104,3 +104,7 @@ class Dashboard:
     chart: List[ChartPoint]
     rows: List[SampleRow]
     notices: List[str]
+    growth_mm_per_day: Optional[float]
+    stall_threshold_mm_per_day: float
+    harvest_threshold_per_kg: float
+    min_measured: int
