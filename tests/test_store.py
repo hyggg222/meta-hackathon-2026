@@ -1,4 +1,5 @@
 from datetime import date, timedelta
+import threading
 from types import SimpleNamespace
 
 from shrimp.models import FeedEntry, SampleRecord, Settings
@@ -186,3 +187,87 @@ def test_concurrent_stores(tmp_path):
     feeds = store1.feeds()
     assert len(feeds) == 1
     assert feeds[0].kg_per_day == 75.0
+
+
+# Verify store access from another thread.
+def test_cross_thread_access(tmp_path):
+    store = Store(tmp_path / "cross.db")
+    day = date(2026, 11, 2)
+    tray = SimpleNamespace(n_measured=8, n_left_out=2, mean_length_mm=80.0)
+    errors = []
+    samples = []
+
+    def worker():
+        try:
+            store.save_sample(day, tray)
+            samples.extend(store.samples())
+        except Exception as exc:
+            errors.append(exc)
+
+    thread = threading.Thread(target=worker)
+    thread.start()
+    thread.join()
+
+    if errors:
+        raise errors[0]
+
+    assert len(samples) == 1
+    assert samples[0].n_measured == 8
+    store.close()
+
+
+# Verify concurrent saves across multiple threads.
+def test_concurrent_saves(tmp_path):
+    store = Store(tmp_path / "concurrent.db")
+    day = date(2026, 11, 2)
+    tray = SimpleNamespace(n_measured=8, n_left_out=2, mean_length_mm=80.0)
+    errors = []
+
+    def worker():
+        try:
+            for _ in range(20):
+                store.save_sample(day, tray)
+        except Exception as exc:
+            errors.append(exc)
+
+    threads = [threading.Thread(target=worker) for _ in range(4)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    if errors:
+        raise errors[0]
+
+    all_samples = store.samples()
+    assert len(all_samples) == 80
+    distinct_ids = {s.id for s in all_samples}
+    assert len(distinct_ids) == 80
+    store.close()
+
+
+# Verify concurrent seed_demo calls.
+def test_concurrent_seed_demo(tmp_path):
+    store = Store(tmp_path / "seed.db")
+    today = date(2026, 11, 2)
+    errors = []
+
+    def worker():
+        try:
+            store.seed_demo(today)
+        except Exception as exc:
+            errors.append(exc)
+
+    threads = [threading.Thread(target=worker) for _ in range(2)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    if errors:
+        raise errors[0]
+
+    samples = store.samples()
+    assert len(samples) == 5
+    store.close()
+
