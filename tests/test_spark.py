@@ -4,7 +4,7 @@ import logging
 from typing import Any, List, Optional
 import pytest
 
-from shrimp.models import Dashboard, ShrimpMeasure, TrayResult
+from shrimp.models import ChartPoint, Dashboard, SampleRow, ShrimpMeasure, TrayResult
 from shrimp.reply_text import dashboard_reply, template_reply
 from shrimp.spark import SparkWriter
 
@@ -106,9 +106,26 @@ def _make_sample_dashboard(
     growth_mm_per_day: float = 0.50,
 ) -> Dashboard:
     # Helper to construct a Dashboard for tests
+    day = date(2026, 11, 2)
+    rows = [
+        SampleRow(
+            day=day,
+            n_measured=8,
+            mean_length_mm=latest_length_mm,
+            size_per_kg=latest_size_per_kg,
+            demo=False,
+            growth_mm_per_day=growth_mm_per_day,
+        )
+    ]
+    chart = [
+        ChartPoint(
+            day=day,
+            mean_length_mm=latest_length_mm,
+            stall=False,
+        )
+    ]
     return Dashboard(
         empty=False,
-        latest_day=date(2026, 11, 2),
         latest_length_mm=latest_length_mm,
         latest_size_per_kg=latest_size_per_kg,
         n_latest=8,
@@ -119,8 +136,8 @@ def _make_sample_dashboard(
         stall=False,
         at_harvest=False,
         stall_day_cost_vnd=None,
-        chart=[],
-        rows=[],
+        chart=chart,
+        rows=rows,
         notices=[],
         growth_mm_per_day=growth_mm_per_day,
         stall_threshold_mm_per_day=0.33,
@@ -264,7 +281,7 @@ def test_write_status_good_and_fallback():
         "Tăng trưởng không chậm: 0.50 mm mỗi ngày."
     )
     session = FakeSession(response=FakeResponse(200, _make_canned_json(good_text)))
-    writer = SparkWriter(api_key="k", session=session)
+    writer = SparkWriter(api_key="test-spark-key", session=session)
 
     res = writer.write_status(dashboard)
     assert res == good_text
@@ -318,7 +335,7 @@ def test_log_one_info_line_per_call(caplog):
         'Bạn trả lời "có" để lưu mẫu này, hoặc gõ số các con cần tính, ví dụ: 1 3 5.'
     )
     session = FakeSession(response=FakeResponse(200, _make_canned_json(good_text)))
-    writer = SparkWriter(api_key="k", session=session)
+    writer = SparkWriter(api_key="test-spark-key", session=session)
 
     with caplog.at_level(logging.INFO):
         writer.write_reply(tray, 5, None)
@@ -329,3 +346,37 @@ def test_log_one_info_line_per_call(caplog):
     msg = records[0].getMessage()
     assert "Spark" in msg or "spark" in msg
     assert "s" in msg  # elapsed seconds
+
+
+def test_write_reply_no_reference_no_co_requirement():
+    # Do not require "co" or "1 3 5" when status is no_reference
+    tray = _make_sample_tray(status="no_reference")
+    spark_text = (
+        "Không thấy thước hoặc thẻ trong ảnh nên chưa tính được mm. "
+        "Đặt thước cạnh tôm rồi chụp lại."
+    )
+    session = FakeSession(response=FakeResponse(200, _make_canned_json(spark_text)))
+    writer = SparkWriter(api_key="test-spark-key", session=session)
+
+    res = writer.write_reply(tray, 5, None)
+    assert res == spark_text
+
+
+def test_write_reply_error_in_json_fallback():
+    # Fall back to template when response JSON has error key
+    tray = _make_sample_tray()
+    fallback = template_reply(tray, 5, None)
+    error_json = {"error": {"message": "Rate limit exceeded", "code": 429}}
+    session = FakeSession(response=FakeResponse(200, error_json))
+    writer = SparkWriter(api_key="test-spark-key", session=session)
+
+    res = writer.write_reply(tray, 5, None)
+    assert res == fallback
+
+
+def test_spark_writer_defaults():
+    # Verify default model, timeout, and session initialization
+    writer = SparkWriter(api_key="meta-key")
+    assert writer.model == "muse-spark-1.3"
+    assert writer.timeout == 15.0
+    assert writer.session is not None
