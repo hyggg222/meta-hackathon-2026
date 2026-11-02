@@ -6,7 +6,7 @@ from typing import Any, List, Optional, Tuple
 import numpy as np
 import pytest
 
-from shrimp.conversation import Conversation
+from shrimp.conversation import HELP_TEXT, Conversation
 from shrimp.models import Dashboard, SegmentationError, TrayResult
 from shrimp.store import Store
 from tests.conftest import FakeSegmenter
@@ -494,11 +494,7 @@ def test_unknown_text_and_empty_give_help():
         write_status=fake_write_status,
     )
 
-    help_expected = (
-        'Gửi ảnh khay tôm (xếp tôm nằm phẳng, không chạm nhau, có thước bên cạnh) để mình đo. '
-        'Sau đó trả lời "có" để lưu, hoặc gõ số các con cần tính, ví dụ: 1 3 5. '
-        'Gõ "tình hình" để xem kết quả gần nhất.'
-    )
+    help_expected = HELP_TEXT
 
     for msg in (FakeIncoming(sender_id="u1", text="xin chào"), FakeIncoming(sender_id="u1", text=""), FakeIncoming(sender_id="u1", text=None)):
         transport.sent.clear()
@@ -592,6 +588,33 @@ def test_sender_serialisation():
     t3.join()
     assert len(u1_yes_handled) == 1
     assert len(store.samples()) == 1
+
+
+def test_help_text_lists_every_function():
+    # The guide names each thing the farmer can do, one per numbered line
+    lines = [ln for ln in HELP_TEXT.splitlines() if ln.strip()]
+    assert lines[0].upper().startswith("HƯỚNG DẪN")
+    numbered = [ln for ln in lines if ln[:2] in ("1.", "2.", "3.", "4.", "5.", "6.")]
+    assert len(numbered) == 6
+    for needle in ("ảnh", '"có"', "1 3 5", '"hủy"', '"tình hình"', '"hướng dẫn"'):
+        assert any(needle in ln for ln in numbered), needle
+    assert len(HELP_TEXT) < 1000
+
+
+@pytest.mark.parametrize("word", ["hướng dẫn", "Huong dan", "help", "menu", "trợ giúp"])
+def test_guide_words_show_the_help(word):
+    # The farmer can ask for the guide again at any time, even with a result pending
+    service = make_test_service()
+    transport = FakeTransport()
+    convo = Conversation(
+        service=service,
+        transport=transport,
+        render=fake_render,
+        write_reply=fake_write_reply,
+        write_status=fake_write_status,
+    )
+    convo.handle(FakeIncoming(sender_id="u1", text=word))
+    assert transport.sent == [("text", "u1", HELP_TEXT)]
 
 
 SORRY_TEXT = "Có lỗi khi xử lý, bạn thử lại giúp mình nhé."

@@ -17,11 +17,17 @@ YES_WORDS = {"co", "yes", "ok", "luu", "dong y", "y"}
 CANCEL_WORDS = {"huy", "cancel", "thoi"}
 STATUS_WORDS = {"tinh hinh", "status", "dashboard", "ket qua"}
 
+HELP_WORDS = {"huong dan", "help", "menu", "tro giup"}
+
 NO_PENDING_TEXT = 'Bạn gửi ảnh khay tôm trước nhé, mình sẽ đo rồi bạn trả lời "có" để lưu.'
 HELP_TEXT = (
-    'Gửi ảnh khay tôm (xếp tôm nằm phẳng, không chạm nhau, có thước bên cạnh) để mình đo. '
-    'Sau đó trả lời "có" để lưu, hoặc gõ số các con cần tính, ví dụ: 1 3 5. '
-    'Gõ "tình hình" để xem kết quả gần nhất.'
+    "HƯỚNG DẪN SỬ DỤNG\n"
+    "1. Đo tôm: gửi 1 ảnh khay tôm (tôm nằm phẳng, không chạm nhau, có thước bên cạnh).\n"
+    '2. Lưu mẫu: trả lời "có" sau khi xem kết quả.\n'
+    "3. Chọn lại con tôm: gõ số các con cần tính, ví dụ: 1 3 5.\n"
+    '4. Bỏ kết quả vừa đo: gõ "hủy".\n'
+    '5. Xem tình hình các lần đo: gõ "tình hình".\n'
+    '6. Xem lại hướng dẫn này: gõ "hướng dẫn".'
 )
 
 
@@ -247,6 +253,10 @@ class Conversation:
             else:
                 pending.tray = tray
                 self._set_pending(sender_id, pending)
+            return
+
+        if norm in HELP_WORDS:
+            self._safe_send_text(sender_id, HELP_TEXT)
             return
 
         if norm in CANCEL_WORDS:
