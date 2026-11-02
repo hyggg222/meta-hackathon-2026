@@ -85,6 +85,7 @@ class SampleRow:
     mean_length_mm: Optional[float]
     size_per_kg: Optional[float]
     demo: bool
+    growth_mm_per_day: Optional[float]
 
 
 @dataclass

@@ -60,8 +60,18 @@ def build_dashboard(
         )
 
     rows: List[SampleRow] = []
-    for s in sorted_samples:
+    for i, s in enumerate(sorted_samples):
         size = table.per_kg(s.mean_length_mm) if s.mean_length_mm is not None else None
+        growth: Optional[float] = None
+        if i > 0:
+            prev = sorted_samples[i - 1]
+            days = (s.day - prev.day).days
+            if (
+                days > 0
+                and s.mean_length_mm is not None
+                and prev.mean_length_mm is not None
+            ):
+                growth = (s.mean_length_mm - prev.mean_length_mm) / days
         rows.append(
             SampleRow(
                 day=s.day,
@@ -69,6 +79,7 @@ def build_dashboard(
                 mean_length_mm=s.mean_length_mm,
                 size_per_kg=size,
                 demo=s.demo,
+                growth_mm_per_day=growth,
             )
         )
 
