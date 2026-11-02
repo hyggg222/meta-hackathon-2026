@@ -1,7 +1,13 @@
+import math
 from datetime import date
 import pytest
 
-from shrimp.dashboard import build_dashboard
+from shrimp.dashboard import (
+    TREND_MIN_SPAN_DAYS,
+    TREND_SAMPLES,
+    _trend,
+    build_dashboard,
+)
 from shrimp.models import FeedEntry, SampleRecord, Settings
 
 
@@ -37,6 +43,8 @@ def test_empty_input():
     assert d.stall_unclear is False
     assert d.days_needed is None
     assert d.shrimp_needed is None
+    assert d.trend_samples is None
+    assert d.trend_span_days is None
 
 
 def test_single_sample_no_change_and_no_flag():
@@ -510,8 +518,146 @@ def test_empty_dashboard_new_fields():
     assert d.stall_unclear is False
     assert d.days_needed is None
     assert d.shrimp_needed is None
+    assert d.trend_samples is None
+    assert d.trend_span_days is None
 
 
+def test_trend_constants():
+    # Verify trend constants
+    assert TREND_SAMPLES == 4
+    assert TREND_MIN_SPAN_DAYS == 6
 
 
+def test_trend_maths():
+    # Slope and standard error match weighted least squares formulas
+    settings = Settings(stall_mm_per_day=0.33, min_measured=5)
+    samples = [
+        SampleRecord(1, date(2026, 11, 1), 10, 0, 90.0, False, None, sd_length_mm=8.0),
+        SampleRecord(2, date(2026, 11, 6), 10, 0, 91.0, False, None, sd_length_mm=8.0),
+        SampleRecord(3, date(2026, 11, 11), 10, 0, 92.0, False, None, sd_length_mm=8.0),
+        SampleRecord(4, date(2026, 11, 16), 10, 0, 93.0, False, None, sd_length_mm=8.0),
+    ]
+    res = _trend(samples, settings)
+    assert res is not None
+    slope, slope_se, n_samples, span = res
+    assert slope == pytest.approx(0.2)
+    expected_se = math.sqrt((8.0**2 / 10.0) / 125.0)
+    assert slope_se == pytest.approx(expected_se)
+    assert slope_se == pytest.approx(0.2263, abs=1e-4)
+    assert n_samples == 4
+    assert span == 15
+
+
+def test_trend_zero_variance():
+    # Zero standard deviation uses smallest positive variance or 1e-6
+    settings = Settings(stall_mm_per_day=0.33, min_measured=5)
+    samples = [
+        SampleRecord(1, date(2026, 11, 1), 10, 0, 90.0, False, None, sd_length_mm=0.0),
+        SampleRecord(2, date(2026, 11, 6), 10, 0, 91.0, False, None, sd_length_mm=0.0),
+        SampleRecord(3, date(2026, 11, 11), 10, 0, 92.0, False, None, sd_length_mm=0.0),
+    ]
+    res = _trend(samples, settings)
+    assert res is not None
+    slope, slope_se, n_samples, span = res
+    assert slope == pytest.approx(0.2)
+    assert n_samples == 3
+    assert span == 10
+
+
+def test_trend_dashboard_confident_stall():
+    # Four samples falling 0.0 per day flag stall True
+    settings = Settings(stall_mm_per_day=0.33, min_measured=5)
+    samples = [
+        SampleRecord(1, date(2026, 11, 1), 30, 0, 90.0, False, None, sd_length_mm=8.0),
+        SampleRecord(2, date(2026, 11, 6), 30, 0, 90.0, False, None, sd_length_mm=8.0),
+        SampleRecord(3, date(2026, 11, 11), 30, 0, 90.0, False, None, sd_length_mm=8.0),
+        SampleRecord(4, date(2026, 11, 16), 30, 0, 90.0, False, None, sd_length_mm=8.0),
+    ]
+    d = build_dashboard(samples, [], settings, FakeTable())
+    assert d.stall is True
+    assert d.stall_unclear is False
+    assert d.trend_samples == 4
+    assert d.trend_span_days == 15
+    assert d.growth_se_mm_per_day is not None
+
+
+def test_trend_dashboard_confident_not_stall():
+    # Four samples growing 1.0 mm per day flag stall False
+    settings = Settings(stall_mm_per_day=0.33, min_measured=5)
+    samples = [
+        SampleRecord(1, date(2026, 11, 1), 20, 0, 90.0, False, None, sd_length_mm=4.0),
+        SampleRecord(2, date(2026, 11, 6), 20, 0, 95.0, False, None, sd_length_mm=4.0),
+        SampleRecord(3, date(2026, 11, 11), 20, 0, 100.0, False, None, sd_length_mm=4.0),
+        SampleRecord(4, date(2026, 11, 16), 20, 0, 105.0, False, None, sd_length_mm=4.0),
+    ]
+    d = build_dashboard(samples, [], settings, FakeTable())
+    assert d.stall is False
+    assert d.stall_unclear is False
+    assert d.trend_samples == 4
+    assert d.trend_span_days == 15
+
+
+def test_trend_dashboard_unclear_stall():
+    # Four samples growing 0.2 mm per day flag unclear stall
+    settings = Settings(stall_mm_per_day=0.33, min_measured=5)
+    samples = [
+        SampleRecord(1, date(2026, 11, 1), 10, 0, 90.0, False, None, sd_length_mm=8.0),
+        SampleRecord(2, date(2026, 11, 6), 10, 0, 91.0, False, None, sd_length_mm=8.0),
+        SampleRecord(3, date(2026, 11, 11), 10, 0, 92.0, False, None, sd_length_mm=8.0),
+        SampleRecord(4, date(2026, 11, 16), 10, 0, 93.0, False, None, sd_length_mm=8.0),
+    ]
+    d = build_dashboard(samples, [], settings, FakeTable())
+    assert d.stall is None
+    assert d.stall_unclear is True
+    assert isinstance(d.days_needed, int) and d.days_needed > 0
+    assert isinstance(d.shrimp_needed, int) and d.shrimp_needed > 10
+    assert d.trend_samples == 4
+    assert d.trend_span_days == 15
+
+
+def test_trend_fallback_to_two_sample_rule():
+    # Insufficient usable samples, distinct days, or span fall back to two-sample rule
+    settings = Settings(stall_mm_per_day=0.33, min_measured=5)
+
+    s1 = SampleRecord(1, date(2026, 11, 1), 10, 0, 90.0, False, None, sd_length_mm=8.0)
+    s2 = SampleRecord(2, date(2026, 11, 8), 10, 0, 91.0, False, None, sd_length_mm=8.0)
+    d_two = build_dashboard([s1, s2], [], settings, FakeTable())
+    assert d_two.trend_samples is None
+    assert d_two.trend_span_days is None
+
+    s_a = SampleRecord(1, date(2026, 11, 1), 10, 0, 90.0, False, None, sd_length_mm=8.0)
+    s_b = SampleRecord(2, date(2026, 11, 1), 10, 0, 90.2, False, None, sd_length_mm=8.0)
+    s_c = SampleRecord(3, date(2026, 11, 8), 10, 0, 91.0, False, None, sd_length_mm=8.0)
+    d_two_days = build_dashboard([s_a, s_b, s_c], [], settings, FakeTable())
+    d_expected_two_days = build_dashboard([s_b, s_c], [], settings, FakeTable())
+    assert d_two_days.trend_samples is None
+    assert d_two_days.trend_span_days is None
+    assert d_two_days.stall == d_expected_two_days.stall
+    assert d_two_days.stall_unclear == d_expected_two_days.stall_unclear
+    assert d_two_days.growth_se_mm_per_day == d_expected_two_days.growth_se_mm_per_day
+
+    s_d1 = SampleRecord(1, date(2026, 11, 1), 10, 0, 90.0, False, None, sd_length_mm=8.0)
+    s_d2 = SampleRecord(2, date(2026, 11, 3), 10, 0, 90.5, False, None, sd_length_mm=8.0)
+    s_d3 = SampleRecord(3, date(2026, 11, 6), 10, 0, 91.0, False, None, sd_length_mm=8.0)
+    d_short_span = build_dashboard([s_d1, s_d2, s_d3], [], settings, FakeTable())
+    d_expected_short = build_dashboard([s_d2, s_d3], [], settings, FakeTable())
+    assert d_short_span.trend_samples is None
+    assert d_short_span.trend_span_days is None
+    assert d_short_span.stall == d_expected_short.stall
+    assert d_short_span.stall_unclear == d_expected_short.stall_unclear
+    assert d_short_span.growth_se_mm_per_day == d_expected_short.growth_se_mm_per_day
+
+
+def test_trend_skips_sample_without_spread():
+    # Samples in group without spread are skipped
+    settings = Settings(stall_mm_per_day=0.33, min_measured=5)
+    s1 = SampleRecord(1, date(2026, 11, 1), 10, 0, 90.0, False, None, sd_length_mm=8.0)
+    s2_no_sd = SampleRecord(2, date(2026, 11, 6), 10, 0, 91.0, False, None, sd_length_mm=None)
+    s3 = SampleRecord(3, date(2026, 11, 11), 10, 0, 92.0, False, None, sd_length_mm=8.0)
+    s4 = SampleRecord(4, date(2026, 11, 16), 10, 0, 93.0, False, None, sd_length_mm=8.0)
+    d = build_dashboard([s1, s2_no_sd, s3, s4], [], settings, FakeTable())
+    assert d.trend_samples == 3
+    assert d.trend_span_days == 15
+    assert d.stall is None
+    assert d.stall_unclear is True
 
