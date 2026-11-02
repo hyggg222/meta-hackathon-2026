@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shrimp Measurement</title>
+</head>
+<body>
+  <h1>Shrimp Measurement</h1>
+
+  <div>
+    <input type="file" id="photo" accept="image/*" capture="environment">
+    <button id="send-btn" type="button">Send</button>
+  </div>
+
+  <div id="status" style="display: none;">Working...</div>
+  <div id="message" style="display: none;"></div>
+
+  <div id="results" style="display: none;">
+    <p id="scale-info"></p>
+    <p id="counts">N measured, M left out</p>
+    <table border="1" id="shrimp-table">
+      <thead>
+        <tr>
+          <th>Number</th>
+          <th>Length (mm)</th>
+        </tr>
+      </thead>
+      <tbody id="shrimp-rows"></tbody>
+    </table>
+  </div>
+
+  <div style="display: none;">
+    <span>No ruler or card found, no millimetres shown</span>
+    <span>No shrimp found</span>
+    <span>Could not process the photo, nothing was saved</span>
+  </div>
+
+  <script>
+    const sendBtn = document.getElementById("send-btn");
+    const photoInput = document.getElementById("photo");
+    const statusDiv = document.getElementById("status");
+    const messageDiv = document.getElementById("message");
+    const resultsDiv = document.getElementById("results");
+    const scaleInfo = document.getElementById("scale-info");
+    const countsP = document.getElementById("counts");
+    const shrimpRows = document.getElementById("shrimp-rows");
+
+    sendBtn.addEventListener("click", async () => {
+      const file = photoInput.files[0];
+      if (!file) {
+        alert("Please select a photo first.");
+        return;
+      }
+
+      statusDiv.style.display = "block";
+      messageDiv.style.display = "none";
+      resultsDiv.style.display = "none";
+      messageDiv.textContent = "";
+
+      const formData = new FormData();
+      formData.append("photo", file);
+
+      try {
+        const resp = await fetch("/api/analyze", {
+          method: "POST",
+          body: formData,
+        });
+
+        statusDiv.style.display = "none";
+
+        if (!resp.ok) {
+          messageDiv.textContent = "Could not process the photo, nothing was saved";
+          messageDiv.style.display = "block";
+          return;
+        }
+
+        const data = await resp.json();
+        resultsDiv.style.display = "block";
+
+        countsP.textContent = `${data.n_measured} measured, ${data.n_left_out} left out`;
+
+        if (data.status === "no_reference") {
+          messageDiv.textContent = "No ruler or card found, no millimetres shown";
+          messageDiv.style.display = "block";
+          scaleInfo.textContent = "Reference: none";
+        } else if (data.status === "no_shrimp") {
+          messageDiv.textContent = "No shrimp found";
+          messageDiv.style.display = "block";
+          scaleInfo.textContent = "";
+        } else {
+          scaleInfo.textContent = `Scale: ${data.scale_px_per_mm.toFixed(2)} px/mm (${data.reference})`;
+        }
+
+        shrimpRows.innerHTML = "";
+        (data.shrimp || []).forEach((s, idx) => {
+          const tr = document.createElement("tr");
+          const tdNum = document.createElement("td");
+          tdNum.textContent = idx + 1;
+          const tdLen = document.createElement("td");
+          tdLen.textContent = s.length_mm !== null && s.length_mm !== undefined
+            ? s.length_mm.toFixed(1)
+            : "-";
+          tr.appendChild(tdNum);
+          tr.appendChild(tdLen);
+          shrimpRows.appendChild(tr);
+        });
+      } catch (err) {
+        statusDiv.style.display = "none";
+        messageDiv.textContent = "Could not process the photo, nothing was saved";
+        messageDiv.style.display = "block";
+      }
+    });
+  </script>
+</body>
+</html>
