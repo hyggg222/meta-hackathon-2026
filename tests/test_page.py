@@ -506,9 +506,12 @@ def test_page_dashboard_pricing_card_and_ration_setup():
     assert load_match is not None
     assert "ration_pct" in load_match.group(1)
 
-    save_match = re.search(r"async\s+function\s+saveSetupHandler\s*\(\)\s*\{([\s\S]*?)\}", html)
+    save_match = re.search(
+        r"async\s+function\s+saveSetupHandler[\s\S]*?document\.addEventListener",
+        html,
+    )
     assert save_match is not None
-    save_code = save_match.group(1)
+    save_code = save_match.group(0)
     assert "ration_pct" in save_code
     assert re.search(r"parseNumber\(\s*rationInput\.value", save_code) is not None
 

@@ -1,0 +1,13 @@
+{
+  "source": "Tepbac national median, 2 Nov 2026, default only: prices move about 5,000 a day and differ by province",
+  "rows": [
+    [20, 200000],
+    [30, 155000],
+    [40, 132000],
+    [50, 120000],
+    [60, 113000],
+    [70, 110000],
+    [80, 107000],
+    [100, 100000]
+  ]
+}

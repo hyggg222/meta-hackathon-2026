@@ -31,12 +31,14 @@ class Service:
         store: Any,
         table: Any,
         photos_dir: Optional[Union[str, Path]] = None,
+        prices: Optional[Any] = None,
     ):
         # Initialize service dependencies
         self.segmenter = segmenter
         self.store = store
         self.table = table
         self.photos_dir = Path(photos_dir) if photos_dir is not None else None
+        self.prices = prices
         self._analyses: OrderedDict[str, Tuple[Analysis, bytes]] = OrderedDict()
         self._lock = threading.Lock()
 
@@ -54,11 +56,13 @@ class Service:
             "stall_mm_per_day": 1000,
             "harvest_per_kg": 100000,
             "min_length_mm": 1000,
+            "ration_pct": 20,
         }
         for f, max_val in limits.items():
             val = getattr(s, f)
             if not _is_positive_finite(val) or val > max_val:
                 raise ValueError(f"invalid {f}")
+        s.ration_pct = float(s.ration_pct)
         if (
             isinstance(s.feed_price_vnd, bool)
             or not isinstance(s.feed_price_vnd, int)
@@ -148,4 +152,10 @@ class Service:
 
     def dashboard(self) -> Dashboard:
         # Build dashboard summary from stored samples and feeds
-        return build_dashboard(self.store.samples(), self.store.feeds(), self.settings(), self.table)
+        return build_dashboard(
+            self.store.samples(),
+            self.store.feeds(),
+            self.settings(),
+            self.table,
+            prices=self.prices,
+        )

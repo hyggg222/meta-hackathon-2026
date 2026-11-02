@@ -157,6 +157,11 @@ svg{display:block;width:100%;height:auto}
         <p class="hint">Anything shorter is treated as a fragment and left out.</p>
       </div>
       <div class="fld">
+        <label for="setup-ration">Feed per day (percent of shrimp weight)</label>
+        <div class="inwrap"><input id="setup-ration" type="text" inputmode="decimal"><span class="u">%</span></div>
+        <p class="hint">About 1.5 at 25 g. Used only for the break-even line.</p>
+      </div>
+      <div class="fld">
         <label for="setup-min">Shrimp needed per sample</label>
         <div class="inwrap"><input id="setup-min" type="text" inputmode="decimal"><span class="u">shrimp</span></div>
         <p class="hint">Assumption, not verified with a farmer.</p>
@@ -374,11 +379,11 @@ async function loadSettings() {
     document.getElementById("setup-stall").value = currentSettings.stall_mm_per_day !== undefined ? currentSettings.stall_mm_per_day : "";
     document.getElementById("setup-harvest").value = currentSettings.harvest_per_kg !== undefined ? currentSettings.harvest_per_kg : "";
     document.getElementById("setup-min-length").value = currentSettings.min_length_mm !== undefined ? currentSettings.min_length_mm : "";
+    document.getElementById("setup-ration").value = currentSettings.ration_pct !== undefined ? currentSettings.ration_pct : "";
     document.getElementById("setup-min").value = currentSettings.min_measured !== undefined ? currentSettings.min_measured : "";
 
     refreshFeedDefaults();
   } catch (_) {}
-}
 }
 
 // Render trend chart SVG with sample markers and slow growth segment
@@ -548,6 +553,30 @@ async function loadDashboard() {
       flagHtml += `<div class="flag"><span class="dot" style="background:var(--blue)"></span><p>Size is at or under your ${d.harvest_threshold_per_kg} per kg line. For your information, you decide.</p></div>`;
     }
 
+    let valueCardHtml = "";
+    if (d.value_per_kg_vnd !== null && d.value_per_kg_vnd !== undefined) {
+      let vlines = [];
+      const vSize = (d.latest_size_per_kg !== null && d.latest_size_per_kg !== undefined) ? perKgText(d.latest_size_per_kg) : "";
+      vlines.push(`<p style="margin:0 0 6px">At ${vSize} per kg: about ${vnd(d.value_per_kg_vnd)} VND per kg (default price table, yours may differ).</p>`);
+
+      if (d.next_class_per_kg !== null && d.next_class_per_kg !== undefined && d.next_class_gain_pct !== null && d.next_class_gain_pct !== undefined) {
+        const daysPart = (d.days_to_next_class !== null && d.days_to_next_class !== undefined)
+          ? ` (about ${d.days_to_next_class} days away at the growth measured, very rough)`
+          : "";
+        vlines.push(`<p style="margin:0 0 6px">The next class, ${d.next_class_per_kg} per kg, usually pays about ${d.next_class_gain_pct}% more per kg${daysPart}.</p>`);
+      }
+
+      if (d.breakeven_mm_per_day !== null && d.breakeven_mm_per_day !== undefined) {
+        vlines.push(`<p style="margin:0 0 6px">Feed alone breaks even above about ${f2(d.breakeven_mm_per_day)} mm a day (not counting power, labour, risk).</p>`);
+      }
+
+      if (d.price_source) {
+        vlines.push(`<p class="cap" style="margin:6px 0 0">${esc(d.price_source)}</p>`);
+      }
+
+      valueCardHtml = `<div class="card" style="margin:12px 0">${vlines.join("")}</div>`;
+    }
+
     let chartHtml = "";
     if (d.chart && d.chart.length > 0) {
       chartHtml = `<h4>Average length per sample</h4>${renderDashboardChart(d.chart, d.rows)}`;
@@ -569,7 +598,7 @@ async function loadDashboard() {
 
     const samplesHtml = renderDashboardSamplesTable(d.rows, notices);
 
-    target.innerHTML = stripHtml + capHtml + flagHtml + chartHtml + costHtml + samplesHtml;
+    target.innerHTML = stripHtml + capHtml + flagHtml + valueCardHtml + chartHtml + costHtml + samplesHtml;
   } catch (_) {
     target.innerHTML = '<div class="flag"><p>Could not load dashboard</p></div>';
   }
@@ -639,7 +668,7 @@ async function saveFeedHandler() {
 
 // Save setup form submission handler
 async function saveSetupHandler() {
-  // Read and parse min_length_mm with parseNumber(
+  // Read and parse min_length_mm and ration_pct with parseNumber(
   const pane = document.getElementById("pane-setup");
   const errEl = document.getElementById("setup-form-err");
   const savedEl = document.getElementById("set-saved-msg");
@@ -654,6 +683,7 @@ async function saveSetupHandler() {
   const stallInput = document.getElementById("setup-stall");
   const harvestInput = document.getElementById("setup-harvest");
   const minLengthInput = document.getElementById("setup-min-length");
+  const rationInput = document.getElementById("setup-ration");
   const minInput = document.getElementById("setup-min");
 
   const ruler = parseNumber(rulerInput.value, { integer: false });
@@ -661,6 +691,7 @@ async function saveSetupHandler() {
   const stall = parseNumber(stallInput.value, { integer: false });
   const harvest = parseNumber(harvestInput.value, { integer: false });
   const minLength = parseNumber(minLengthInput.value, { integer: false });
+  const ration = parseNumber(rationInput.value, { integer: false });
   const min = parseNumber(minInput.value, { integer: true });
 
   let hasError = false;
@@ -684,6 +715,10 @@ async function saveSetupHandler() {
     setFieldError(minLengthInput, "Type a plain number, for example 100 or 45000.");
     hasError = true;
   }
+  if (ration === null) {
+    setFieldError(rationInput, "Type a plain number, for example 100 or 45000.");
+    hasError = true;
+  }
   if (min === null) {
     setFieldError(minInput, "Type a plain number, for example 100 or 45000.");
     hasError = true;
@@ -697,6 +732,7 @@ async function saveSetupHandler() {
     stall_mm_per_day: stall,
     harvest_per_kg: harvest,
     min_length_mm: minLength,
+    ration_pct: ration,
     min_measured: min
   };
 

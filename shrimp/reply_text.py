@@ -192,6 +192,26 @@ def dashboard_reply(d: Dashboard) -> str:
             "Chỉ để bạn tham khảo, bạn quyết định."
         )
 
+    if d.value_per_kg_vnd is not None and d.latest_size_per_kg is not None:
+        val_str = f"{d.value_per_kg_vnd:,}".replace(",", ".")
+        parts.append(
+            f"Ở cỡ {round(d.latest_size_per_kg)} con/kg, giá khoảng {val_str} đ/kg (bảng giá mặc định, bạn có thể khác)."
+        )
+
+    if d.next_class_per_kg is not None and d.next_class_gain_pct is not None:
+        days_text = ""
+        if d.days_to_next_class is not None:
+            days_text = f" (còn khoảng {d.days_to_next_class} ngày nếu tôm lớn như vừa đo, rất thô)"
+        gain_str = _format_num(d.next_class_gain_pct)
+        parts.append(
+            f"Bậc cỡ {d.next_class_per_kg} con/kg thường được giá hơn khoảng {gain_str}%{days_text}."
+        )
+
+    if d.breakeven_mm_per_day is not None:
+        parts.append(
+            f"Thức ăn chỉ hòa vốn nếu tôm lớn trên khoảng {d.breakeven_mm_per_day:.2f} mm mỗi ngày (chưa tính điện, công, rủi ro)."
+        )
+
     if d.stall_day_cost_vnd is not None:
         cost_str = f"{d.stall_day_cost_vnd:,}".replace(",", ".")
         parts.append(f"Một ngày không lớn tốn thức ăn khoảng {cost_str} đ.")
@@ -362,6 +382,19 @@ def allowed_numbers_for_dashboard(d: Dashboard) -> List[float]:
     if d.change_size_per_kg is not None:
         allowed.append(float(d.change_size_per_kg))
         allowed.append(float(round(d.change_size_per_kg)))
+    if d.value_per_kg_vnd is not None:
+        allowed.append(float(d.value_per_kg_vnd))
+    if d.next_class_per_kg is not None:
+        allowed.append(float(d.next_class_per_kg))
+    if d.next_class_gain_pct is not None:
+        allowed.append(float(d.next_class_gain_pct))
+        allowed.append(round(float(d.next_class_gain_pct), 1))
+        allowed.append(float(round(d.next_class_gain_pct)))
+    if d.days_to_next_class is not None:
+        allowed.append(float(d.days_to_next_class))
+    if d.breakeven_mm_per_day is not None:
+        allowed.append(float(d.breakeven_mm_per_day))
+        allowed.append(round(float(d.breakeven_mm_per_day), 2))
 
     date_val = getattr(d, "latest_day", None)
     if date_val is None and getattr(d, "rows", None):
