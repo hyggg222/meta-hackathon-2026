@@ -1,6 +1,7 @@
 # Tests for FastAPI application routes
 from datetime import date
 import inspect
+from types import SimpleNamespace
 from fastapi.testclient import TestClient
 import numpy as np
 import pytest
@@ -528,4 +529,64 @@ def test_settings_route_ration_pct():
         assert resp.status_code == 422
         assert "error" in resp.json()
         assert service.settings() == original
+
+
+def test_samples_csv_route_empty():
+    # GET /api/samples.csv returns 200, BOM, CSV header and attachment header when empty
+    service = make_test_service()
+    app = create_app(service)
+    client = TestClient(app)
+
+    resp = client.get("/api/samples.csv")
+    assert resp.status_code == 200
+    assert "text/csv" in resp.headers["content-type"]
+    assert "charset=utf-8" in resp.headers["content-type"].lower()
+    assert resp.headers["content-disposition"] == 'attachment; filename="nhat-ky-tom.csv"'
+    assert resp.content.startswith(b"\xef\xbb\xbf")
+
+    decoded = resp.content.decode("utf-8")
+    assert "Ngày" in decoded
+
+    expected_header = "Ngày,Số con đo,Số con bị loại,Dài trung bình (cm),Độ lệch chiều dài (mm),Số con trên kg,Dữ liệu mẫu\r\n"
+    assert resp.content == b"\xef\xbb\xbf" + expected_header.encode("utf-8")
+
+
+def test_samples_csv_route_with_samples_and_post_unaffected():
+    # GET /api/samples.csv includes sample data and does not clash with POST /api/samples
+    store = Store(":memory:")
+    service = make_test_service(store=store, table=FakeTable(per_kg_val=71.0))
+    app = create_app(service)
+    client = TestClient(app)
+
+    store.save_sample(
+        date(2026, 11, 2),
+        SimpleNamespace(n_measured=8, n_left_out=2, mean_length_mm=95.0, sd_length_mm=8.0),
+        demo=False,
+    )
+
+    resp = client.get("/api/samples.csv")
+    assert resp.status_code == 200
+    assert "02/11/2026,8,2,9.5,8.0,71," in resp.content.decode("utf-8")
+
+    ruler = np.zeros((300, 300), bool)
+    ruler[20:50, 20:200] = True
+    shrimp = np.zeros((300, 300), bool)
+    shrimp[100:110, 50:150] = True
+    seg = FakeSegmenter({"ruler": [ruler], "shrimp": [shrimp]})
+    service.segmenter = seg
+    post_resp = client.post("/api/samples", files={"photo": ("tray.jpg", b"fake_bytes", "image/jpeg")})
+    assert post_resp.status_code == 200
+    assert post_resp.json()["status"] == "ok"
+
+
+def test_settings_pond_name_default():
+    # Settings().pond_name defaults to Ao 1 and GET /api/settings returns it on fresh store
+    assert Settings().pond_name == "Ao 1"
+    service = make_test_service()
+    app = create_app(service)
+    client = TestClient(app)
+    resp = client.get("/api/settings")
+    assert resp.status_code == 200
+    assert resp.json()["pond_name"] == "Ao 1"
+
 
