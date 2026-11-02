@@ -53,6 +53,10 @@ def build_dashboard(
             chart=[],
             rows=[],
             notices=[],
+            growth_mm_per_day=None,
+            stall_threshold_mm_per_day=settings.stall_mm_per_day,
+            harvest_threshold_per_kg=settings.harvest_per_kg,
+            min_measured=settings.min_measured,
         )
 
     rows: List[SampleRow] = []
@@ -84,12 +88,15 @@ def build_dashboard(
     change_size_per_kg: Optional[float] = None
     stall_notice: Optional[str] = None
     stall: Optional[bool] = None
+    growth_mm_per_day: Optional[float] = None
 
     if previous is not None:
         n_previous = previous.n_measured
         days_between = (latest.day - previous.day).days
         if latest.mean_length_mm is not None and previous.mean_length_mm is not None:
             change_length_mm = latest.mean_length_mm - previous.mean_length_mm
+            if days_between > 0:
+                growth_mm_per_day = change_length_mm / days_between
         prev_size = (
             table.per_kg(previous.mean_length_mm)
             if previous.mean_length_mm is not None
@@ -165,4 +172,8 @@ def build_dashboard(
         chart=chart,
         rows=rows,
         notices=notices,
+        growth_mm_per_day=growth_mm_per_day,
+        stall_threshold_mm_per_day=settings.stall_mm_per_day,
+        harvest_threshold_per_kg=settings.harvest_per_kg,
+        min_measured=settings.min_measured,
     )
