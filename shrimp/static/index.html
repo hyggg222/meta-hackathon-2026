@@ -13,7 +13,7 @@ button,input,select{font:inherit;color:inherit}
 
 /* app styles (the real design) */
 .app{padding:0 16px 20px;min-height:100vh;max-width:640px;margin:0 auto;background:var(--bg)}
-.appbar{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:0 -16px 16px;padding:8px 10px;background:var(--ink)}
+.appbar{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:0 -16px 16px;padding:8px 10px;background:var(--ink)}
 .appbar button{min-height:48px;border:2px solid #fff;border-radius:8px;background:transparent;color:#fff;font-weight:700;font-size:15px;padding:0 4px;cursor:pointer}
 .appbar button.on{background:#fff;color:var(--ink)}
 h3{margin:18px 0 8px;font-size:20px}
@@ -33,19 +33,12 @@ h3{margin:18px 0 8px;font-size:20px}
 .big{font-size:46px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
 .unit{font-size:20px;font-weight:800}
 .cap{font-size:15px;color:var(--muted);margin-top:4px}
-.nums{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .chip{display:inline-block;padding:2px 8px;border:2px solid var(--ink);border-radius:6px;font-weight:800;font-size:14px;line-height:1.3;white-space:nowrap}
 .chip.demo{background:var(--yellow)}
 .chip.tag{background:var(--ink);color:#fff;white-space:normal}
 .chip.red{background:var(--red);border-color:var(--red);color:#fff}
 .chip.blue{background:var(--blue);border-color:var(--blue);color:#fff}
 .small{font-size:15px;color:var(--muted)}
-.count{font-size:22px;font-weight:800}
-table.t{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
-.t th{text-align:left;font-size:14px;padding:6px 6px;border-bottom:3px solid var(--ink)}
-.t td{padding:10px 6px;border-bottom:2px solid #8a8a8a;font-size:17px}
-.t td.r,.t th.r{text-align:right}
-.t tr.out td{color:#4a4a4a;font-style:italic}
 .num{font-variant-numeric:tabular-nums}
 .legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:14px;margin-top:6px}
 .dot{display:inline-block;width:14px;height:14px;border-radius:50%;border:3px solid var(--ink);vertical-align:-2px;margin-right:4px}
@@ -76,22 +69,6 @@ table.t{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
 .dash .legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}
 .dash .cap{font-size:13px;color:var(--muted)}
 svg{display:block;width:100%;height:auto}
-.stickybar{position:sticky;bottom:0;margin:16px -16px -20px;padding:10px 16px;background:var(--ink);color:#fff}
-.stickybar .btn{background:#fff;color:var(--ink);border-color:#fff}
-.photo{border:3px solid var(--ink);border-radius:8px;overflow:hidden;background:#bdb9ad}
-.photo g[role="button"]:focus-visible{outline:4px solid var(--blue);outline-offset:2px}
-.empty{border:3px dashed var(--ink);border-radius:10px;min-height:200px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:16px;text-align:center;font-weight:700}
-.filebtn input{position:absolute;opacity:0;width:1px;height:1px}
-label.filebtn{position:relative}
-label.filebtn:focus-within{outline:4px solid var(--blue);outline-offset:2px}
-.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:14px}
-.steps div{border:3px solid var(--ink);border-radius:10px;padding:8px 4px;text-align:center;font-weight:800;font-size:15px}
-.steps div.on{background:var(--ink);color:#fff}
-.steps div.done{background:var(--green);border-color:var(--green);color:#fff}
-.bars td{padding:7px 6px}
-.bar{height:22px;background:var(--green);border-radius:4px}
-.bar.out{background:#fff;border:3px dashed #6b6b6b}
-
 /* forms */
 .fld{margin:14px 0}
 .fld label{display:block;font-weight:800;margin-bottom:6px;font-size:19px}
@@ -106,71 +83,19 @@ label.filebtn:focus-within{outline:4px solid var(--blue);outline-offset:2px}
 .seg button{min-height:60px;border:0;background:#fff;font-weight:800;font-size:20px;cursor:pointer}
 .seg button+button{border-left:3px solid var(--ink)}
 .seg button.on{background:var(--ink);color:#fff}
-details.fold{border:3px solid var(--ink);border-radius:12px;margin-top:20px}
-details.fold>summary{min-height:64px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;font-weight:800;font-size:21px;cursor:pointer;list-style:none}
-details.fold>summary::-webkit-details-marker{display:none}
-details.fold>summary:after{content:"+";font-size:30px}
-details.fold[open]>summary:after{content:"\2212"}
-details.fold>.in{padding:0 14px 14px}
-.stepper{display:grid;grid-template-columns:64px 1fr 64px;gap:8px;align-items:stretch}
-.stepper button{min-height:64px;border:3px solid var(--ink);border-radius:10px;background:var(--ink);color:#fff;font-size:30px;font-weight:800;cursor:pointer}
-.stepper input{height:64px;min-width:0;text-align:center;border:3px solid var(--ink);border-radius:10px;font-size:26px;font-weight:800;background:#fff}
-.fld.bad .stepper input{border:5px solid var(--red)}
-.list details{border-bottom:2px solid #8a8a8a}
-.list summary{min-height:64px;display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;list-style:none;font-size:18px}
-.list summary::-webkit-details-marker{display:none}
-.list summary b{font-size:19px}
-.list summary span{font-weight:700;text-align:right}
-.list summary:after{content:"\203A";font-size:28px;font-weight:800;margin-left:6px}
-.list details[open]>summary:after{content:"\2304";}
-.list .in{padding:0 0 12px}
-.list details.bad summary b{color:var(--red)}
-.cardrow{border:3px solid var(--ink);border-radius:10px;padding:10px 12px;margin-top:8px}
-.cardrow .l1{display:flex;justify-content:space-between;align-items:center;gap:8px;font-weight:800;font-size:19px}
-.cardrow .l2{margin-top:2px;font-size:17px;font-variant-numeric:tabular-nums}
-.kv{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.kv .card{padding:12px}
-.kv .big{font-size:36px}
-.hdrline{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px}
-.hdrline .big{font-size:40px}
 @media (min-width:600px){
   .app{padding:0 28px 24px}
   .appbar{margin:0 -28px 16px}
   .two{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}
-  .stickybar{margin:16px -28px -24px}
 }
 </style>
 </head>
 <body>
 <main class="app">
   <nav class="appbar" aria-label="Pages">
-    <button type="button" class="on" aria-current="page" data-screen="photo" id="nav-photo">Photo</button>
+    <button type="button" class="on" aria-current="page" data-screen="dashboard" id="nav-dash">Dashboard</button>
     <button type="button" data-screen="feed" id="nav-setup">Feed + setup</button>
-    <button type="button" data-screen="dashboard" id="nav-dash">Dashboard</button>
   </nav>
-
-  <!-- Photo screen (capA) -->
-  <section id="screen-photo">
-    <div class="stack">
-      <label class="btn filebtn" id="cap-filebtn">
-        <input type="file" id="photo-input" accept="image/*" capture="environment">
-        <span id="cap-filebtn-txt">Take photo of tray</span>
-      </label>
-      <div class="small" style="margin-top:6px">Lay about 10 shrimp flat, one layer, next to a ruler.</div>
-
-      <div id="photo-hint" class="hint" style="display:none;font-weight:700">Tap a shrimp on the photo to add it or leave it out.</div>
-
-      <div id="photo-preview-wrap"></div>
-
-      <button class="btn go" id="send-photo-btn" type="button" disabled>Measure photo</button>
-
-      <div id="photo-msg" style="display:none"></div>
-
-      <div id="photo-results" class="stack" style="display:none"></div>
-
-      <button class="btn go" id="save-sample-btn" type="button" disabled style="display:none">Save sample</button>
-    </div>
-  </section>
 
   <!-- Feed + setup screen (setA) -->
   <section id="screen-setup" hidden>
@@ -227,6 +152,11 @@ details.fold>.in{padding:0 14px 14px}
         <p class="hint">Assumption, not verified with a farmer.</p>
       </div>
       <div class="fld">
+        <label for="setup-min-length">Shortest shrimp that counts (mm)</label>
+        <div class="inwrap"><input id="setup-min-length" type="text" inputmode="decimal"><span class="u">mm</span></div>
+        <p class="hint">Anything shorter is treated as a fragment and left out.</p>
+      </div>
+      <div class="fld">
         <label for="setup-min">Shrimp needed per sample</label>
         <div class="inwrap"><input id="setup-min" type="text" inputmode="decimal"><span class="u">shrimp</span></div>
         <p class="hint">Assumption, not verified with a farmer.</p>
@@ -237,17 +167,9 @@ details.fold>.in{padding:0 14px 14px}
   </section>
 
   <!-- Dashboard screen (dashC) -->
-  <section id="screen-dash" class="dash" hidden>
+  <section id="screen-dash" class="dash">
     <div id="dash-content"></div>
   </section>
-
-  <div style="display:none" aria-hidden="true">
-    <span>Working...</span>
-    <span>N measured, M left out</span>
-    <span>No ruler or card found, no millimetres shown</span>
-    <span>No shrimp found</span>
-    <span>Could not process the photo, nothing was saved</span>
-  </div>
 </main>
 
 <script>
@@ -377,24 +299,8 @@ function clearFieldErrors(container) {
 
 // Global cached settings and form state
 let currentSettings = null;
-let currentPhotoFile = null;
-let currentPhotoUrl = null;
-let photoNaturalWidth = 360;
-let photoNaturalHeight = 300;
-let inFlight = false;
-let requestId = 0;
 let feedDateEdited = false;
 let feedPriceEdited = false;
-
-let currentAnalysisId = null;
-let currentTray = null;
-let currentShrimpList = [];
-let currentIncluded = new Set();
-let sampleSaved = false;
-
-// latest summary wins
-let summaryRequestId = 0;
-let summaryInFlight = false;
 
 // Refresh feed form defaults when opening feed screen
 function refreshFeedDefaults() {
@@ -408,27 +314,24 @@ function refreshFeedDefaults() {
   }
 }
 
-// Resolve URL fragment to a screen name: #photo (default), #feed, #dashboard
+// Resolve URL fragment to a screen name: #dashboard (default), #feed
 function routeFromHash() {
   const h = location.hash.replace(/^#/, "").toLowerCase();
   if (h === "feed") return "feed";
-  if (h === "dashboard") return "dashboard";
-  return "photo";
+  return "dashboard";
 }
 
 // Switch active screen and update navigation state
 function switchScreen(target) {
   const screens = {
-    photo: document.getElementById("screen-photo"),
     feed: document.getElementById("screen-setup"),
     dashboard: document.getElementById("screen-dash")
   };
   const btns = {
-    photo: document.getElementById("nav-photo"),
     feed: document.getElementById("nav-setup"),
     dashboard: document.getElementById("nav-dash")
   };
-  if (!screens[target]) target = "photo";
+  if (!screens[target]) target = "dashboard";
 
   Object.keys(screens).forEach(k => {
     const on = (k === target);
@@ -458,358 +361,6 @@ function openFeedScreen() {
   if (btn) btn.click();
 }
 
-// Build SVG markup for photo with shrimp masks, lines, and labels
-function renderPhotoSvg(url, w, h, shrimpList, includedSet) {
-  const scale = Math.max(1, w / 360);
-  const strokeWidth = (2 * scale).toFixed(1);
-  const fs = (9 * scale).toFixed(1);
-  const dash = `${(6 * scale).toFixed(1)} ${(4 * scale).toFixed(1)}`;
-  const textStrokeWidth = (2 * scale).toFixed(1);
-
-  let shrimpMarkup = "";
-  if (Array.isArray(shrimpList)) {
-    shrimpList.forEach((s, i) => {
-      const isChosen = includedSet ? includedSet.has(s.index) : !s.overlapped;
-      let polyPts = "";
-      if (s.outline && s.outline.length > 0) {
-        polyPts = s.outline.map(p => `${p[0]},${p[1]}`).join(" ");
-      }
-      let pathPts = "";
-      let midPt = [0, 0];
-      if (s.path && s.path.length > 0) {
-        pathPts = s.path.map(p => `${p[0]},${p[1]}`).join(" ");
-        const midIdx = Math.floor(s.path.length / 2);
-        midPt = s.path[midIdx];
-      }
-
-      const polyFill = isChosen ? "#0a5c36" : "none";
-      const polyFillOpacity = isChosen ? ' fill-opacity="0.25"' : "";
-      const polyStroke = isChosen ? "#0a5c36" : "#6b6b6b";
-      const polyDash = isChosen ? "" : ` stroke-dasharray="${dash}"`;
-
-      const lenCm = (s.length_mm !== null && s.length_mm !== undefined)
-        ? (s.length_mm / 10).toFixed(1) + " cm"
-        : "-";
-      const labelText = isChosen ? lenCm : "left out";
-
-      shrimpMarkup += `<g class="shrimp-g" data-index="${s.index}" role="button" aria-pressed="${isChosen ? "true" : "false"}" aria-label="Shrimp ${i + 1}" tabindex="0" style="cursor:pointer">`;
-      if (polyPts) {
-        shrimpMarkup += `<polygon points="${polyPts}" fill="${polyFill}"${polyFillOpacity} stroke="${polyStroke}" stroke-width="${strokeWidth}"${polyDash} pointer-events="all"/>`;
-      }
-      if (pathPts) {
-        shrimpMarkup += `<polyline points="${pathPts}" fill="none" stroke="#d11a14" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>`;
-      }
-      if (s.path && s.path.length > 0) {
-        shrimpMarkup += `<text x="${midPt[0]}" y="${midPt[1]}" text-anchor="middle" dominant-baseline="central" fill="#fff" stroke="#101010" stroke-width="${textStrokeWidth}" paint-order="stroke" stroke-linejoin="round" font-size="${fs}" font-weight="800" pointer-events="none">${labelText}</text>`;
-      }
-      shrimpMarkup += "</g>";
-    });
-  }
-
-  return `<div class="photo"><svg id="photo-svg" viewBox="0 0 ${w} ${h}" role="img" aria-label="Photo of shrimp laid flat next to a ruler"><image href="${url}" width="${w}" height="${h}"/>${shrimpMarkup}</svg></div>`;
-}
-
-// Render photo preview container with optional overlays
-function renderPhotoPreview(shrimpList) {
-  const wrap = document.getElementById("photo-preview-wrap");
-  if (!currentPhotoUrl) {
-    wrap.innerHTML = "";
-    return;
-  }
-  wrap.innerHTML = renderPhotoSvg(currentPhotoUrl, photoNaturalWidth, photoNaturalHeight, shrimpList, currentIncluded);
-}
-
-// Render list of shrimp checkboxes and measurements below photo
-function renderShrimpChoiceList(shrimpList, includedSet) {
-  if (!shrimpList || shrimpList.length === 0) return "";
-  const rows = shrimpList.map((s, i) => {
-    const isChosen = includedSet ? includedSet.has(s.index) : !s.overlapped;
-    const len = (s.length_mm !== null && s.length_mm !== undefined) ? f1(s.length_mm) : "-";
-    const overlapMsg = s.overlapped ? "touches another shrimp or the edge" : "";
-    const trCls = isChosen ? "" : ' class="out"';
-    return `<tr${trCls} data-index="${s.index}"><td><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" class="shrimp-chk" data-index="${s.index}" ${isChosen ? "checked" : ""}><span>Shrimp ${i + 1}</span></label>${overlapMsg ? `<div class="small" style="margin:2px 0 0 34px">${overlapMsg}</div>` : ""}</td><td class="r" style="white-space:nowrap">${len} mm</td></tr>`;
-  }).join("");
-
-  return `<div class="card"><b>Shrimp</b><table class="t" style="margin-top:8px"><tbody>${rows}</tbody></table></div>`;
-}
-
-// Update visuals for a single shrimp when choice is toggled
-function updateShrimpVisuals(index, isChosen) {
-  const scale = Math.max(1, photoNaturalWidth / 360);
-  const dash = `${(6 * scale).toFixed(1)} ${(4 * scale).toFixed(1)}`;
-  const g = document.querySelector(`.shrimp-g[data-index="${index}"]`);
-  if (g) {
-    g.setAttribute("aria-pressed", isChosen ? "true" : "false");
-    const poly = g.querySelector("polygon");
-    if (poly) {
-      poly.setAttribute("fill", isChosen ? "#0a5c36" : "none");
-      if (isChosen) {
-        poly.setAttribute("fill-opacity", "0.25");
-        poly.removeAttribute("stroke-dasharray");
-      } else {
-        poly.removeAttribute("fill-opacity");
-        poly.setAttribute("stroke-dasharray", dash);
-      }
-      poly.setAttribute("stroke", isChosen ? "#0a5c36" : "#6b6b6b");
-    }
-    const txt = g.querySelector("text");
-    if (txt) {
-      const s = currentShrimpList.find(item => item.index === index);
-      const lenCm = (s && s.length_mm !== null && s.length_mm !== undefined)
-        ? (s.length_mm / 10).toFixed(1) + " cm"
-        : "-";
-      txt.textContent = isChosen ? lenCm : "left out";
-    }
-  }
-
-  const chk = document.querySelector(`.shrimp-chk[data-index="${index}"]`);
-  if (chk) {
-    chk.checked = isChosen;
-  }
-  const row = document.querySelector(`tr[data-index="${index}"]`);
-  if (row) {
-    if (isChosen) {
-      row.classList.remove("out");
-    } else {
-      row.classList.add("out");
-    }
-  }
-}
-
-// Toggle shrimp inclusion state and update UI
-function toggleShrimp(index, forceState) {
-  if (!currentTray || currentTray.status === "no_reference" || currentTray.status === "no_shrimp") return;
-  const isIncluded = currentIncluded.has(index);
-  const nextState = (forceState !== undefined) ? forceState : !isIncluded;
-  if (nextState === isIncluded) return;
-
-  if (nextState) {
-    currentIncluded.add(index);
-  } else {
-    currentIncluded.delete(index);
-  }
-
-  updateShrimpVisuals(index, nextState);
-  requestSummary();
-}
-
-// Request summary update from server for selected shrimp
-async function requestSummary() {
-  if (!currentAnalysisId) return;
-  summaryRequestId++;
-  const thisRequestId = summaryRequestId;
-  summaryInFlight = true;
-
-  const payload = {
-    include: Array.from(currentIncluded).sort((a, b) => a - b)
-  };
-
-  try {
-    const resp = await fetch(`/api/analyses/${currentAnalysisId}/summary`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-
-    if (thisRequestId !== summaryRequestId) return;
-    summaryInFlight = false;
-
-    if (resp.status === 404) {
-      const msgEl = document.getElementById("photo-msg");
-      if (msgEl) {
-        msgEl.className = "band red";
-        msgEl.setAttribute("role", "alert");
-        msgEl.innerHTML = "The photo is no longer on the server. Take it again.<p>Nothing was saved.</p>";
-        msgEl.style.display = "block";
-      }
-      const saveBtn = document.getElementById("save-sample-btn");
-      if (saveBtn) saveBtn.disabled = true;
-      return;
-    }
-
-    if (!resp.ok) return;
-
-    const data = await resp.json();
-    if (thisRequestId !== summaryRequestId) return;
-
-    currentTray = data;
-    renderSummaryResults(data);
-  } catch (_) {
-    if (thisRequestId === summaryRequestId) {
-      summaryInFlight = false;
-    }
-  }
-}
-
-// Build summary cards markup for ok and too_few results
-function buildSummaryCardsHtml(data) {
-  const minNeeded = (currentSettings && currentSettings.min_measured != null) ? currentSettings.min_measured : "the minimum";
-  let bannerHtml = "";
-  if (data.status === "too_few") {
-    bannerHtml = `<div class="band red" role="alert">Only ${data.n_measured} shrimp could be measured<p>At least ${minNeeded} are needed. Lay the shrimp apart, one layer, and take a new photo.</p></div>`;
-  }
-
-  let refText = "None";
-  if (data.reference === "ruler") refText = "Ruler";
-  else if (data.reference === "card") refText = "Credit card";
-  else if (data.reference) refText = esc(data.reference);
-
-  const scaleText = (data.scale_px_per_mm !== null && data.scale_px_per_mm !== undefined)
-    ? Number(data.scale_px_per_mm).toFixed(2)
-    : "-";
-
-  const scaleCard = `<div class="card"><div class="nums"><div><span class="big" style="font-size:38px">${scaleText}</span><div class="cap">scale, px per mm</div></div><div><span class="big" style="font-size:38px">${refText}</span><div class="cap">reference used</div></div></div></div>`;
-
-  const notices = data.notices || [];
-  const tagHtml = notices.includes("temporary_table") ? `<p style="margin:4px 0 0">${sizeTag()}</p>` : "";
-  let avgLineHtml = "";
-  if (notices.includes("outside_table_range")) {
-    avgLineHtml = `<p style="margin:6px 0">Average <b>${f1(data.mean_length_mm)} mm</b>, outside the table range: no size per kg</p>${tagHtml}`;
-  } else if (data.mean_length_mm !== null && data.mean_length_mm !== undefined) {
-    const sizeText = (data.size_per_kg !== null && data.size_per_kg !== undefined) ? `${perKgText(data.size_per_kg)} per kg` : "-";
-    avgLineHtml = `<p style="margin:6px 0">Average <b>${f1(data.mean_length_mm)} mm</b>, about <b>${sizeText}</b></p>${tagHtml}`;
-  }
-
-  const savedLine = sampleSaved ? `<p class="hint" style="margin:0 0 6px">Saved as a sample on ${lab(todayIso())}.</p>` : "";
-  const countCard = `<div class="card">${savedLine}<div class="count">${data.n_measured} measured, ${data.n_left_out} left out</div>${avgLineHtml}</div>`;
-
-  return bannerHtml + scaleCard + countCard;
-}
-
-// Update summary cards and save button when new summary arrives
-function renderSummaryResults(data) {
-  const cardsWrap = document.getElementById("summary-cards-wrap");
-  if (cardsWrap) {
-    cardsWrap.innerHTML = buildSummaryCardsHtml(data);
-  }
-  const saveBtn = document.getElementById("save-sample-btn");
-  if (saveBtn) {
-    saveBtn.disabled = (data.status !== "ok" || sampleSaved);
-  }
-}
-
-// Display TrayResult cards and status messages
-function handleSampleResult(data) {
-  const msgEl = document.getElementById("photo-msg");
-  const resultsEl = document.getElementById("photo-results");
-  const hintEl = document.getElementById("photo-hint");
-  const saveBtn = document.getElementById("save-sample-btn");
-  msgEl.style.display = "none";
-  msgEl.innerHTML = "";
-  resultsEl.style.display = "none";
-  resultsEl.innerHTML = "";
-  hintEl.style.display = "none";
-
-  if (data.status === "no_reference" || data.status === "no_shrimp") {
-    msgEl.className = "band red";
-    msgEl.setAttribute("role", "alert");
-    if (data.status === "no_reference") {
-      msgEl.innerHTML = 'No ruler or card found<p>Lay a ruler (or a credit card) flat next to the shrimp, fully in the photo. Then take the photo again.</p>';
-    } else {
-      msgEl.innerHTML = 'No shrimp found<p>Lay the shrimp flat on the tray, in one layer and in good light. Then take the photo again.</p>';
-    }
-    msgEl.style.display = "block";
-
-    renderPhotoPreview(data.shrimp);
-    resultsEl.innerHTML = `<div class="card"><div class="count">${data.n_measured} measured, ${data.n_left_out} left out</div></div>`;
-    resultsEl.style.display = "block";
-    saveBtn.style.display = "none";
-    saveBtn.disabled = true;
-    return;
-  }
-
-  hintEl.style.display = "block";
-  renderPhotoPreview(data.shrimp);
-
-  const cardsHtml = `<div id="summary-cards-wrap">${buildSummaryCardsHtml(data)}</div>`;
-  const choiceListHtml = `<div id="shrimp-choice-wrap">${renderShrimpChoiceList(data.shrimp, currentIncluded)}</div>`;
-
-  resultsEl.innerHTML = cardsHtml + choiceListHtml;
-  resultsEl.style.display = "block";
-
-  saveBtn.style.display = "flex";
-  saveBtn.disabled = (data.status !== "ok" || sampleSaved);
-}
-
-// Save chosen shrimp sample handler
-async function saveSampleHandler() {
-  const saveBtn = document.getElementById("save-sample-btn");
-  const msgEl = document.getElementById("photo-msg");
-  if (!currentAnalysisId || !currentTray || currentTray.status !== "ok" || sampleSaved) return;
-
-  saveBtn.disabled = true;
-  saveBtn.textContent = "Saving...";
-
-  const payload = {
-    include: Array.from(currentIncluded).sort((a, b) => a - b),
-    day: todayIso()
-  };
-
-  let resStatus = 0;
-  try {
-    const resp = await fetch(`/api/analyses/${currentAnalysisId}/save`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-    resStatus = resp.status;
-
-    if (resp.status === 404) {
-      saveBtn.disabled = true;
-      saveBtn.textContent = "Save sample";
-      msgEl.className = "band red";
-      msgEl.setAttribute("role", "alert");
-      msgEl.innerHTML = "The photo is no longer on the server. Take it again.<p>Nothing was saved.</p>";
-      msgEl.style.display = "block";
-      const photoInput = document.getElementById("photo-input");
-      if (photoInput) photoInput.focus();
-      return;
-    }
-
-    if (!resp.ok) {
-      saveBtn.disabled = (currentTray && currentTray.status === "ok") ? false : true;
-      saveBtn.textContent = "Save sample";
-      let errDetail = "";
-      try {
-        const errData = await resp.json();
-        if (errData && errData.error) errDetail = errData.error;
-      } catch (_) {}
-      msgEl.className = "band red";
-      msgEl.setAttribute("role", "alert");
-      let errMsgHtml = "Nothing was saved.";
-      if (errDetail) {
-        errMsgHtml = `${esc(errDetail)} Nothing was saved.`;
-      }
-      msgEl.innerHTML = `Something went wrong<p>${errMsgHtml}</p>`;
-      msgEl.style.display = "block";
-      return;
-    }
-
-    const data = await resp.json();
-    if (data.status === "ok") {
-      sampleSaved = true;
-      saveBtn.disabled = true;
-      saveBtn.textContent = "Save sample";
-      currentTray = data;
-      renderSummaryResults(data);
-    } else {
-      saveBtn.disabled = false;
-      saveBtn.textContent = "Save sample";
-    }
-  } catch (_) {
-    saveBtn.disabled = false;
-    saveBtn.textContent = "Save sample";
-    msgEl.className = "band red";
-    msgEl.setAttribute("role", "alert");
-    if (resStatus === 200) {
-      msgEl.innerHTML = "Something went wrong<p>The photo was saved, but the result could not be shown.</p>";
-    } else {
-      msgEl.innerHTML = "Something went wrong<p>Nothing was saved.</p>";
-    }
-    msgEl.style.display = "block";
-  }
-}
-
 // Fetch active settings and populate setup form
 async function loadSettings() {
   try {
@@ -822,10 +373,12 @@ async function loadSettings() {
     document.getElementById("setup-price").value = currentSettings.feed_price_vnd !== undefined ? currentSettings.feed_price_vnd : "";
     document.getElementById("setup-stall").value = currentSettings.stall_mm_per_day !== undefined ? currentSettings.stall_mm_per_day : "";
     document.getElementById("setup-harvest").value = currentSettings.harvest_per_kg !== undefined ? currentSettings.harvest_per_kg : "";
+    document.getElementById("setup-min-length").value = currentSettings.min_length_mm !== undefined ? currentSettings.min_length_mm : "";
     document.getElementById("setup-min").value = currentSettings.min_measured !== undefined ? currentSettings.min_measured : "";
 
     refreshFeedDefaults();
   } catch (_) {}
+}
 }
 
 // Render trend chart SVG with sample markers and slow growth segment
@@ -947,7 +500,7 @@ async function loadDashboard() {
     const d = await resp.json();
 
     if (d.empty) {
-      target.innerHTML = '<div class="card">No samples yet. Take a photo on the Photo screen.</div>';
+      target.innerHTML = '<div class="card">No samples yet. Send a photo of your tray to the bot on Messenger.</div>';
       return;
     }
 
@@ -984,7 +537,8 @@ async function loadDashboard() {
         const counts = (d.n_previous !== null && d.n_previous !== undefined)
           ? `${d.n_latest} measured in the latest sample, ${d.n_previous} in the one before`
           : `${d.n_latest} measured in the latest sample`;
-        flagHtml += `<div class="flag"><span class="dot" style="background:#8a8a8a"></span><p><b>Not enough shrimp.</b> ${counts}; ${d.min_measured} are needed in each to tell.</p></div>`;
+        const minNeeded = (d.min_measured !== null && d.min_measured !== undefined) ? d.min_measured : "the minimum";
+        flagHtml += `<div class="flag"><span class="dot" style="background:#8a8a8a"></span><p><b>Not enough shrimp.</b> ${counts}; ${minNeeded} are needed in each to tell.</p></div>`;
       }
     }
 
@@ -1083,6 +637,7 @@ async function saveFeedHandler() {
 
 // Save setup form submission handler
 async function saveSetupHandler() {
+  // Read and parse min_length_mm with parseNumber(
   const pane = document.getElementById("pane-setup");
   const errEl = document.getElementById("setup-form-err");
   const savedEl = document.getElementById("set-saved-msg");
@@ -1096,12 +651,14 @@ async function saveSetupHandler() {
   const priceInput = document.getElementById("setup-price");
   const stallInput = document.getElementById("setup-stall");
   const harvestInput = document.getElementById("setup-harvest");
+  const minLengthInput = document.getElementById("setup-min-length");
   const minInput = document.getElementById("setup-min");
 
   const ruler = parseNumber(rulerInput.value, { integer: false });
   const price = parseNumber(priceInput.value, { integer: true });
   const stall = parseNumber(stallInput.value, { integer: false });
   const harvest = parseNumber(harvestInput.value, { integer: false });
+  const minLength = parseNumber(minLengthInput.value, { integer: false });
   const min = parseNumber(minInput.value, { integer: true });
 
   let hasError = false;
@@ -1121,6 +678,10 @@ async function saveSetupHandler() {
     setFieldError(harvestInput, "Type a plain number, for example 100 or 45000.");
     hasError = true;
   }
+  if (minLength === null) {
+    setFieldError(minLengthInput, "Type a plain number, for example 100 or 45000.");
+    hasError = true;
+  }
   if (min === null) {
     setFieldError(minInput, "Type a plain number, for example 100 or 45000.");
     hasError = true;
@@ -1133,6 +694,7 @@ async function saveSetupHandler() {
     feed_price_vnd: price,
     stall_mm_per_day: stall,
     harvest_per_kg: harvest,
+    min_length_mm: minLength,
     min_measured: min
   };
 
@@ -1166,147 +728,6 @@ async function saveSetupHandler() {
 
 // Wire form events and page interaction handlers
 document.addEventListener("DOMContentLoaded", () => {
-  const photoInput = document.getElementById("photo-input");
-  const sendBtn = document.getElementById("send-photo-btn");
-  const saveBtn = document.getElementById("save-sample-btn");
-
-  photoInput.addEventListener("change", () => {
-    const file = photoInput.files[0];
-    if (!file) return;
-    requestId++;
-    summaryRequestId++;
-    currentPhotoFile = file;
-    currentAnalysisId = null;
-    currentTray = null;
-    currentShrimpList = [];
-    currentIncluded.clear();
-    sampleSaved = false;
-
-    if (currentPhotoUrl) URL.revokeObjectURL(currentPhotoUrl);
-    currentPhotoUrl = URL.createObjectURL(file);
-    document.getElementById("cap-filebtn-txt").textContent = "Take another photo";
-    if (!inFlight) {
-      sendBtn.disabled = false;
-      sendBtn.textContent = "Measure photo";
-    }
-
-    document.getElementById("photo-hint").style.display = "none";
-    document.getElementById("photo-msg").style.display = "none";
-    document.getElementById("photo-results").style.display = "none";
-    document.getElementById("photo-results").innerHTML = "";
-    saveBtn.style.display = "none";
-    saveBtn.disabled = true;
-    saveBtn.textContent = "Save sample";
-
-    const img = new Image();
-    img.onload = () => {
-      photoNaturalWidth = img.naturalWidth || 360;
-      photoNaturalHeight = img.naturalHeight || 300;
-      renderPhotoPreview();
-    };
-    img.src = currentPhotoUrl;
-  });
-
-  sendBtn.addEventListener("click", async () => {
-    if (inFlight || !currentPhotoFile) return;
-    inFlight = true;
-    sendBtn.disabled = true;
-    sendBtn.textContent = "Working, up to 10 seconds";
-
-    const thisRequestId = requestId;
-    const msgEl = document.getElementById("photo-msg");
-    const resultsEl = document.getElementById("photo-results");
-    msgEl.style.display = "none";
-    msgEl.innerHTML = "";
-    resultsEl.style.display = "none";
-    resultsEl.innerHTML = "";
-    saveBtn.style.display = "none";
-    saveBtn.disabled = true;
-    document.getElementById("photo-hint").style.display = "none";
-
-    const formData = new FormData();
-    formData.append("photo", currentPhotoFile);
-
-    let resStatus = 0;
-    try {
-      const resp = await fetch("/api/analyses", {
-        method: "POST",
-        body: formData
-      });
-      resStatus = resp.status;
-
-      if (thisRequestId !== requestId) {
-        inFlight = false;
-        sendBtn.disabled = false;
-        sendBtn.textContent = "Measure photo";
-        return;
-      }
-
-      if (!resp.ok) {
-        inFlight = false;
-        sendBtn.disabled = false;
-        sendBtn.textContent = "Measure photo";
-        let errDetail = "";
-        try {
-          const errData = await resp.json();
-          if (errData && errData.error) errDetail = errData.error;
-        } catch (_) {}
-        msgEl.className = "band red";
-        msgEl.setAttribute("role", "alert");
-        let errMsgHtml = "Nothing was saved.";
-        if (errDetail) {
-          errMsgHtml = `${esc(errDetail)} Nothing was saved.`;
-        }
-        msgEl.innerHTML = `Something went wrong<p>${errMsgHtml}</p>`;
-        msgEl.style.display = "block";
-        return;
-      }
-
-      const data = await resp.json();
-      if (thisRequestId !== requestId) {
-        inFlight = false;
-        sendBtn.disabled = false;
-        sendBtn.textContent = "Measure photo";
-        return;
-      }
-
-      inFlight = false;
-      currentAnalysisId = data.analysis_id;
-      currentTray = data.tray;
-      currentShrimpList = data.tray.shrimp || [];
-      currentIncluded = new Set(data.tray.included || []);
-
-      if (data.tray.status === "ok") {
-        sendBtn.disabled = true;
-        sendBtn.textContent = "Measure photo";
-      } else {
-        sendBtn.disabled = false;
-        sendBtn.textContent = "Measure photo";
-      }
-
-      handleSampleResult(data.tray);
-    } catch (_) {
-      inFlight = false;
-      if (thisRequestId !== requestId) {
-        sendBtn.disabled = false;
-        sendBtn.textContent = "Measure photo";
-        return;
-      }
-      sendBtn.disabled = false;
-      sendBtn.textContent = "Measure photo";
-      msgEl.className = "band red";
-      msgEl.setAttribute("role", "alert");
-      if (resStatus === 200) {
-        msgEl.innerHTML = "Something went wrong<p>The photo was saved, but the result could not be shown.</p>";
-      } else {
-        msgEl.innerHTML = "Something went wrong<p>Nothing was saved.</p>";
-      }
-      msgEl.style.display = "block";
-    }
-  });
-
-  saveBtn.addEventListener("click", saveSampleHandler);
-
   const feedDateInput = document.getElementById("feed-date");
   const feedPriceInput = document.getElementById("feed-price");
   feedDateInput.addEventListener("input", () => { feedDateEdited = true; });
@@ -1318,15 +739,6 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("save-setup-btn").addEventListener("click", saveSetupHandler);
 
   document.addEventListener("click", e => {
-    const g = e.target.closest(".shrimp-g");
-    if (g) {
-      const idx = parseInt(g.dataset.index, 10);
-      if (!isNaN(idx)) {
-        toggleShrimp(idx);
-      }
-      return;
-    }
-
     const screenBtn = e.target.closest("[data-screen]");
     if (screenBtn) {
       const targetHash = "#" + screenBtn.dataset.screen;
@@ -1349,28 +761,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (e.target.closest("#dash-enter-feed-btn")) {
       openFeedScreen();
       return;
-    }
-  });
-
-  document.addEventListener("keydown", e => {
-    if (e.key === "Enter" || e.key === " ") {
-      const g = e.target.closest(".shrimp-g");
-      if (g) {
-        e.preventDefault();
-        const idx = parseInt(g.dataset.index, 10);
-        if (!isNaN(idx)) {
-          toggleShrimp(idx);
-        }
-      }
-    }
-  });
-
-  document.addEventListener("change", e => {
-    if (e.target.classList.contains("shrimp-chk")) {
-      const idx = parseInt(e.target.dataset.index, 10);
-      if (!isNaN(idx)) {
-        toggleShrimp(idx, e.target.checked);
-      }
     }
   });
 
