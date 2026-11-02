@@ -104,3 +104,51 @@ def test_page_hash_navigation():
     assert "feed" in html
     assert "dashboard" in html
 
+
+def test_page_per_kg_text_helper():
+    # The HTML contains helper perKgText using Math.round
+    service = make_test_service()
+    app = create_app(service)
+    client = TestClient(app)
+
+    resp = client.get("/")
+    assert resp.status_code == 200
+    html = resp.text
+
+    assert "perKgText" in html
+    match = re.search(r"function\s+perKgText\s*\([^)]*\)\s*\{[\s\S]*?\}", html)
+    assert match is not None, "function perKgText not found"
+    assert "Math.round" in match.group(0), "perKgText must use Math.round"
+
+
+def test_page_chart_date_label_anchors():
+    # Chart code contains both text-anchor="start" and text-anchor="end" for date labels
+    service = make_test_service()
+    app = create_app(service)
+    client = TestClient(app)
+
+    resp = client.get("/")
+    assert resp.status_code == 200
+    html = resp.text
+
+    script_match = re.search(r"<script>([\s\S]*?)</script>", html)
+    assert script_match is not None, "<script> tag not found"
+    script = script_match.group(1)
+
+    chart_match = re.search(
+        r"function\s+renderDashboardChart[\s\S]*?function\s+renderDashboardSamplesTable",
+        script,
+    )
+    assert chart_match is not None, "renderDashboardChart function not found"
+    chart_code = chart_match.group(0)
+
+    assert 'text-anchor="start"' in chart_code
+    assert 'text-anchor="end"' in chart_code
+    assert re.search(r'text-anchor="start"[^>]*>\$\{lab\(', chart_code) or (
+        re.search(r'text-anchor="start"[\s\S]*?\$\{lab\(', chart_code)
+    )
+    assert re.search(r'text-anchor="end"[^>]*>\$\{lab\(', chart_code) or (
+        re.search(r'text-anchor="end"[\s\S]*?\$\{lab\(', chart_code)
+    )
+
+
