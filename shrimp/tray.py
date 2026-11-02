@@ -1,11 +1,11 @@
 # Tray analysis orchestrating reference detection, scaling, and shrimp measurement
 import concurrent.futures
-from typing import Any, List, Tuple
+from typing import Any, List, Optional, Tuple
 import cv2
 import numpy as np
 
 from shrimp.measure import largest, measure
-from shrimp.models import Segmenter, Settings, TrayResult
+from shrimp.models import Analysis, Segmenter, Settings, TrayResult
 
 
 def rect_sides(mask: np.ndarray) -> Tuple[float, float]:
@@ -29,13 +29,12 @@ def is_valid_ref(mask: np.ndarray) -> bool:
     return long_side >= 0.05 * max(mask.shape)
 
 
-def analyze_tray(
+def analyze_shrimp(
     photo: bytes,
     settings: Settings,
-    table: Any,
     segmenter: Segmenter,
-) -> TrayResult:
-    # Analyze tray photo to detect reference, scale, and shrimp lengths
+) -> Analysis:
+    # Segment photo and measure detected shrimp
     prompts = ["shrimp", "ruler", "credit card"]
     with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
         futures = {executor.submit(segmenter, photo, p): p for p in prompts}
@@ -81,37 +80,74 @@ def analyze_tray(
         if not is_lookalike:
             filtered_shrimp.append(sm)
 
-    if not filtered_shrimp:
+    shrimp_measures = measure(filtered_shrimp, scale_px_per_mm) if filtered_shrimp else []
+
+    return Analysis(
+        reference=reference,
+        scale_px_per_mm=scale_px_per_mm,
+        shrimp=shrimp_measures,
+    )
+
+
+def summarize(
+    analysis: Analysis,
+    include: Optional[List[int]],
+    settings: Settings,
+    table: Any,
+) -> TrayResult:
+    # Build TrayResult from Analysis and optional included shrimp indices
+    total = len(analysis.shrimp)
+    if include is None:
+        chosen = [s.index for s in analysis.shrimp if not s.overlapped]
+    else:
+        if not isinstance(include, list):
+            raise ValueError("include must be a list of ints or None")
+        seen = set()
+        chosen = []
+        for idx in include:
+            if isinstance(idx, bool) or not isinstance(idx, int):
+                raise ValueError(f"invalid shrimp index: {idx}")
+            if idx not in range(total):
+                raise ValueError(f"shrimp index out of range: {idx}")
+            if idx in seen:
+                raise ValueError(f"duplicate shrimp index: {idx}")
+            seen.add(idx)
+            chosen.append(idx)
+
+    if not analysis.shrimp:
         return TrayResult(
             status="no_shrimp",
-            reference=reference,
-            scale_px_per_mm=scale_px_per_mm,
+            reference=analysis.reference,
+            scale_px_per_mm=analysis.scale_px_per_mm,
             shrimp=[],
             n_measured=0,
             n_left_out=0,
             mean_length_mm=None,
             size_per_kg=None,
+            notices=[],
+            included=[],
         )
 
-    shrimp_measures = measure(filtered_shrimp, scale_px_per_mm)
-    n_measured = sum(1 for s in shrimp_measures if not s.overlapped)
-    n_left_out = sum(1 for s in shrimp_measures if s.overlapped)
+    n_measured = len(chosen)
+    n_left_out = total - n_measured
 
-    if scale_px_per_mm is None:
+    if analysis.scale_px_per_mm is None:
         return TrayResult(
             status="no_reference",
             reference="none",
             scale_px_per_mm=None,
-            shrimp=shrimp_measures,
+            shrimp=analysis.shrimp,
             n_measured=n_measured,
             n_left_out=n_left_out,
             mean_length_mm=None,
             size_per_kg=None,
             notices=[],
+            included=chosen,
         )
 
+    chosen_shrimp = [analysis.shrimp[i] for i in chosen]
     measured_lengths = [
-        s.length_mm for s in shrimp_measures if not s.overlapped and s.length_mm is not None
+        s.length_mm for s in chosen_shrimp if s.length_mm is not None
     ]
     mean_len = float(np.mean(measured_lengths)) if measured_lengths else None
 
@@ -133,12 +169,23 @@ def analyze_tray(
 
     return TrayResult(
         status=status,
-        reference=reference,
-        scale_px_per_mm=scale_px_per_mm,
-        shrimp=shrimp_measures,
+        reference=analysis.reference,
+        scale_px_per_mm=analysis.scale_px_per_mm,
+        shrimp=analysis.shrimp,
         n_measured=n_measured,
         n_left_out=n_left_out,
         mean_length_mm=mean_len,
         size_per_kg=size_per_kg,
         notices=notices,
+        included=chosen,
     )
+
+
+def analyze_tray(
+    photo: bytes,
+    settings: Settings,
+    table: Any,
+    segmenter: Segmenter,
+) -> TrayResult:
+    # Analyze tray photo to detect reference, scale, and shrimp lengths
+    return summarize(analyze_shrimp(photo, settings, segmenter), None, settings, table)

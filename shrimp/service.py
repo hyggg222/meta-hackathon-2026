@@ -1,13 +1,15 @@
 # Service orchestration for shrimp measurement analysis, feeds, and settings
+from collections import OrderedDict
 from datetime import date
 import hashlib
 import math
 from pathlib import Path
-from typing import Any, Optional, Union
+import threading
+from typing import Any, List, Optional, Tuple, Union
 
 from shrimp.dashboard import build_dashboard
-from shrimp.models import Dashboard, FeedEntry, Settings, TrayResult
-from shrimp.tray import analyze_tray
+from shrimp.models import Analysis, AnalysisNotFound, Dashboard, FeedEntry, Settings, TrayResult
+from shrimp.tray import analyze_shrimp, analyze_tray, summarize
 
 
 def _is_positive_finite(val: Any) -> bool:
@@ -35,6 +37,8 @@ class Service:
         self.store = store
         self.table = table
         self.photos_dir = Path(photos_dir) if photos_dir is not None else None
+        self._analyses: OrderedDict[str, Tuple[Analysis, bytes]] = OrderedDict()
+        self._lock = threading.Lock()
 
     def settings(self) -> Settings:
         # Load persisted settings with default fallbacks
@@ -71,9 +75,8 @@ class Service:
         self.store.save_settings(s)
         return self.settings()
 
-    def add_sample(self, photo: bytes, day: date) -> TrayResult:
-        # Analyze tray photo and persist sample if ok
-        tray = analyze_tray(photo, self.settings(), self.table, self.segmenter)
+    def _persist_sample(self, photo: bytes, day: date, tray: TrayResult) -> None:
+        # Persist sample and photo if tray status is ok
         if tray.status == "ok":
             img_path: Optional[Path] = None
             if self.photos_dir is not None:
@@ -87,6 +90,51 @@ class Service:
                 if img_path is not None:
                     img_path.unlink(missing_ok=True)
                 raise
+
+    def add_sample(self, photo: bytes, day: date) -> TrayResult:
+        # Analyze tray photo and persist sample if ok
+        tray = analyze_tray(photo, self.settings(), self.table, self.segmenter)
+        self._persist_sample(photo, day, tray)
+        return tray
+
+    def analyze(self, photo: bytes) -> Tuple[str, TrayResult]:
+        # Analyze tray photo and cache analysis in memory
+        analysis = analyze_shrimp(photo, self.settings(), self.segmenter)
+        analysis_id = hashlib.sha256(photo).hexdigest()[:16]
+        tray = summarize(analysis, None, self.settings(), self.table)
+        with self._lock:
+            if analysis_id in self._analyses:
+                del self._analyses[analysis_id]
+            self._analyses[analysis_id] = (analysis, photo)
+            while len(self._analyses) > 8:
+                self._analyses.popitem(last=False)
+        return analysis_id, tray
+
+    def summary(self, analysis_id: str, include: Optional[List[int]] = None) -> TrayResult:
+        # Summarize cached analysis with chosen shrimp
+        with self._lock:
+            entry = self._analyses.get(analysis_id)
+        if entry is None:
+            raise AnalysisNotFound(f"analysis {analysis_id} not found")
+        analysis, _ = entry
+        return summarize(analysis, include, self.settings(), self.table)
+
+    def save(
+        self,
+        analysis_id: str,
+        include: Optional[List[int]] = None,
+        day: Optional[date] = None,
+    ) -> TrayResult:
+        # Summarize analysis and persist sample if ok
+        if day is None:
+            day = date.today()
+        with self._lock:
+            entry = self._analyses.get(analysis_id)
+        if entry is None:
+            raise AnalysisNotFound(f"analysis {analysis_id} not found")
+        analysis, photo = entry
+        tray = summarize(analysis, include, self.settings(), self.table)
+        self._persist_sample(photo, day, tray)
         return tray
 
     def add_feed(self, day: date, kg_per_day: float, price_vnd: float) -> None:
