@@ -67,7 +67,7 @@ The check columns use C2: W = 10^(-2.270) * (L/10)^3.322.
 | L (mm) | W, picked fit (g) | Shrimp per kg, picked fit | W, Gujarat check (g) | Shrimp per kg, Gujarat check |
 |---|---|---|---|---|
 | 60 | 3.05 | 328 | 2.07 | 484 |
-| 70 | 4.84 | 207 | 3.45 | 290 |
+| 70 | 4.84 | 206 | 3.45 | 290 |
 | 80 | 7.24 | 138 | 5.37 | 186 |
 | 90 | 10.31 | 97 | 7.94 | 126 |
 | 100 | 14.16 | 71 | 11.27 | 89 |
