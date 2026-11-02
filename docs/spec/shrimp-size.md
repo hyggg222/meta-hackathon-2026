@@ -230,6 +230,12 @@ The farmer sends the tray photo to a Messenger bot. Replies are in Vietnamese. C
 - Delivers: the page opens on the dashboard, the Photo screen is gone, Setup has the minimum length field, the empty state tells the farmer to send the photo to the bot.
 - Touches: `static/index.html`. Blocked by: S9 for the settings key (the page text works before it).
 
+**S17. Merged shrimp and crowded trays** (criteria 57, 58). Delivers: blobs of several shrimp are left out of the default choice; a crowded photo gets a plain warning. Touches `measure`, `tray`, `reply_text`. Blocked by: none.
+
+**S18. Growth trend over the last samples** (criteria 59, 54, 55). Delivers: the slow-growth verdict uses a weighted line over up to four samples, which is steadier than two samples (about 0.2 to 0.3 mm a day of error with four samples of ten shrimp, against 1 to 2 with two). Touches `dashboard`. Blocked by: S16 (done).
+
+**S19. Value by size and break-even** (criteria 60, 61, 62). Delivers: the default price table (Tepbac, 2 Nov 2026), the price at the current size, the next class and its price gain, the rough days to reach it, the feed-only break-even growth. Touches a new `pricing` module, `dashboard`, `reply_text`, the page and Setup (feed ration). Blocked by: none.
+
 **S15. Wiring, deploy and Spark** (criteria 51, 52)
 - Delivers: the router and conversation wired in `main.py` from environment settings; a run behind a tunnel with a real Page; then EC2 behind CloudFront; Muse Spark writes the reply text through the guard.
 - Blocked by: S9 to S14. The agent wires and tests; the user creates the Page, the Meta app and the AWS resources.
@@ -254,6 +260,14 @@ Revision of the slow-growth rule (2 Nov, after the sample-size analysis: two sam
 54. Given two samples with a spread whose growth cannot be told from the threshold, When compared, Then the screen says it is unclear and states how many shrimp per sample, or how many days, would settle it.
 55. Given the same sample sizes, When the spread is large, Then the number of shrimp or days needed grows (the screen never shows a confident hint on noise).
 56. Given a sample, When saved, Then its standard deviation of lengths is saved with it (and old databases without the column still open).
+
+Robustness, trend and value (2 Nov, after the research notes in `docs/research/`; slices S17 to S19):
+57. Given a mask that joins two or more shrimp (a branching skeleton, or a length at least 1.6 times the typical shrimp), When the default choice is made, Then it is not counted; the farmer can still add it by number.
+58. Given a tray of at least 8 masks of which at least half are left out by default, When the result is shown, Then the text says the photo is crowded and asks to lay the shrimp apart.
+59. Given three or more samples with a spread over at least 6 days, When the slow-growth verdict is made, Then it uses the weighted trend line over the last four samples and its standard error, not the last two samples.
+60. Given a latest size inside the price table, When the dashboard or the bot status is shown, Then it gives the price per kg at that size (default table, labelled), the next larger size class with its price gain, and, only when growth is above zero and not slow, a rough number of days to reach it.
+61. Given a feed price, a feed ration and a price per kg, When shown, Then the dashboard states the growth in mm a day at which feed alone breaks even, and says it does not count power, labour or risk.
+62. Given any text about value or break-even, When written, Then it never tells the farmer to harvest, sell or feed more or less.
 
 ## Risks and open questions
 - **Anti-project risk:** the research flags "simple image analyzers". The stall flag, the cost, the dashboard and the error table must carry the story (ADR-0001). Spark explaining results through the rules is the cheapest agent step and is the last thing to cut.

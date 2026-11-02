@@ -58,3 +58,19 @@ _Avoid_: overlay (that was the web page's word)
 
 **Minimum length**: shrimp shorter than this (50 mm by default, editable in Setup) are treated as fragments and left out of the average.
 _Avoid_: noise filter
+
+## Reading the numbers
+**Merged shrimp**: a mask that joins two or more overlapping shrimp, so its length is not one shrimp's. It is left out of the default choice; the farmer can still add it by number.
+_Avoid_: duplicate, error shrimp
+
+**Crowded tray**: a photo where at least half of the shrimp (8 or more masks) are left out by default because they touch or merge. The text asks the farmer to lay the shrimp apart and shoot again.
+_Avoid_: bad photo
+
+**Growth trend**: the slope of a weighted line through the average lengths of the last up to four samples. It is steadier than the growth between two samples, because a handful of shrimp moves the average by a few millimetres by chance.
+_Avoid_: speed
+
+**Size class**: a price step of shrimp per kg (20, 30, 40 ... 100). The price per kg falls by class and falls fastest at the large end.
+_Avoid_: grade, bracket
+
+**Feed break-even growth**: the growth in mm a day above which the weight gained in a day is worth at least the feed of that day. It counts feed only, not power, labour, risk or price steps, and is an estimate.
+_Avoid_: profit line
