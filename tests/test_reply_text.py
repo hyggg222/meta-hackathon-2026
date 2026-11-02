@@ -128,33 +128,27 @@ def test_template_reply_ok():
     # Test ok status across saved options and notices
     t_pending = _make_tray(status="ok", n_measured=8, n_left_out=2, mean_length_mm=95.23, size_per_kg=71.2)
     reply_pending = template_reply(t_pending, min_measured=5, saved=None)
-    assert "Đo được 8 con, bỏ ra 2 con." in reply_pending
-    assert "Dài trung bình 95.2 mm, khoảng 71 con/kg." in reply_pending
-    assert 'Trả lời "có" để lưu mẫu này, hoặc gõ số các con cần tính, ví dụ: 1 3 5.' in reply_pending
-    assert 'Gõ "chọn" hoặc "bỏ" kèm số con để thêm hoặc bỏ từng con.' in reply_pending
+    assert "Đo được 8 con (bỏ 2 con)" in reply_pending
+    assert "Dài trung bình 9,5 cm · khoảng 71 con/kg" in reply_pending
+    assert 'Trả lời "có"' not in reply_pending
+    assert 'Gõ "chọn"' not in reply_pending
 
     reply_saved = template_reply(t_pending, min_measured=5, saved=True)
-    assert "Đo được 8 con, bỏ ra 2 con." in reply_saved
-    assert "Dài trung bình 95.2 mm, khoảng 71 con/kg." in reply_saved
-    assert "Đã lưu mẫu." in reply_saved
-    assert 'Trả lời "có"' not in reply_saved
+    assert reply_saved == "Đã lưu mẫu."
 
     reply_unsaved = template_reply(t_pending, min_measured=5, saved=False)
-    assert "Đo được 8 con, bỏ ra 2 con." in reply_unsaved
-    assert "Chưa lưu." in reply_unsaved
     assert "Đã lưu mẫu." not in reply_unsaved
 
     # Notice: temporary_table / rough_estimate
     t_temp = _make_tray(status="ok", notices=["temporary_table", "rough_estimate"])
     reply_temp = template_reply(t_temp, min_measured=5, saved=None)
-    assert "Bảng cỡ tạm thời, chỉ là ước lượng thô, có thể lệch 20% trở lên." in reply_temp
+    assert "Ước lượng thô, có thể lệch 20%." in reply_temp
 
     # Notice: outside_table_range (size is None)
     t_outside = _make_tray(status="ok", mean_length_mm=55.0, size_per_kg=None, notices=["outside_table_range"])
     reply_outside = template_reply(t_outside, min_measured=5, saved=None)
-    assert "Dài trung bình 55.0 mm." in reply_outside
-    assert "con/kg" not in reply_outside or "không có số con/kg" in reply_outside
-    assert "Kích cỡ nằm ngoài bảng (60 đến 140 mm), không có số con/kg." in reply_outside
+    assert "Dài trung bình 5,5 cm · cỡ nằm ngoài bảng (60 đến 140 mm)" in reply_outside
+    assert "con/kg" not in reply_outside
 
 
 def test_template_reply_too_few():
@@ -162,9 +156,10 @@ def test_template_reply_too_few():
     t_few = _make_tray(status="too_few", n_measured=3, n_left_out=7, mean_length_mm=None, size_per_kg=None)
     for saved in [None, False, True]:
         reply = template_reply(t_few, min_measured=5, saved=saved)
-        assert "Chỉ có 3 con được tính, cần ít nhất 5 con." in reply
-        assert "Chưa lưu." in reply
-        assert "Xếp lại tôm không chạm nhau rồi chụp lại, hoặc gõ thêm số các con cần tính." in reply
+        assert reply == (
+            "Chỉ có 3 con được tính, cần ít nhất 5 con. Chưa lưu.\n"
+            'Xếp tôm không chạm nhau rồi chụp lại, hoặc gõ "chọn 3" để thêm con.'
+        )
 
 
 def test_template_reply_too_few_crowded_says_the_photo_is_crowded():
@@ -179,17 +174,20 @@ def test_template_reply_too_few_crowded_says_the_photo_is_crowded():
         num_shrimp=32,
     )
     reply = template_reply(t, min_measured=5, saved=None)
-    assert "Chỉ có 4 con được tính, cần ít nhất 5 con." in reply
-    assert "Ảnh có nhiều tôm chồng nhau hoặc dính nhau, nhiều con bị loại." in reply
-    assert "Xếp tôm trải ra, không chồng lên nhau, rồi chụp lại." in reply
+    assert reply == (
+        "Chỉ có 4 con được tính, cần ít nhất 5 con. Chưa lưu.\n"
+        "Ảnh có nhiều tôm chồng nhau. Xếp tôm trải ra rồi chụp lại sẽ đo đúng hơn."
+    )
     assert check_reply(reply, allowed_numbers_for_tray(t, 5)) is True
 
 
 def test_template_reply_points_to_the_left_out_view_only_when_something_is_left_out():
-    # "xem loại" is offered only when at least one shrimp was left out
+    # With left out writes (bỏ N con), without left out omits the bracket
     with_left_out = _make_tray(status="ok", n_measured=8, n_left_out=2)
     without = _make_tray(status="ok", n_measured=8, n_left_out=0)
-    assert 'Gõ "xem loại" để xem các con bị loại.' in template_reply(with_left_out, 5, None)
+    assert "Đo được 8 con (bỏ 2 con)" in template_reply(with_left_out, 5, None)
+    assert template_reply(without, 5, None).startswith("Đo được 8 con\n")
+    assert "xem loại" not in template_reply(with_left_out, 5, None)
     assert "xem loại" not in template_reply(without, 5, None)
     assert check_reply(template_reply(with_left_out, 5, None), allowed_numbers_for_tray(with_left_out, 5)) is True
 
@@ -221,7 +219,7 @@ def test_dashboard_reply_empty():
     # Empty dashboard reply
     d = _make_dashboard(empty=True)
     reply = dashboard_reply(d)
-    assert reply == "Chưa có mẫu nào. Gửi ảnh khay tôm để bắt đầu."
+    assert reply == "Chưa có lần đo nào. Gửi ảnh khay tôm để bắt đầu."
 
 
 def test_dashboard_reply_stall_and_harvest():
@@ -235,9 +233,9 @@ def test_dashboard_reply_stall_and_harvest():
         stall_day_cost_vnd=4500000,
     )
     reply_true = dashboard_reply(d_stall_true)
-    assert "Mẫu gần nhất 02/11: dài 95.2 mm, khoảng 70 con/kg." in reply_true
-    assert "Tăng trưởng có vẻ chậm: 0.20 mm mỗi ngày, dưới mức 0.33 bạn đặt. Đây chỉ là gợi ý, bạn quyết định." in reply_true
-    assert "Cỡ tôm đạt mức 50 con/kg bạn đặt. Chỉ để bạn tham khảo, bạn quyết định." in reply_true
+    assert "Lần đo mới nhất 02/11: tôm dài 9,5 cm, khoảng 70 con/kg." in reply_true
+    assert "Tôm đang lớn chậm: khoảng 0.20 mm mỗi ngày, dưới mức 0.33 bạn đặt. Chỉ là gợi ý, bạn quyết định." in reply_true
+    assert "Cỡ tôm đạt mức 50 con/kg bạn đặt" in reply_true
     assert "Một ngày không lớn tốn thức ăn khoảng 4.500.000 đ." in reply_true
 
     d_stall_false = _make_dashboard(
@@ -246,7 +244,7 @@ def test_dashboard_reply_stall_and_harvest():
         at_harvest=False,
     )
     reply_false = dashboard_reply(d_stall_false)
-    assert "Tăng trưởng không chậm: 0.45 mm mỗi ngày." in reply_false
+    assert "Tôm vẫn đang lớn: khoảng 0.45 mm mỗi ngày." in reply_false
     assert "Cỡ tôm đạt mức" not in reply_false
     assert "Một ngày không lớn" not in reply_false
 
@@ -256,11 +254,11 @@ def test_dashboard_reply_stall_and_harvest():
         at_harvest=False,
     )
     reply_none = dashboard_reply(d_stall_none)
-    assert "Chưa đủ dữ liệu để so với mẫu trước." in reply_none
+    assert "Chưa đủ dữ liệu để so với lần trước." in reply_none
 
 
 def test_dashboard_reply_unclear_says_what_would_settle_it():
-    # Noise: growth cannot be told from the threshold, so say how many shrimp or days are needed
+    # Noise: growth cannot be told from the threshold
     d = replace(
         _make_dashboard(stall=None, growth_mm_per_day=0.33, at_harvest=False),
         stall_unclear=True,
@@ -269,12 +267,8 @@ def test_dashboard_reply_unclear_says_what_would_settle_it():
         shrimp_needed=553,
     )
     reply = dashboard_reply(d)
-    assert "Chưa đủ chắc để nói tôm còn lớn hay không" in reply
-    assert "±1.49 mm mỗi ngày" in reply
-    assert "553 con mỗi mẫu" in reply
-    assert "23 ngày" in reply
-    assert "bạn quyết định" in reply
-    assert "Chưa đủ dữ liệu để so với mẫu trước." not in reply
+    assert "Chưa xác định được: kích thước tôm dao động lên xuống, cần đo nhiều mẫu." in reply
+    assert "Chưa đủ dữ liệu để so với lần trước." not in reply
     assert check_reply(reply, allowed_numbers_for_dashboard(d)) is True
 
 
@@ -293,7 +287,7 @@ def test_dashboard_reply_none_fields():
 
     d_no_size = _make_dashboard(latest_length_mm=95.2, latest_size_per_kg=None)
     reply_no_size = dashboard_reply(d_no_size)
-    assert "dài 95.2 mm" in reply_no_size
+    assert "tôm dài 9,5 cm" in reply_no_size
     assert "con/kg" not in reply_no_size
     assert "None" not in reply_no_size
 
@@ -425,19 +419,14 @@ def test_no_text_contains_forbidden_words():
 
 
 def test_template_reply_crowded():
-    # Crowded notice adds Vietnamese warning before instruction and passes check_reply
+    # Crowded notice adds Vietnamese warning after empty line and passes check_reply
     tray_crowded = _make_tray(status="ok", notices=["crowded"])
     reply = template_reply(tray_crowded, min_measured=5)
     crowded_sentence = (
-        "Ảnh có nhiều tôm chồng nhau hoặc dính nhau, nhiều con bị loại. "
-        "Xếp tôm trải ra, không chồng lên nhau, rồi chụp lại."
+        "Ảnh có nhiều tôm chồng nhau. Xếp tôm trải ra rồi chụp lại sẽ đo đúng hơn."
     )
-    assert crowded_sentence in reply
-
-    instruction = 'Trả lời "có" để lưu mẫu này'
-    idx_crowded = reply.index(crowded_sentence)
-    idx_instruction = reply.index(instruction)
-    assert idx_crowded < idx_instruction
+    assert f"\n\n{crowded_sentence}" in reply
+    assert 'Trả lời "có"' not in reply
 
     allowed = allowed_numbers_for_tray(tray_crowded, min_measured=5)
     assert check_reply(reply, allowed) is True
@@ -445,6 +434,48 @@ def test_template_reply_crowded():
     tray_normal = _make_tray(status="ok", notices=[])
     reply_normal = template_reply(tray_normal, min_measured=5)
     assert crowded_sentence not in reply_normal
+
+
+def test_template_reply_exact_lines_from_brief():
+    # Brief exact lines: ok tray (8 measured, 2 left out, mean 95.2 mm, size 71, temporary_table & rough_estimate)
+    tray = _make_tray(
+        status="ok",
+        n_measured=8,
+        n_left_out=2,
+        mean_length_mm=95.2,
+        size_per_kg=71.0,
+        notices=["temporary_table", "rough_estimate"],
+    )
+    reply = template_reply(tray, min_measured=5, saved=None)
+    expected = (
+        "Đo được 8 con (bỏ 2 con)\n"
+        "Dài trung bình 9,5 cm · khoảng 71 con/kg\n"
+        "Ước lượng thô, có thể lệch 20%."
+    )
+    assert reply == expected
+    assert check_reply(reply, allowed_numbers_for_tray(tray, 5)) is True
+
+    # With crowded notice
+    tray_crowded = replace(tray, notices=["temporary_table", "rough_estimate", "crowded"])
+    reply_crowded = template_reply(tray_crowded, min_measured=5, saved=None)
+    expected_crowded = (
+        "Đo được 8 con (bỏ 2 con)\n"
+        "Dài trung bình 9,5 cm · khoảng 71 con/kg\n"
+        "Ước lượng thô, có thể lệch 20%.\n\n"
+        "Ảnh có nhiều tôm chồng nhau. Xếp tôm trải ra rồi chụp lại sẽ đo đúng hơn."
+    )
+    assert reply_crowded == expected_crowded
+    assert check_reply(reply_crowded, allowed_numbers_for_tray(tray_crowded, 5)) is True
+
+    # With saved=True
+    assert template_reply(tray, min_measured=5, saved=True) == "Đã lưu mẫu."
+
+
+def test_check_reply_accepts_decimal_comma():
+    tray = _make_tray(mean_length_mm=95.2, size_per_kg=71.0)
+    allowed = allowed_numbers_for_tray(tray, min_measured=5)
+    assert check_reply("Dài trung bình 9,5 cm · khoảng 71 con/kg", allowed) is True
+
 def test_dashboard_reply_pricing_lines():
     # dashboard_reply formats size price, next class gain/days, and feed break-even
     d = _make_dashboard(

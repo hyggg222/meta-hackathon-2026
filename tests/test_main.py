@@ -5,7 +5,7 @@ import json
 import logging
 import sqlite3
 import time
-from typing import Any, List, Tuple
+from typing import Any, List, Optional, Tuple
 import cv2
 from fastapi.testclient import TestClient
 import numpy as np
@@ -27,13 +27,20 @@ class RecordingTransport:
     def __init__(self, page_token: str, **kwargs: Any) -> None:
         self.page_token = page_token
         self.sent_texts: List[Tuple[str, str]] = []
+        self.sent_quick_replies: List[Optional[List[Tuple[str, str]]]] = []
         self.sent_images: List[Tuple[str, bytes]] = []
         self.download_bytes: bytes = b""
         RecordingTransport.instances.append(self)
 
-    def send_text(self, recipient_id: str, text: str) -> None:
+    def send_text(
+        self,
+        recipient_id: str,
+        text: str,
+        quick_replies: Optional[List[Tuple[str, str]]] = None,
+    ) -> None:
         # Record sent text message
         self.sent_texts.append((recipient_id, text))
+        self.sent_quick_replies.append(quick_replies)
 
     def send_image(self, recipient_id: str, jpeg: bytes) -> None:
         # Record sent image attachment
@@ -505,3 +512,53 @@ def test_spark_replies_off_by_default(tmp_path: Any, monkeypatch: pytest.MonkeyP
     assert _wait_until(lambda: len(transport.sent_texts) > 0)
     assert "SPARK-STATUS" not in transport.sent_texts[0][1]
     assert FakeSparkWriter.instances == []
+
+
+def test_spark_replies_wires_photo_to_template_and_status_to_spark(
+    tmp_path: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # SPARK_REPLIES=1 wires write_reply to template_reply and write_status to SparkWriter
+    RecordingTransport.instances.clear()
+    FakeSparkWriter.instances.clear()
+    monkeypatch.setattr(shrimp.main, "GraphTransport", RecordingTransport)
+    monkeypatch.setattr(shrimp.main, "SparkWriter", FakeSparkWriter)
+
+    app = build(root=tmp_path, env=_messenger_env(SPARK_REPLIES="1"), segmenter=FakeSegmenter())
+    client = TestClient(app)
+    transport = RecordingTransport.instances[-1]
+
+    # Status uses Spark
+    _status_message(client, "app_secret_1", "m-spark-status")
+    assert _wait_until(lambda: len(transport.sent_texts) > 0)
+    assert "SPARK-STATUS" in transport.sent_texts[0][1]
+
+    # Photo uses template_reply, NOT spark.write_reply
+    transport.sent_texts.clear()
+    img = np.zeros((80, 80, 3), dtype=np.uint8)
+    _, enc = cv2.imencode(".jpg", img)
+    transport.download_bytes = enc.tobytes()
+    payload = {
+        "object": "page",
+        "entry": [
+            {
+                "messaging": [
+                    {
+                        "sender": {"id": "u1"},
+                        "message": {
+                            "mid": "m-spark-photo",
+                            "attachments": [{"type": "image", "payload": {"url": "https://cdn.example.com/p.jpg"}}],
+                        },
+                    }
+                ]
+            }
+        ],
+    }
+    raw = json.dumps(payload).encode("utf-8")
+    resp = client.post(
+        "/webhook/messenger",
+        content=raw,
+        headers={"x-hub-signature-256": _sign(raw, "app_secret_1")},
+    )
+    assert resp.status_code == 200
+    assert _wait_until(lambda: len(transport.sent_texts) > 0)
+    assert "SPARK-REPLY" not in transport.sent_texts[0][1]

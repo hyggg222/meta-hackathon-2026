@@ -7,7 +7,7 @@ import hmac
 import json
 import logging
 import threading
-from typing import Any, Callable, FrozenSet, List, Optional
+from typing import Any, Callable, FrozenSet, List, Optional, Tuple
 import urllib.parse
 from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import JSONResponse, PlainTextResponse
@@ -106,16 +106,34 @@ class GraphTransport:
         # Construct Graph API URL
         return f"https://graph.facebook.com/{self.version}/{path}"
 
-    def send_text(self, recipient_id: str, text: str) -> None:
+    def send_text(
+        self,
+        recipient_id: str,
+        text: str,
+        quick_replies: Optional[List[Tuple[str, str]]] = None,
+    ) -> None:
         # Send text to recipient splitting messages longer than 1900 chars
         url = self._url("me/messages")
         params = {"access_token": self.page_token}
         chunks = _split_text(text, 1900)
-        for chunk in chunks:
+        formatted_qr = None
+        if quick_replies:
+            formatted_qr = [
+                {
+                    "content_type": "text",
+                    "title": str(title)[:20],
+                    "payload": str(payload)[:1000],
+                }
+                for title, payload in quick_replies[:13]
+            ]
+        for i, chunk in enumerate(chunks):
+            message_obj: dict = {"text": chunk}
+            if formatted_qr and i == len(chunks) - 1:
+                message_obj["quick_replies"] = formatted_qr
             payload = {
                 "recipient": {"id": recipient_id},
                 "messaging_type": "RESPONSE",
-                "message": {"text": chunk},
+                "message": message_obj,
             }
             try:
                 resp = self.session.post(
@@ -308,9 +326,13 @@ def create_messenger_router(
                 if not mid_cache.add(mid):
                     continue
 
-                text = msg.get("text")
-                if text is not None and not isinstance(text, str):
-                    text = None
+                quick_reply = msg.get("quick_reply")
+                if isinstance(quick_reply, dict) and isinstance(quick_reply.get("payload"), str):
+                    text = quick_reply["payload"]
+                else:
+                    text = msg.get("text")
+                    if text is not None and not isinstance(text, str):
+                        text = None
 
                 image_urls: List[str] = []
                 attachments = msg.get("attachments")

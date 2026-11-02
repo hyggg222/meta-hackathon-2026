@@ -46,18 +46,13 @@ def template_reply(
 ) -> str:
     # Build Vietnamese reply text for tray analysis result
     if tray.status == "too_few":
-        crowded = ""
+        crowded_sentence = "Ảnh có nhiều tôm chồng nhau. Xếp tôm trải ra rồi chụp lại sẽ đo đúng hơn."
+        first_line = f"Chỉ có {tray.n_measured} con được tính, cần ít nhất {min_measured} con. Chưa lưu."
         if "crowded" in tray.notices:
-            crowded = (
-                "Ảnh có nhiều tôm chồng nhau hoặc dính nhau, nhiều con bị loại. "
-                "Xếp tôm trải ra, không chồng lên nhau, rồi chụp lại. "
-            )
-        return (
-            f"Chỉ có {tray.n_measured} con được tính, cần ít nhất {min_measured} con. "
-            f"{crowded}"
-            "Chưa lưu. Xếp lại tôm không chạm nhau rồi chụp lại, "
-            "hoặc gõ thêm số các con cần tính."
-        )
+            return f"{first_line}\n{crowded_sentence}"
+        else:
+            return f'{first_line}\nXếp tôm không chạm nhau rồi chụp lại, hoặc gõ "chọn 3" để thêm con.'
+
     if tray.status == "no_reference":
         return (
             "Không thấy thước hoặc thẻ trong ảnh nên chưa tính được mm. "
@@ -69,72 +64,44 @@ def template_reply(
             "Xếp tôm nằm phẳng trên nền sáng rồi chụp lại."
         )
 
-    parts: List[str] = []
-    base_counts = f"Đo được {tray.n_measured} con, bỏ ra {tray.n_left_out} con."
+    if saved is True:
+        return "Đã lưu mẫu."
+    if saved is False and tray.status == "ok":
+        return "Chưa lưu."
 
-    mean_str = (
-        f"Dài trung bình {tray.mean_length_mm:.1f} mm"
-        if tray.mean_length_mm is not None
-        else None
-    )
-    size_str = (
-        f"khoảng {round(tray.size_per_kg)} con/kg"
-        if tray.size_per_kg is not None
-        else None
-    )
-
-    if mean_str is not None and size_str is not None:
-        stats = f"{mean_str}, {size_str}."
-    elif mean_str is not None:
-        stats = f"{mean_str}."
-    elif size_str is not None:
-        stats = f"{size_str.capitalize()}."
+    lines: List[str] = []
+    if tray.n_left_out > 0:
+        lines.append(f"Đo được {tray.n_measured} con (bỏ {tray.n_left_out} con)")
     else:
-        stats = None
+        lines.append(f"Đo được {tray.n_measured} con")
 
-    if stats:
-        parts.append(f"{base_counts} {stats}")
+    cm_str = ""
+    if tray.mean_length_mm is not None:
+        cm_val = tray.mean_length_mm / 10.0
+        cm_str = f"{cm_val:.1f}".replace(".", ",")
+
+    if tray.size_per_kg is not None:
+        size_val = round(tray.size_per_kg)
+        lines.append(f"Dài trung bình {cm_str} cm · khoảng {size_val} con/kg")
     else:
-        parts.append(base_counts)
+        lines.append(f"Dài trung bình {cm_str} cm · cỡ nằm ngoài bảng (60 đến 140 mm)")
 
     if "temporary_table" in tray.notices or "rough_estimate" in tray.notices:
-        parts.append(
-            "Bảng cỡ tạm thời, chỉ là ước lượng thô, có thể lệch 20% trở lên."
-        )
-    if "outside_table_range" in tray.notices or (
-        tray.size_per_kg is None and tray.status == "ok"
-    ):
-        parts.append(
-            "Kích cỡ nằm ngoài bảng (60 đến 140 mm), không có số con/kg."
-        )
+        lines.append("Ước lượng thô, có thể lệch 20%.")
 
     if "crowded" in tray.notices:
-        parts.append(
-            "Ảnh có nhiều tôm chồng nhau hoặc dính nhau, nhiều con bị loại. "
-            "Xếp tôm trải ra, không chồng lên nhau, rồi chụp lại."
-        )
+        lines.append("")
+        lines.append("Ảnh có nhiều tôm chồng nhau. Xếp tôm trải ra rồi chụp lại sẽ đo đúng hơn.")
 
-    if saved is None:
-        parts.append(
-            'Trả lời "có" để lưu mẫu này, hoặc gõ số các con cần tính, ví dụ: 1 3 5.'
-        )
-        parts.append('Gõ "chọn" hoặc "bỏ" kèm số con để thêm hoặc bỏ từng con.')
-        if tray.n_left_out > 0:
-            parts.append('Gõ "xem loại" để xem các con bị loại.')
-    elif saved is True:
-        parts.append("Đã lưu mẫu.")
-    elif saved is False:
-        parts.append("Chưa lưu.")
-
-    return " ".join(parts)
+    return "\n".join(lines)
 
 
 def dashboard_reply(d: Dashboard) -> str:
     # Build Vietnamese reply text for dashboard status
     if d.empty:
-        return "Chưa có mẫu nào. Gửi ảnh khay tôm để bắt đầu."
+        return "Chưa có lần đo nào. Gửi ảnh khay tôm để bắt đầu."
 
-    parts: List[str] = []
+    lines: List[str] = []
 
     date_val = getattr(d, "latest_day", None)
     if date_val is None and getattr(d, "rows", None):
@@ -153,63 +120,55 @@ def dashboard_reply(d: Dashboard) -> str:
             else:
                 date_str = date_val
 
-    prefix = f"Mẫu gần nhất {date_str}:" if date_str else "Mẫu gần nhất:"
+    prefix = f"Lần đo mới nhất {date_str}:" if date_str else "Lần đo mới nhất:"
 
-    mean_str = (
-        f"dài {d.latest_length_mm:.1f} mm"
-        if d.latest_length_mm is not None
-        else None
-    )
+    cm_str = None
+    if d.latest_length_mm is not None:
+        cm_val = d.latest_length_mm / 10.0
+        cm_str = f"tôm dài {cm_val:.1f}".replace(".", ",") + " cm"
+
     size_str = (
         f"khoảng {round(d.latest_size_per_kg)} con/kg"
         if d.latest_size_per_kg is not None
         else None
     )
 
-    if mean_str is not None and size_str is not None:
-        parts.append(f"{prefix} {mean_str}, {size_str}.")
-    elif mean_str is not None:
-        parts.append(f"{prefix} {mean_str}.")
+    if cm_str is not None and size_str is not None:
+        lines.append(f"{prefix} {cm_str}, {size_str}.")
+    elif cm_str is not None:
+        lines.append(f"{prefix} {cm_str}.")
     elif size_str is not None:
-        parts.append(f"{prefix} {size_str}.")
+        lines.append(f"{prefix} {size_str}.")
     else:
         if date_str:
-            parts.append(f"Mẫu gần nhất {date_str}.")
+            lines.append(f"Lần đo mới nhất {date_str}.")
         else:
-            parts.append("Mẫu gần nhất.")
+            lines.append("Lần đo mới nhất.")
 
     if d.stall is True:
         growth_val = d.growth_mm_per_day if d.growth_mm_per_day is not None else 0.0
         thresh_str = _format_num(d.stall_threshold_mm_per_day)
-        parts.append(
-            f"Tăng trưởng có vẻ chậm: {growth_val:.2f} mm mỗi ngày, "
-            f"dưới mức {thresh_str} bạn đặt. Đây chỉ là gợi ý, bạn quyết định."
+        lines.append(
+            f"Tôm đang lớn chậm: khoảng {growth_val:.2f} mm mỗi ngày, "
+            f"dưới mức {thresh_str} bạn đặt. Chỉ là gợi ý, bạn quyết định."
         )
     elif d.stall is False:
         growth_val = d.growth_mm_per_day if d.growth_mm_per_day is not None else 0.0
-        parts.append(f"Tăng trưởng không chậm: {growth_val:.2f} mm mỗi ngày.")
-    elif d.stall_unclear and d.growth_se_mm_per_day is not None:
-        parts.append(
-            "Chưa đủ chắc để nói tôm còn lớn hay không: "
-            f"mỗi mẫu dao động khoảng ±{d.growth_se_mm_per_day:.2f} mm mỗi ngày "
-            f"so với mức {_format_num(d.stall_threshold_mm_per_day)} bạn đặt. "
-            f"Cần thêm khoảng {d.shrimp_needed} con mỗi mẫu, "
-            f"hoặc đợi khoảng {d.days_needed} ngày giữa hai lần đo. "
-            "Đây chỉ là gợi ý, bạn quyết định."
-        )
+        lines.append(f"Tôm vẫn đang lớn: khoảng {growth_val:.2f} mm mỗi ngày.")
+    elif d.stall_unclear:
+        lines.append("Chưa xác định được: kích thước tôm dao động lên xuống, cần đo nhiều mẫu.")
     else:
-        parts.append("Chưa đủ dữ liệu để so với mẫu trước.")
+        lines.append("Chưa đủ dữ liệu để so với lần trước.")
 
     if d.at_harvest:
         harvest_thresh_str = _format_num(d.harvest_threshold_per_kg)
-        parts.append(
-            f"Cỡ tôm đạt mức {harvest_thresh_str} con/kg bạn đặt. "
-            "Chỉ để bạn tham khảo, bạn quyết định."
+        lines.append(
+            f"Cỡ tôm đạt mức {harvest_thresh_str} con/kg bạn đặt (chỉ để tham khảo, bạn quyết định)."
         )
 
     if d.value_per_kg_vnd is not None and d.latest_size_per_kg is not None:
         val_str = f"{d.value_per_kg_vnd:,}".replace(",", ".")
-        parts.append(
+        lines.append(
             f"Ở cỡ {round(d.latest_size_per_kg)} con/kg, giá khoảng {val_str} đ/kg (bảng giá mặc định, bạn có thể khác)."
         )
 
@@ -218,20 +177,20 @@ def dashboard_reply(d: Dashboard) -> str:
         if d.days_to_next_class is not None:
             days_text = f" (còn khoảng {d.days_to_next_class} ngày nếu tôm lớn như vừa đo, rất thô)"
         gain_str = _format_num(d.next_class_gain_pct)
-        parts.append(
+        lines.append(
             f"Bậc cỡ {d.next_class_per_kg} con/kg thường được giá hơn khoảng {gain_str}%{days_text}."
         )
 
     if d.breakeven_mm_per_day is not None:
-        parts.append(
+        lines.append(
             f"Thức ăn chỉ hòa vốn nếu tôm lớn trên khoảng {d.breakeven_mm_per_day:.2f} mm mỗi ngày (chưa tính điện, công, rủi ro)."
         )
 
     if d.stall_day_cost_vnd is not None:
         cost_str = f"{d.stall_day_cost_vnd:,}".replace(",", ".")
-        parts.append(f"Một ngày không lớn tốn thức ăn khoảng {cost_str} đ.")
+        lines.append(f"Một ngày không lớn tốn thức ăn khoảng {cost_str} đ.")
 
-    return " ".join(parts)
+    return "\n".join(lines)
 
 
 def check_reply(text: str, allowed_numbers: Iterable[float]) -> bool:
@@ -338,6 +297,9 @@ def allowed_numbers_for_tray(
     if tray.mean_length_mm is not None:
         allowed.append(float(tray.mean_length_mm))
         allowed.append(round(float(tray.mean_length_mm), 1))
+        cm_val = float(tray.mean_length_mm) / 10.0
+        allowed.append(cm_val)
+        allowed.append(round(cm_val, 1))
     if tray.size_per_kg is not None:
         allowed.append(float(tray.size_per_kg))
         allowed.append(float(round(tray.size_per_kg)))
@@ -370,6 +332,9 @@ def allowed_numbers_for_dashboard(d: Dashboard) -> List[float]:
     if d.latest_length_mm is not None:
         allowed.append(float(d.latest_length_mm))
         allowed.append(round(float(d.latest_length_mm), 1))
+        cm_val = float(d.latest_length_mm) / 10.0
+        allowed.append(cm_val)
+        allowed.append(round(cm_val, 1))
     if d.latest_size_per_kg is not None:
         allowed.append(float(d.latest_size_per_kg))
         allowed.append(float(round(d.latest_size_per_kg)))

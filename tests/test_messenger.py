@@ -175,6 +175,74 @@ def test_post_text_message():
     assert received[0].image_urls == []
 
 
+def test_post_quick_reply_payload():
+    # Message carrying quick_reply payload uses that payload as Incoming.text
+    received: List[Incoming] = []
+    client = _make_client(handler=received.append)
+
+    payload = {
+        "object": "page",
+        "entry": [
+            {
+                "messaging": [
+                    {
+                        "sender": {"id": "user1"},
+                        "message": {
+                            "mid": "mid_qr1",
+                            "text": "Lưu mẫu",
+                            "quick_reply": {"payload": "có"},
+                        },
+                    }
+                ]
+            }
+        ],
+    }
+    raw = json.dumps(payload).encode("utf-8")
+    resp = client.post(
+        "/webhook/messenger",
+        content=raw,
+        headers={"X-Hub-Signature-256": _sign(raw)},
+    )
+    assert resp.status_code == 200
+    assert len(received) == 1
+    assert received[0].sender_id == "user1"
+    assert received[0].mid == "mid_qr1"
+    assert received[0].text == "có"
+
+
+def test_post_quick_reply_payload_without_text():
+    # Message with quick_reply payload but no text field still counts as text message
+    received: List[Incoming] = []
+    client = _make_client(handler=received.append)
+
+    payload = {
+        "object": "page",
+        "entry": [
+            {
+                "messaging": [
+                    {
+                        "sender": {"id": "user1"},
+                        "message": {
+                            "mid": "mid_qr2",
+                            "quick_reply": {"payload": "xem loại"},
+                        },
+                    }
+                ]
+            }
+        ],
+    }
+    raw = json.dumps(payload).encode("utf-8")
+    resp = client.post(
+        "/webhook/messenger",
+        content=raw,
+        headers={"X-Hub-Signature-256": _sign(raw)},
+    )
+    assert resp.status_code == 200
+    assert len(received) == 1
+    assert received[0].sender_id == "user1"
+    assert received[0].text == "xem loại"
+
+
 def test_post_photo_message():
     # Extract image attachment URLs into Incoming
     received: List[Incoming] = []
@@ -528,6 +596,71 @@ def test_transport_send_text_split():
     assert len(session.posts) == 2
     assert session.posts[0]["json"]["message"]["text"] == line1
     assert session.posts[1]["json"]["message"]["text"] == line2
+
+
+def test_transport_send_text_quick_replies():
+    # Send text with quick-reply buttons attaches formatted quick_replies
+    session = FakeSession()
+    transport = GraphTransport(page_token="tok123", session=session)
+    buttons = [("Lưu mẫu", "có"), ("Hủy", "hủy")]
+    transport.send_text("recip1", "hello", quick_replies=buttons)
+
+    assert len(session.posts) == 1
+    post = session.posts[0]
+    assert post["json"]["message"] == {
+        "text": "hello",
+        "quick_replies": [
+            {"content_type": "text", "title": "Lưu mẫu", "payload": "có"},
+            {"content_type": "text", "title": "Hủy", "payload": "hủy"},
+        ],
+    }
+
+
+def test_transport_send_text_quick_replies_split_only_on_last_chunk():
+    # Split text attaches quick_replies only to the last chunk
+    session = FakeSession()
+    transport = GraphTransport(page_token="tok123", session=session)
+    line1 = "A" * 1000
+    line2 = "B" * 999
+    text = f"{line1}\n{line2}"
+    buttons = [("Lưu mẫu", "có")]
+    transport.send_text("recip1", text, quick_replies=buttons)
+
+    assert len(session.posts) == 2
+    assert "quick_replies" not in session.posts[0]["json"]["message"]
+    assert session.posts[0]["json"]["message"]["text"] == line1
+    assert session.posts[1]["json"]["message"]["quick_replies"] == [
+        {"content_type": "text", "title": "Lưu mẫu", "payload": "có"}
+    ]
+    assert session.posts[1]["json"]["message"]["text"] == line2
+
+
+def test_transport_send_text_quick_replies_limits():
+    # 14 buttons cut to 13 and title cut to 20 characters
+    session = FakeSession()
+    transport = GraphTransport(page_token="tok123", session=session)
+    long_title = "Tiêu đề này dài hơn hai mươi ký tự"
+    assert len(long_title) > 20
+    buttons = [(f"{long_title} {i}", f"payload_{i}") for i in range(14)]
+    transport.send_text("recip1", "choose", quick_replies=buttons)
+
+    assert len(session.posts) == 1
+    qrs = session.posts[0]["json"]["message"]["quick_replies"]
+    assert len(qrs) == 13
+    for qr in qrs:
+        assert len(qr["title"]) <= 20
+        assert qr["content_type"] == "text"
+
+
+def test_transport_send_text_no_buttons_matches_today():
+    # When quick_replies is None or empty no quick_replies field is present
+    session = FakeSession()
+    transport = GraphTransport(page_token="tok123", session=session)
+    transport.send_text("recip1", "hello", quick_replies=None)
+    assert "quick_replies" not in session.posts[0]["json"]["message"]
+
+    transport.send_text("recip1", "hello", quick_replies=[])
+    assert "quick_replies" not in session.posts[1]["json"]["message"]
 
 
 def test_transport_send_image():
