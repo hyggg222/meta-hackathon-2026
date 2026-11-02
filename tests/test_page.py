@@ -464,3 +464,20 @@ def test_page_num_class_is_not_a_round_badge():
     for rule in re.findall(r"(?m)^\s*(?:\.dash\s+)?\.num[^{]*\{([^}]*)\}", html):
         assert "border-radius:50%" not in rule
         assert "width:28px" not in rule
+
+
+def test_page_says_unclear_when_samples_are_too_noisy():
+    # The dashboard shows the server's "unclear" verdict with what would settle it
+    service = make_test_service()
+    app = create_app(service)
+    client = TestClient(app)
+
+    html = client.get("/").text
+
+    assert "Not clear yet" in html
+    assert "stall_unclear" in html
+    assert "growth_se_mm_per_day" in html
+    assert "shrimp_needed" in html
+    assert "days_needed" in html
+    # the page never decides: no growth-versus-threshold comparison in the script
+    assert not re.search(r"[<>]=?\s*d\.stall_threshold", html)

@@ -1,4 +1,5 @@
 # Tests for Vietnamese reply text templates and guard
+from dataclasses import replace
 from datetime import date
 from typing import List, Optional
 
@@ -208,6 +209,25 @@ def test_dashboard_reply_stall_and_harvest():
     )
     reply_none = dashboard_reply(d_stall_none)
     assert "Chưa đủ dữ liệu để so với mẫu trước." in reply_none
+
+
+def test_dashboard_reply_unclear_says_what_would_settle_it():
+    # Noise: growth cannot be told from the threshold, so say how many shrimp or days are needed
+    d = replace(
+        _make_dashboard(stall=None, growth_mm_per_day=0.33, at_harvest=False),
+        stall_unclear=True,
+        growth_se_mm_per_day=1.4907,
+        days_needed=23,
+        shrimp_needed=553,
+    )
+    reply = dashboard_reply(d)
+    assert "Chưa đủ chắc để nói tôm còn lớn hay không" in reply
+    assert "±1.49 mm mỗi ngày" in reply
+    assert "553 con mỗi mẫu" in reply
+    assert "23 ngày" in reply
+    assert "bạn quyết định" in reply
+    assert "Chưa đủ dữ liệu để so với mẫu trước." not in reply
+    assert check_reply(reply, allowed_numbers_for_dashboard(d)) is True
 
 
 def test_dashboard_reply_none_fields():

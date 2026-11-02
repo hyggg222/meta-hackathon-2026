@@ -173,6 +173,15 @@ def dashboard_reply(d: Dashboard) -> str:
     elif d.stall is False:
         growth_val = d.growth_mm_per_day if d.growth_mm_per_day is not None else 0.0
         parts.append(f"Tăng trưởng không chậm: {growth_val:.2f} mm mỗi ngày.")
+    elif d.stall_unclear and d.growth_se_mm_per_day is not None:
+        parts.append(
+            "Chưa đủ chắc để nói tôm còn lớn hay không: "
+            f"mỗi mẫu dao động khoảng ±{d.growth_se_mm_per_day:.2f} mm mỗi ngày "
+            f"so với mức {_format_num(d.stall_threshold_mm_per_day)} bạn đặt. "
+            f"Cần thêm khoảng {d.shrimp_needed} con mỗi mẫu, "
+            f"hoặc đợi khoảng {d.days_needed} ngày giữa hai lần đo. "
+            "Đây chỉ là gợi ý, bạn quyết định."
+        )
     else:
         parts.append("Chưa đủ dữ liệu để so với mẫu trước.")
 
@@ -332,6 +341,13 @@ def allowed_numbers_for_dashboard(d: Dashboard) -> List[float]:
     if d.growth_mm_per_day is not None:
         allowed.append(float(d.growth_mm_per_day))
         allowed.append(round(float(d.growth_mm_per_day), 2))
+    if d.growth_se_mm_per_day is not None:
+        allowed.append(float(d.growth_se_mm_per_day))
+        allowed.append(round(float(d.growth_se_mm_per_day), 2))
+    if d.days_needed is not None:
+        allowed.append(float(d.days_needed))
+    if d.shrimp_needed is not None:
+        allowed.append(float(d.shrimp_needed))
     if d.stall_day_cost_vnd is not None:
         allowed.append(float(d.stall_day_cost_vnd))
     if d.n_latest is not None:

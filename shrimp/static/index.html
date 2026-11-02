@@ -528,6 +528,8 @@ async function loadDashboard() {
       flagHtml += `<div class="flag"><span class="dot" style="background:var(--yellow)"></span><p><b>Growth looks slow.</b> Under your ${d.stall_threshold_mm_per_day} mm a day since ${prevDay}. A hint only, you decide.</p></div>`;
     } else if (d.stall === false) {
       flagHtml += `<div class="flag"><span class="dot" style="background:var(--green)"></span><p>Growth is not slow: ${growthVal} mm a day since ${prevDay}.</p></div>`;
+    } else if (d.stall_unclear && d.growth_se_mm_per_day !== null && d.growth_se_mm_per_day !== undefined) {
+      flagHtml += `<div class="flag"><span class="dot" style="background:#8a8a8a"></span><p><b>Not clear yet.</b> The samples vary by about &plusmn;${Number(d.growth_se_mm_per_day).toFixed(2)} mm a day, too much to tell growth from your ${d.stall_threshold_mm_per_day} line. About ${d.shrimp_needed} shrimp per sample, or ${d.days_needed} days between samples, would settle it. A hint only, you decide.</p></div>`;
     } else {
       if (d.n_previous === null || d.n_previous === undefined) {
         flagHtml += '<div class="flag"><span class="dot" style="background:#8a8a8a"></span><p><b>Only one sample.</b> Take another photo in a few days to see growth.</p></div>';
