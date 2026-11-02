@@ -15,10 +15,10 @@ def create_app(segmenter: Segmenter, settings: Optional[Settings] = None) -> Fas
     active_settings = settings if settings is not None else Settings()
 
     @app.post("/api/analyze")
-    async def analyze(photo: UploadFile = File(...)):
+    def analyze(photo: UploadFile = File(...)):
         # Analyze uploaded tray photo
         try:
-            content = await photo.read()
+            content = photo.file.read()
             tray = analyze_tray(content, active_settings, None, segmenter)
             return JSONResponse(content=asdict(tray))
         except SegmentationError as exc:

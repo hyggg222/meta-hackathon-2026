@@ -5,12 +5,27 @@ import json
 import os
 import subprocess
 import tempfile
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 import cv2
 import numpy as np
 import requests
 
 from shrimp.models import Segmenter, SegmentationError
+
+
+def upload_part(photo: bytes) -> Tuple[str, bytes, str]:
+    # Select filename, content, and mime type based on image magic bytes
+    if photo.startswith(b"\x89PNG"):
+        return ("photo.png", photo, "image/png")
+    if photo.startswith(b"\xff\xd8"):
+        return ("photo.jpg", photo, "image/jpeg")
+    img = cv2.imdecode(np.frombuffer(photo, np.uint8), cv2.IMREAD_COLOR)
+    if img is None:
+        raise SegmentationError("Failed to decode image bytes")
+    ok, enc = cv2.imencode(".jpg", img)
+    if not ok:
+        raise SegmentationError("Failed to encode image to JPEG")
+    return ("photo.jpg", enc.tobytes(), "image/jpeg")
 
 
 def masks_from_records(
@@ -75,10 +90,11 @@ def make_sam_segmenter(
             file_id = file_ids[photo_hash]
         else:
             try:
+                part = upload_part(photo)
                 upload_resp = requests.post(
                     "https://api.meta.ai/v1/files",
                     headers={"Authorization": f"Bearer {api_key}"},
-                    files={"file": ("photo.jpg", photo, "image/jpeg")},
+                    files={"file": part},
                     data={"purpose": "user_data"},
                     timeout=60,
                 )
