@@ -184,8 +184,8 @@ def test_root_page():
     assert "No ruler or card found, no millimetres shown" in html
     assert "No shrimp found" in html
     assert "Could not process the photo, nothing was saved" in html
-    assert "/api/samples" in html
-    assert "/api/analyze" not in html
+    assert "/api/analyses" in html
+    assert "/api/samples" not in html
 
 
 def test_dashboard_route_empty():

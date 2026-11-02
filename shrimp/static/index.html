@@ -377,8 +377,6 @@ let currentShrimpList = [];
 let currentIncluded = new Set();
 let sampleSaved = false;
 
-// The old one-shot /api/samples is no longer used by the page
-
 // latest summary wins
 let summaryRequestId = 0;
 let summaryInFlight = false;
@@ -449,9 +447,9 @@ function openFeedScreen() {
 function renderPhotoSvg(url, w, h, shrimpList, includedSet) {
   const scale = Math.max(1, w / 360);
   const strokeWidth = (2 * scale).toFixed(1);
-  const fs = (13 * scale).toFixed(1);
+  const fs = (9 * scale).toFixed(1);
   const dash = `${(6 * scale).toFixed(1)} ${(4 * scale).toFixed(1)}`;
-  const textStrokeWidth = (2.5 * scale).toFixed(1);
+  const textStrokeWidth = (2 * scale).toFixed(1);
 
   let shrimpMarkup = "";
   if (Array.isArray(shrimpList)) {
@@ -514,7 +512,7 @@ function renderShrimpChoiceList(shrimpList, includedSet) {
     const len = (s.length_mm !== null && s.length_mm !== undefined) ? f1(s.length_mm) : "-";
     const overlapMsg = s.overlapped ? "touches another shrimp or the edge" : "";
     const trCls = isChosen ? "" : ' class="out"';
-    return `<tr${trCls} data-index="${s.index}"><td><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" class="shrimp-chk" data-index="${s.index}" ${isChosen ? "checked" : ""}><span>Shrimp ${i + 1}</span></label></td><td class="r">${len} mm</td><td class="small">${overlapMsg}</td></tr>`;
+    return `<tr${trCls} data-index="${s.index}"><td><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" class="shrimp-chk" data-index="${s.index}" ${isChosen ? "checked" : ""}><span>Shrimp ${i + 1}</span></label>${overlapMsg ? `<div class="small" style="margin:2px 0 0 34px">${overlapMsg}</div>` : ""}</td><td class="r" style="white-space:nowrap">${len} mm</td></tr>`;
   }).join("");
 
   return `<div class="card"><b>Shrimp</b><table class="t" style="margin-top:8px"><tbody>${rows}</tbody></table></div>`;
