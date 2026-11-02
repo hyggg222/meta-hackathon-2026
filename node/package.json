@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "@meta-sam/parser": "^0.1.0"
+  }
+}
