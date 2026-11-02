@@ -1,6 +1,17 @@
 import json
+import math
 from pathlib import Path
 from typing import List, Optional, Tuple, Union
+
+
+# Check value is a positive finite number
+def _is_positive_number(val: object) -> bool:
+    return (
+        isinstance(val, (int, float))
+        and not isinstance(val, bool)
+        and math.isfinite(val)
+        and val > 0
+    )
 
 
 class SizeTable:
@@ -57,6 +68,12 @@ class SizeTable:
             if key not in data:
                 raise ValueError(f"missing key: {key}")
 
+        if not isinstance(data["temporary"], bool):
+            raise ValueError("temporary must be a bool")
+
+        if not _is_positive_number(data["length_factor"]):
+            raise ValueError("invalid length_factor")
+
         raw_rows = data["rows"]
         if not isinstance(raw_rows, list) or len(raw_rows) < 2:
             raise ValueError("fewer than 2 rows")
@@ -66,8 +83,13 @@ class SizeTable:
         for row in raw_rows:
             if not isinstance(row, (list, tuple)) or len(row) < 2:
                 raise ValueError("invalid row format")
-            length = float(row[0])
-            count = float(row[1])
+            raw_len, raw_count = row[0], row[1]
+            if not _is_positive_number(raw_len):
+                raise ValueError("invalid row length")
+            if not _is_positive_number(raw_count):
+                raise ValueError("invalid row count")
+            length = float(raw_len)
+            count = float(raw_count)
             if prev_len is not None and length <= prev_len:
                 raise ValueError("lengths not strictly increasing")
             prev_len = length
@@ -75,7 +97,7 @@ class SizeTable:
 
         return cls(
             source=str(data["source"]),
-            temporary=bool(data["temporary"]),
+            temporary=data["temporary"],
             length_factor=float(data["length_factor"]),
             rows=parsed_rows,
         )
