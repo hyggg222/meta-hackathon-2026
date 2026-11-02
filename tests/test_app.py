@@ -1,4 +1,5 @@
 # Tests for FastAPI application routes
+import inspect
 from fastapi.testclient import TestClient
 import numpy as np
 
@@ -59,3 +60,22 @@ def test_root_page():
     assert "No ruler or card found, no millimetres shown" in html
     assert "No shrimp found" in html
     assert "Could not process the photo, nothing was saved" in html
+
+
+def test_analyze_route_sync():
+    # Route is a plain def and returns 200 with status for fake segmenter
+    ruler = np.zeros((300, 300), bool)
+    ruler[20:50, 20:200] = True
+    shrimp = np.zeros((300, 300), bool)
+    shrimp[100:110, 50:150] = True
+    seg = FakeSegmenter({"ruler": [ruler], "shrimp": [shrimp]})
+    app = create_app(seg)
+    route = next(r for r in app.routes if getattr(r, "path", None) == "/api/analyze")
+    assert not inspect.iscoroutinefunction(route.endpoint)
+
+    client = TestClient(app)
+    resp = client.post("/api/analyze", files={"photo": ("tray.jpg", b"fake_bytes", "image/jpeg")})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "ok"
+
