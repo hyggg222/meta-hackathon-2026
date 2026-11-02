@@ -482,9 +482,10 @@ def test_service_min_length_validation():
         s = Settings(**{**base.__dict__, "min_length_mm": ok_val})
         assert service.save_settings(s).min_length_mm == float(ok_val)
 
+    current_base = service.settings()
     for bad in (0, -1, 1000.1, 1001, 1e9, float("nan"), float("inf"), "x", True, False, None, 10**400):
-        s = Settings(**{**base.__dict__, "min_length_mm": bad})
+        s = Settings(**{**current_base.__dict__, "min_length_mm": bad})
         with pytest.raises(ValueError) as excinfo:
             service.save_settings(s)
         assert "min_length_mm" in str(excinfo.value)
-        assert service.settings() == base
+        assert service.settings() == current_base

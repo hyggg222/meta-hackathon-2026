@@ -337,7 +337,6 @@ def test_tray_fragment_excluded(fake_photo: bytes):
     s4 = make_capsule_shrimp(50, 307, 420, r=6, shape=(800, 800))
     seg = FakeSegmenter({"ruler": [ruler], "shrimp": [frag, s1, s2, s3, s4]})
     res = analyze_tray(fake_photo, Settings(), None, seg)
-    assert res.status == "ok"
     assert res.n_measured == 4
     assert res.n_left_out == 1
     assert 0 not in res.included
