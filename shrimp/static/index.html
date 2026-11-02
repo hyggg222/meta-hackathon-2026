@@ -292,12 +292,91 @@ function sizeTag() {
   return '<span class="chip tag">temporary table, not the CP table</span> <span class="small">Rough estimate, likely off by 20% or more.</span>';
 }
 
-// Global cached settings
+// Parse numeric input from form fields
+function parseNumber(text, opts) {
+  const integer = Boolean(opts && opts.integer);
+  if (text === null || text === undefined) return null;
+  const s = String(text).trim();
+  if (!s) return null;
+  if (integer && /^\d{1,3}([.,]\d{3})+$/.test(s)) {
+    const cleaned = s.replace(/[.,]/g, "");
+    const val = parseInt(cleaned, 10);
+    return isNaN(val) ? null : val;
+  }
+  if (/^\d+([.,]\d+)?$/.test(s)) {
+    const normalized = s.replace(",", ".");
+    const val = parseFloat(normalized);
+    if (isNaN(val)) return null;
+    return integer ? Math.round(val) : val;
+  }
+  return null;
+}
+
+// Format growth rate description in mm per day
+function formatGrowth(growth, capitalize) {
+  if (growth === null || growth === undefined || isNaN(growth)) return "-";
+  const absVal = Math.abs(growth).toFixed(3);
+  if (growth < 0) {
+    return (capitalize ? "Shrank by " : "shrank by ") + absVal + " mm a day";
+  }
+  return (capitalize ? "Grew " : "grew ") + absVal + " mm a day";
+}
+
+// Set error message under form field
+function setFieldError(inputEl, msg) {
+  const fld = inputEl.closest(".fld");
+  if (!fld) return;
+  let err = fld.querySelector(".field-err");
+  if (msg) {
+    fld.classList.add("bad");
+    if (!err) {
+      err = document.createElement("p");
+      err.className = "err field-err";
+      err.setAttribute("role", "alert");
+      fld.appendChild(err);
+    }
+    err.textContent = msg;
+    err.style.display = "block";
+  } else {
+    fld.classList.remove("bad");
+    if (err) {
+      err.textContent = "";
+      err.style.display = "none";
+    }
+  }
+}
+
+// Clear field errors within container
+function clearFieldErrors(container) {
+  container.querySelectorAll(".fld.bad").forEach(f => f.classList.remove("bad"));
+  container.querySelectorAll(".field-err").forEach(e => {
+    e.textContent = "";
+    e.style.display = "none";
+  });
+}
+
+// Global cached settings and form state
 let currentSettings = null;
 let currentPhotoFile = null;
 let currentPhotoUrl = null;
 let photoNaturalWidth = 360;
 let photoNaturalHeight = 300;
+let inFlight = false;
+let requestId = 0;
+let feedDateEdited = false;
+let feedPriceEdited = false;
+
+// Refresh feed form defaults when opening feed screen
+function refreshFeedDefaults() {
+  if (!feedDateEdited) {
+    const feedDate = document.getElementById("feed-date");
+    if (feedDate) feedDate.value = todayIso();
+  }
+  if (!feedPriceEdited && currentSettings && currentSettings.feed_price_vnd !== undefined) {
+    const feedPrice = document.getElementById("feed-price");
+    if (feedPrice) feedPrice.value = currentSettings.feed_price_vnd;
+  }
+}
 
 // Resolve URL fragment to a screen name: #photo (default), #feed, #dashboard
 function routeFromHash() {
@@ -334,6 +413,7 @@ function switchScreen(target) {
   });
 
   if (target === "feed") {
+    refreshFeedDefaults();
     loadSettings();
   } else if (target === "dashboard") {
     loadDashboard();
@@ -411,23 +491,24 @@ function handleSampleResult(data) {
   resultsEl.style.display = "none";
   resultsEl.innerHTML = "";
 
-  if (data.status === "no_reference") {
+  if (data.status === "no_reference" || data.status === "no_shrimp") {
     msgEl.className = "band red";
     msgEl.setAttribute("role", "alert");
-    msgEl.innerHTML = 'No ruler or card found<p>Lay a ruler (or a credit card) flat next to the shrimp, fully in the photo. Then take the photo again.</p>';
+    if (data.status === "no_reference") {
+      msgEl.innerHTML = 'No ruler or card found<p>Lay a ruler (or a credit card) flat next to the shrimp, fully in the photo. Then take the photo again.</p>';
+    } else {
+      msgEl.innerHTML = 'No shrimp found<p>Lay the shrimp flat on the tray, in one layer and in good light. Then take the photo again.</p>';
+    }
     msgEl.style.display = "block";
+
+    renderPhotoPreview(data.shrimp);
+    const shrimpTbl = (data.shrimp && data.shrimp.length > 0) ? `<div style="margin-top:8px">${renderShrimpTable(data.shrimp)}</div>` : "";
+    resultsEl.innerHTML = `<div class="card"><div class="count">${data.n_measured} measured, ${data.n_left_out} left out</div>${shrimpTbl}</div>`;
+    resultsEl.style.display = "block";
     return;
   }
 
-  if (data.status === "no_shrimp") {
-    msgEl.className = "band red";
-    msgEl.setAttribute("role", "alert");
-    msgEl.innerHTML = 'No shrimp found<p>Lay the shrimp flat on the tray, in one layer and in good light. Then take the photo again.</p>';
-    msgEl.style.display = "block";
-    return;
-  }
-
-  const minNeeded = (currentSettings && currentSettings.min_measured) ? currentSettings.min_measured : 5;
+  const minNeeded = (currentSettings && currentSettings.min_measured != null) ? currentSettings.min_measured : "the minimum";
   if (data.status === "too_few") {
     msgEl.className = "band red";
     msgEl.setAttribute("role", "alert");
@@ -471,7 +552,7 @@ function handleSampleResult(data) {
     const tagHtml = notices.includes("temporary_table") ? `<p style="margin:4px 0 0">${sizeTag()}</p>` : "";
     let avgLineHtml = "";
     if (notices.includes("outside_table_range")) {
-      avgLineHtml = `<p style="margin:6px 0">Average <b>${f1(data.mean_length_mm)} mm</b>, Outside the table range: no size per kg</p>${tagHtml}`;
+      avgLineHtml = `<p style="margin:6px 0">Average <b>${f1(data.mean_length_mm)} mm</b>, outside the table range: no size per kg</p>${tagHtml}`;
     } else if (data.mean_length_mm !== null && data.mean_length_mm !== undefined) {
       const sizeText = (data.size_per_kg !== null && data.size_per_kg !== undefined) ? `${perKgText(data.size_per_kg)} per kg` : "-";
       avgLineHtml = `<p style="margin:6px 0">Average <b>${f1(data.mean_length_mm)} mm</b>, about <b>${sizeText}</b></p>${tagHtml}`;
@@ -499,13 +580,7 @@ async function loadSettings() {
     document.getElementById("setup-harvest").value = currentSettings.harvest_per_kg !== undefined ? currentSettings.harvest_per_kg : "";
     document.getElementById("setup-min").value = currentSettings.min_measured !== undefined ? currentSettings.min_measured : "";
 
-    const feedDate = document.getElementById("feed-date");
-    if (!feedDate.value) feedDate.value = todayIso();
-
-    const feedPrice = document.getElementById("feed-price");
-    if (!feedPrice.value && currentSettings.feed_price_vnd !== undefined) {
-      feedPrice.value = currentSettings.feed_price_vnd;
-    }
+    refreshFeedDefaults();
   } catch (_) {}
 }
 
@@ -546,6 +621,20 @@ function renderDashboardChart(chartData, rowData) {
   chartData.forEach(r => {
     if (!days.includes(r.day)) days.push(r.day);
   });
+  let labeledDays;
+  if (days.length <= 5) {
+    labeledDays = new Set(days);
+  } else {
+    // label thinning
+    const step = (days.length - 1) / 4;
+    labeledDays = new Set([
+      days[0],
+      days[Math.round(step)],
+      days[Math.round(step * 2)],
+      days[Math.round(step * 3)],
+      days[days.length - 1]
+    ]);
+  }
   const seen = {};
   chartData.forEach((r, i) => {
     const X = x(Date.parse(r.day + "T00:00:00Z"));
@@ -554,12 +643,14 @@ function renderDashboardChart(chartData, rowData) {
     g += `<circle cx="${X}" cy="${Y}" r="8" fill="${isDemo ? '#fff' : '#0a5c36'}" stroke="#101010" stroke-width="3.5"/>`;
     if (!seen[r.day]) {
       seen[r.day] = 1;
-      if (days.length > 1 && r.day === days[0]) {
-        g += `<text x="${X}" y="${H - 12}" text-anchor="start" font-size="13" font-weight="700" fill="#101010">${lab(r.day)}</text>`;
-      } else if (days.length > 1 && r.day === days[days.length - 1]) {
-        g += `<text x="${X}" y="${H - 12}" text-anchor="end" font-size="13" font-weight="700" fill="#101010">${lab(r.day)}</text>`;
-      } else {
-        g += `<text x="${X}" y="${H - 12}" text-anchor="middle" font-size="13" font-weight="700" fill="#101010">${lab(r.day)}</text>`;
+      if (labeledDays.has(r.day)) {
+        if (days.length > 1 && r.day === days[0]) {
+          g += `<text x="${X}" y="${H - 12}" text-anchor="start" font-size="13" font-weight="700" fill="#101010">${lab(r.day)}</text>`;
+        } else if (days.length > 1 && r.day === days[days.length - 1]) {
+          g += `<text x="${X}" y="${H - 12}" text-anchor="end" font-size="13" font-weight="700" fill="#101010">${lab(r.day)}</text>`;
+        } else {
+          g += `<text x="${X}" y="${H - 12}" text-anchor="middle" font-size="13" font-weight="700" fill="#101010">${lab(r.day)}</text>`;
+        }
       }
     }
   });
@@ -591,10 +682,6 @@ function renderDashboardSamplesTable(rows, notices) {
 async function loadDashboard() {
   const target = document.getElementById("dash-content");
   try {
-    if (!currentSettings) {
-      const sResp = await fetch("/api/settings");
-      if (sResp.ok) currentSettings = await sResp.json();
-    }
     const resp = await fetch("/api/dashboard");
     if (!resp.ok) {
       target.innerHTML = '<div class="band red" role="alert">Could not load dashboard</div>';
@@ -638,32 +725,28 @@ async function loadDashboard() {
 
     const latestCard = `<div class="card"><div class="cap" style="margin:0 0 8px">Latest sample, ${lab(lastDay)}, ${d.n_latest} shrimp measured ${demoChip}</div><div class="nums"><div><span class="big">${avgLen}</span><span class="unit"> mm</span><div class="cap">average length</div></div><div>${sizeDisplay}<div class="cap">size</div></div></div>${tagHtml}${changeLineHtml}</div>`;
 
-    const threshold = currentSettings ? currentSettings.stall_mm_per_day : 0.33;
-    const minShrimp = currentSettings ? currentSettings.min_measured : 5;
-    const harvestThreshold = currentSettings ? currentSettings.harvest_per_kg : 50;
-    const rate = (d.days_between && d.days_between > 0 && d.change_length_mm !== null && d.change_length_mm !== undefined)
-      ? (d.change_length_mm / d.days_between)
-      : 0;
-
     let flagHtml = "";
     if (d.stall === true) {
       const prevDay = (d.rows && d.rows.length >= 2) ? d.rows[d.rows.length - 2].day : "";
-      flagHtml += `<div class="band red" role="status">Stall flag<p>Average length grew ${f2(rate)} mm a day since ${lab(prevDay)}. Flag shows under ${threshold}. Based on ${d.n_latest} and ${d.n_previous} shrimp.</p></div>`;
+      flagHtml += `<div class="band red" role="status">Stall flag<p>Average length ${formatGrowth(d.growth_mm_per_day, false)} since ${lab(prevDay)}. Flag shows under ${d.stall_threshold_mm_per_day}. Based on ${d.n_latest} and ${d.n_previous} shrimp.</p></div>`;
     } else if (d.stall === false) {
       const prevDay = (d.rows && d.rows.length >= 2) ? d.rows[d.rows.length - 2].day : "";
-      flagHtml += `<div class="card" role="status"><b>No stall flag.</b> Grew ${f2(rate)} mm a day since ${lab(prevDay)}.</div>`;
+      flagHtml += `<div class="card" role="status"><b>No stall flag.</b> ${formatGrowth(d.growth_mm_per_day, true)} since ${lab(prevDay)}.</div>`;
     } else {
       if (d.n_previous === null || d.n_previous === undefined) {
         flagHtml += '<div class="card" role="status"><b>Only one sample.</b> Take another photo in a few days to see growth.</div>';
       } else if (notices.includes("same_day")) {
         flagHtml += `<div class="card" role="status"><b>Same day.</b> Two samples on ${lab(lastDay)}. Growth cannot be told.</div>`;
       } else if (notices.includes("not_enough_shrimp")) {
-        flagHtml += `<div class="card" role="status"><b>Not enough shrimp.</b> ${d.n_latest} measured in the latest sample, ${minShrimp} needed to tell a stall.</div>`;
+        const counts = (d.n_previous !== null && d.n_previous !== undefined)
+          ? `${d.n_latest} measured in the latest sample, ${d.n_previous} in the one before`
+          : `${d.n_latest} measured in the latest sample`;
+        flagHtml += `<div class="card" role="status"><b>Not enough shrimp.</b> ${counts}; ${d.min_measured} are needed in each to tell a stall.</div>`;
       }
     }
 
     if (d.at_harvest) {
-      flagHtml += `<div class="band blue" role="status">At harvest size<p>${perKgText(d.latest_size_per_kg)} per kg is at or under your ${harvestThreshold} per kg. For your information. You decide.</p></div>`;
+      flagHtml += `<div class="band blue" role="status">At harvest size<p>${perKgText(d.latest_size_per_kg)} per kg is at or under your ${d.harvest_threshold_per_kg} per kg. For your information. You decide.</p></div>`;
     }
 
     let costHtml = "";
@@ -686,6 +769,151 @@ async function loadDashboard() {
   }
 }
 
+// Save feed form submission handler
+async function saveFeedHandler() {
+  const pane = document.getElementById("pane-feed");
+  const errEl = document.getElementById("feed-form-err");
+  const savedEl = document.getElementById("set-saved-msg");
+  clearFieldErrors(pane);
+  errEl.style.display = "none";
+  errEl.innerHTML = "";
+  savedEl.style.display = "none";
+
+  const feedDateInput = document.getElementById("feed-date");
+  const kgInput = document.getElementById("feed-kg");
+  const priceInput = document.getElementById("feed-price");
+
+  const dayVal = feedDateInput.value;
+  const kg = parseNumber(kgInput.value, { integer: false });
+  const price = parseNumber(priceInput.value, { integer: true });
+
+  let hasError = false;
+  if (kg === null) {
+    setFieldError(kgInput, "Type a plain number, for example 100 or 45000.");
+    hasError = true;
+  }
+  if (price === null) {
+    setFieldError(priceInput, "Type a plain number, for example 100 or 45000.");
+    hasError = true;
+  }
+  if (hasError) return;
+
+  const payload = {
+    day: dayVal,
+    kg_per_day: kg,
+    price_vnd: price
+  };
+
+  try {
+    const resp = await fetch("/api/feed", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    if (!resp.ok) {
+      let errText = "Could not save feed.";
+      try {
+        const errData = await resp.json();
+        if (errData && errData.error) errText = errData.error;
+      } catch (_) {}
+      errEl.innerHTML = `<p class="err" role="alert">${esc(errText)}</p>`;
+      errEl.style.display = "block";
+      return;
+    }
+    savedEl.className = "band green";
+    savedEl.setAttribute("role", "status");
+    savedEl.style.marginBottom = "10px";
+    savedEl.textContent = "Saved.";
+    savedEl.style.display = "block";
+  } catch (_) {
+    errEl.innerHTML = '<p class="err" role="alert">Could not save feed.</p>';
+    errEl.style.display = "block";
+  }
+}
+
+// Save setup form submission handler
+async function saveSetupHandler() {
+  const pane = document.getElementById("pane-setup");
+  const errEl = document.getElementById("setup-form-err");
+  const savedEl = document.getElementById("set-saved-msg");
+  clearFieldErrors(pane);
+  errEl.style.display = "none";
+  errEl.innerHTML = "";
+  savedEl.style.display = "none";
+
+  const nameVal = document.getElementById("setup-name").value;
+  const rulerInput = document.getElementById("setup-ruler");
+  const priceInput = document.getElementById("setup-price");
+  const stallInput = document.getElementById("setup-stall");
+  const harvestInput = document.getElementById("setup-harvest");
+  const minInput = document.getElementById("setup-min");
+
+  const ruler = parseNumber(rulerInput.value, { integer: false });
+  const price = parseNumber(priceInput.value, { integer: true });
+  const stall = parseNumber(stallInput.value, { integer: false });
+  const harvest = parseNumber(harvestInput.value, { integer: false });
+  const min = parseNumber(minInput.value, { integer: true });
+
+  let hasError = false;
+  if (ruler === null) {
+    setFieldError(rulerInput, "Type a plain number, for example 100 or 45000.");
+    hasError = true;
+  }
+  if (price === null) {
+    setFieldError(priceInput, "Type a plain number, for example 100 or 45000.");
+    hasError = true;
+  }
+  if (stall === null) {
+    setFieldError(stallInput, "Type a plain number, for example 100 or 45000.");
+    hasError = true;
+  }
+  if (harvest === null) {
+    setFieldError(harvestInput, "Type a plain number, for example 100 or 45000.");
+    hasError = true;
+  }
+  if (min === null) {
+    setFieldError(minInput, "Type a plain number, for example 100 or 45000.");
+    hasError = true;
+  }
+  if (hasError) return;
+
+  const payload = {
+    pond_name: nameVal,
+    ruler_mm: ruler,
+    feed_price_vnd: price,
+    stall_mm_per_day: stall,
+    harvest_per_kg: harvest,
+    min_measured: min
+  };
+
+  try {
+    const resp = await fetch("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    if (!resp.ok) {
+      let errText = "Could not save setup.";
+      try {
+        const errData = await resp.json();
+        if (errData && errData.error) errText = errData.error;
+      } catch (_) {}
+      errEl.innerHTML = `<p class="err" role="alert">${esc(errText)}</p>`;
+      errEl.style.display = "block";
+      return;
+    }
+    currentSettings = await resp.json();
+    savedEl.className = "band green";
+    savedEl.setAttribute("role", "status");
+    savedEl.style.marginBottom = "10px";
+    savedEl.textContent = "Saved.";
+    savedEl.style.display = "block";
+  } catch (_) {
+    errEl.innerHTML = '<p class="err" role="alert">Could not save setup.</p>';
+    errEl.style.display = "block";
+  }
+}
+
 // Wire form events and page interaction handlers
 document.addEventListener("DOMContentLoaded", () => {
   const photoInput = document.getElementById("photo-input");
@@ -694,12 +922,15 @@ document.addEventListener("DOMContentLoaded", () => {
   photoInput.addEventListener("change", () => {
     const file = photoInput.files[0];
     if (!file) return;
+    requestId++;
     currentPhotoFile = file;
     if (currentPhotoUrl) URL.revokeObjectURL(currentPhotoUrl);
     currentPhotoUrl = URL.createObjectURL(file);
     document.getElementById("cap-filebtn-txt").textContent = "Take another photo";
-    sendBtn.disabled = false;
-    sendBtn.textContent = "Send photo";
+    if (!inFlight) {
+      sendBtn.disabled = false;
+      sendBtn.textContent = "Send photo";
+    }
 
     document.getElementById("photo-msg").style.display = "none";
     document.getElementById("photo-results").style.display = "none";
@@ -715,10 +946,12 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   sendBtn.addEventListener("click", async () => {
-    if (!currentPhotoFile) return;
+    if (inFlight || !currentPhotoFile) return;
+    inFlight = true;
     sendBtn.disabled = true;
     sendBtn.textContent = "Working, up to 10 seconds";
 
+    const thisRequestId = requestId;
     const msgEl = document.getElementById("photo-msg");
     const resultsEl = document.getElementById("photo-results");
     msgEl.style.display = "none";
@@ -730,15 +963,25 @@ document.addEventListener("DOMContentLoaded", () => {
     formData.append("photo", currentPhotoFile);
     formData.append("day", todayIso());
 
+    let resStatus = 0;
     try {
       const resp = await fetch("/api/samples", {
         method: "POST",
         body: formData
       });
-      sendBtn.disabled = false;
-      sendBtn.textContent = "Send photo";
+      resStatus = resp.status;
+
+      if (thisRequestId !== requestId) {
+        inFlight = false;
+        sendBtn.disabled = false;
+        sendBtn.textContent = "Send photo";
+        return;
+      }
 
       if (!resp.ok) {
+        inFlight = false;
+        sendBtn.disabled = false;
+        sendBtn.textContent = "Send photo";
         let errDetail = "";
         if (resp.status === 413 || resp.status === 422) {
           try {
@@ -754,114 +997,52 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       const data = await resp.json();
+      if (thisRequestId !== requestId) {
+        inFlight = false;
+        sendBtn.disabled = false;
+        sendBtn.textContent = "Send photo";
+        return;
+      }
+
+      inFlight = false;
+      if (data.status === "ok") {
+        sendBtn.disabled = true;
+        sendBtn.textContent = "Send photo";
+      } else {
+        sendBtn.disabled = false;
+        sendBtn.textContent = "Send photo";
+      }
+
       handleSampleResult(data);
     } catch (_) {
+      inFlight = false;
+      if (thisRequestId !== requestId) {
+        sendBtn.disabled = false;
+        sendBtn.textContent = "Send photo";
+        return;
+      }
       sendBtn.disabled = false;
       sendBtn.textContent = "Send photo";
       msgEl.className = "band red";
       msgEl.setAttribute("role", "alert");
-      msgEl.innerHTML = 'Something went wrong<p>Nothing was saved.</p>';
+      if (resStatus === 200) {
+        msgEl.innerHTML = "Something went wrong<p>The photo was saved, but the result could not be shown.</p>";
+      } else {
+        msgEl.innerHTML = "Something went wrong<p>Nothing was saved.</p>";
+      }
       msgEl.style.display = "block";
     }
   });
 
-  document.getElementById("save-feed-btn").addEventListener("click", async () => {
-    const errEl = document.getElementById("feed-form-err");
-    const savedEl = document.getElementById("set-saved-msg");
-    errEl.style.display = "none";
-    errEl.innerHTML = "";
-    savedEl.style.display = "none";
+  const feedDateInput = document.getElementById("feed-date");
+  const feedPriceInput = document.getElementById("feed-price");
+  feedDateInput.addEventListener("input", () => { feedDateEdited = true; });
+  feedDateInput.addEventListener("change", () => { feedDateEdited = true; });
+  feedPriceInput.addEventListener("input", () => { feedPriceEdited = true; });
+  feedPriceInput.addEventListener("change", () => { feedPriceEdited = true; });
 
-    const dayVal = document.getElementById("feed-date").value;
-    const kgRaw = document.getElementById("feed-kg").value.trim();
-    const priceRaw = document.getElementById("feed-price").value.trim();
-
-    const kg = kgRaw === "" ? "" : Number(kgRaw);
-    const price = priceRaw === "" ? "" : Number(priceRaw);
-
-    const payload = {
-      day: dayVal,
-      kg_per_day: kg,
-      price_vnd: price
-    };
-
-    try {
-      const resp = await fetch("/api/feed", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-      if (!resp.ok) {
-        let errText = "Could not save feed.";
-        try {
-          const errData = await resp.json();
-          if (errData && errData.error) errText = errData.error;
-        } catch (_) {}
-        errEl.innerHTML = `<p class="err" role="alert">${esc(errText)}</p>`;
-        errEl.style.display = "block";
-        return;
-      }
-      savedEl.className = "band green";
-      savedEl.setAttribute("role", "status");
-      savedEl.style.marginBottom = "10px";
-      savedEl.textContent = "Saved.";
-      savedEl.style.display = "block";
-    } catch (_) {
-      errEl.innerHTML = '<p class="err" role="alert">Could not save feed.</p>';
-      errEl.style.display = "block";
-    }
-  });
-
-  document.getElementById("save-setup-btn").addEventListener("click", async () => {
-    const errEl = document.getElementById("setup-form-err");
-    const savedEl = document.getElementById("set-saved-msg");
-    errEl.style.display = "none";
-    errEl.innerHTML = "";
-    savedEl.style.display = "none";
-
-    const nameVal = document.getElementById("setup-name").value;
-    const rulerRaw = document.getElementById("setup-ruler").value.trim();
-    const priceRaw = document.getElementById("setup-price").value.trim();
-    const stallRaw = document.getElementById("setup-stall").value.trim();
-    const harvestRaw = document.getElementById("setup-harvest").value.trim();
-    const minRaw = document.getElementById("setup-min").value.trim();
-
-    const payload = {
-      pond_name: nameVal,
-      ruler_mm: rulerRaw === "" ? "" : Number(rulerRaw),
-      feed_price_vnd: priceRaw === "" ? "" : (isNaN(Number(priceRaw)) ? priceRaw : Math.round(Number(priceRaw))),
-      stall_mm_per_day: stallRaw === "" ? "" : Number(stallRaw),
-      harvest_per_kg: harvestRaw === "" ? "" : Number(harvestRaw),
-      min_measured: minRaw === "" ? "" : (isNaN(Number(minRaw)) ? minRaw : Math.round(Number(minRaw)))
-    };
-
-    try {
-      const resp = await fetch("/api/settings", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-      if (!resp.ok) {
-        let errText = "Could not save setup.";
-        try {
-          const errData = await resp.json();
-          if (errData && errData.error) errText = errData.error;
-        } catch (_) {}
-        errEl.innerHTML = `<p class="err" role="alert">${esc(errText)}</p>`;
-        errEl.style.display = "block";
-        return;
-      }
-      currentSettings = await resp.json();
-      savedEl.className = "band green";
-      savedEl.setAttribute("role", "status");
-      savedEl.style.marginBottom = "10px";
-      savedEl.textContent = "Saved.";
-      savedEl.style.display = "block";
-    } catch (_) {
-      errEl.innerHTML = '<p class="err" role="alert">Could not save setup.</p>';
-      errEl.style.display = "block";
-    }
-  });
+  document.getElementById("save-feed-btn").addEventListener("click", saveFeedHandler);
+  document.getElementById("save-setup-btn").addEventListener("click", saveSetupHandler);
 
   document.addEventListener("click", e => {
     const screenBtn = e.target.closest("[data-screen]");

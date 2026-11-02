@@ -152,3 +152,143 @@ def test_page_chart_date_label_anchors():
     )
 
 
+def test_page_in_flight_guard_and_request_counter():
+    # In-flight guard and request counter in script
+    service = make_test_service()
+    app = create_app(service)
+    client = TestClient(app)
+
+    resp = client.get("/")
+    assert resp.status_code == 200
+    html = resp.text
+
+    assert "inFlight" in html
+    assert "requestId" in html
+
+
+def test_page_parse_number():
+    # Helper parseNumber on form values and no Number in submit handlers
+    service = make_test_service()
+    app = create_app(service)
+    client = TestClient(app)
+
+    resp = client.get("/")
+    assert resp.status_code == 200
+    html = resp.text
+
+    assert re.search(r"function\s+parseNumber\s*\(", html) is not None
+    assert html.count("parseNumber(") >= 6
+    assert "Type a plain number, for example 100 or 45000." in html
+
+    feed_match = re.search(
+        r'getElementById\("save-feed-btn"\)[\s\S]*?getElementById\("save-setup-btn"\)',
+        html,
+    )
+    assert feed_match is not None
+    assert "Number(" not in feed_match.group(0)
+
+    setup_match = re.search(
+        r'getElementById\("save-setup-btn"\)[\s\S]*?document\.addEventListener\("click"',
+        html,
+    )
+    assert setup_match is not None
+    assert "Number(" not in setup_match.group(0)
+
+
+def test_page_numbers_from_server():
+    # Growth and threshold numbers from server without JS division
+    service = make_test_service()
+    app = create_app(service)
+    client = TestClient(app)
+
+    resp = client.get("/")
+    assert resp.status_code == 200
+    html = resp.text
+
+    assert "growth_mm_per_day" in html
+    assert "stall_threshold_mm_per_day" in html
+    assert "harvest_threshold_per_kg" in html
+    assert "change_length_mm / " not in html
+    assert "/ d.days_between" not in html
+    assert "the minimum" in html
+
+
+def test_page_not_enough_shrimp_text():
+    # Not enough shrimp text names both counts
+    service = make_test_service()
+    app = create_app(service)
+    client = TestClient(app)
+
+    resp = client.get("/")
+    assert resp.status_code == 200
+    html = resp.text
+
+    assert "needed in each" in html
+
+
+def test_page_chart_label_thinning():
+    # Thinning step for date labels when more than 5 distinct dates
+    service = make_test_service()
+    app = create_app(service)
+    client = TestClient(app)
+
+    resp = client.get("/")
+    assert resp.status_code == 200
+    html = resp.text
+
+    assert "// label thinning" in html
+    match = re.search(
+        r"// label thinning\s*\n\s*(?:const|let|var)\s+(?:step|labelEvery)\b",
+        html,
+    )
+    assert match is not None
+
+
+def test_page_feed_screen_edited_flags():
+    # Feed defaults refresh tracking edited flags
+    service = make_test_service()
+    app = create_app(service)
+    client = TestClient(app)
+
+    resp = client.get("/")
+    assert resp.status_code == 200
+    html = resp.text
+
+    assert "feedDateEdited" in html
+    assert "feedPriceEdited" in html
+
+
+def test_page_no_reference_and_no_shrimp_count_line():
+    # Show measured and left out count line for no_reference and no_shrimp
+    service = make_test_service()
+    app = create_app(service)
+    client = TestClient(app)
+
+    resp = client.get("/")
+    assert resp.status_code == 200
+    html = resp.text
+
+    left_out_positions = [m.start() for m in re.finditer(r"left out", html)]
+    assert any(
+        "no_reference" in html[max(0, p - 800) : p + 800]
+        and "no_shrimp" in html[max(0, p - 800) : p + 800]
+        for p in left_out_positions
+    )
+
+
+def test_page_review_nits():
+    # Lowercase table range mid-sentence and 200 render error message
+    service = make_test_service()
+    app = create_app(service)
+    client = TestClient(app)
+
+    resp = client.get("/")
+    assert resp.status_code == 200
+    html = resp.text
+
+    assert "outside the table range: no size per kg" in html
+    assert "Outside the table range: no size per kg" not in html
+    assert "The photo was saved, but the result could not be shown." in html
+
+
+
