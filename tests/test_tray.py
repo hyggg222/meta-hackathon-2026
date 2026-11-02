@@ -325,3 +325,81 @@ def test_summarize_bad_indices(fake_photo: bytes):
     for bad in ([7], [-1], [0, 0], [True], ["1"]):
         with pytest.raises(ValueError):
             summarize(analysis, bad, Settings(), None)
+
+
+def test_tray_fragment_excluded(fake_photo: bytes):
+    # Fragment under min length is left out of default choice
+    ruler = make_rect_mask(30, 450, 20, 20, shape=(800, 800))
+    frag = make_capsule_shrimp(50, 127, 100, r=6, shape=(800, 800))
+    s1 = make_capsule_shrimp(50, 307, 180, r=6, shape=(800, 800))
+    s2 = make_capsule_shrimp(50, 307, 260, r=6, shape=(800, 800))
+    s3 = make_capsule_shrimp(50, 307, 340, r=6, shape=(800, 800))
+    s4 = make_capsule_shrimp(50, 307, 420, r=6, shape=(800, 800))
+    seg = FakeSegmenter({"ruler": [ruler], "shrimp": [frag, s1, s2, s3, s4]})
+    res = analyze_tray(fake_photo, Settings(), None, seg)
+    assert res.n_measured == 4
+    assert res.n_left_out == 1
+    assert 0 not in res.included
+    assert res.included == [1, 2, 3, 4]
+    assert res.mean_length_mm == pytest.approx(90.0, abs=1.0)
+
+
+def test_tray_fragment_included_manually(fake_photo: bytes):
+    # Manual include list counts fragment regardless of length
+    ruler = make_rect_mask(30, 450, 20, 20, shape=(800, 800))
+    frag = make_capsule_shrimp(50, 127, 100, r=6, shape=(800, 800))
+    s1 = make_capsule_shrimp(50, 307, 180, r=6, shape=(800, 800))
+    s2 = make_capsule_shrimp(50, 307, 260, r=6, shape=(800, 800))
+    s3 = make_capsule_shrimp(50, 307, 340, r=6, shape=(800, 800))
+    s4 = make_capsule_shrimp(50, 307, 420, r=6, shape=(800, 800))
+    seg = FakeSegmenter({"ruler": [ruler], "shrimp": [frag, s1, s2, s3, s4]})
+    analysis = analyze_shrimp(fake_photo, Settings(), seg)
+    res = summarize(analysis, [0, 1, 2, 3, 4], Settings(), None)
+    assert res.n_measured == 5
+    assert res.n_left_out == 0
+    assert 0 in res.included
+    assert res.included == [0, 1, 2, 3, 4]
+
+
+def test_tray_min_length_threshold(fake_photo: bytes):
+    # Fragment counts when min length is lower or equal to length
+    ruler = make_rect_mask(30, 450, 20, 20, shape=(800, 800))
+    frag = make_capsule_shrimp(50, 127, 100, r=6, shape=(800, 800))
+    s1 = make_capsule_shrimp(50, 307, 180, r=6, shape=(800, 800))
+    s2 = make_capsule_shrimp(50, 307, 260, r=6, shape=(800, 800))
+    s3 = make_capsule_shrimp(50, 307, 340, r=6, shape=(800, 800))
+    s4 = make_capsule_shrimp(50, 307, 420, r=6, shape=(800, 800))
+    seg = FakeSegmenter({"ruler": [ruler], "shrimp": [frag, s1, s2, s3, s4]})
+    analysis = analyze_shrimp(fake_photo, Settings(), seg)
+
+    res20 = summarize(analysis, None, Settings(min_length_mm=20.0), None)
+    assert res20.n_measured == 5
+    assert 0 in res20.included
+
+    frag_len = analysis.shrimp[0].length_mm
+    assert frag_len is not None
+    assert abs(frag_len - 30.0) < 1.0
+
+    res_exact = summarize(analysis, None, Settings(min_length_mm=frag_len), None)
+    assert res_exact.n_measured == 5
+    assert 0 in res_exact.included
+
+    res_above = summarize(analysis, None, Settings(min_length_mm=frag_len + 0.1), None)
+    assert res_above.n_measured == 4
+    assert 0 not in res_above.included
+
+
+def test_tray_no_reference_length(fake_photo: bytes):
+    # When reference is missing no length filtering is applied
+    frag = make_capsule_shrimp(50, 127, 100, r=6, shape=(800, 800))
+    s1 = make_capsule_shrimp(50, 307, 180, r=6, shape=(800, 800))
+    s2 = make_capsule_shrimp(50, 307, 260, r=6, shape=(800, 800))
+    s3 = make_capsule_shrimp(50, 307, 340, r=6, shape=(800, 800))
+    s4 = make_capsule_shrimp(50, 307, 420, r=6, shape=(800, 800))
+    seg = FakeSegmenter({"shrimp": [frag, s1, s2, s3, s4]})
+    res = analyze_tray(fake_photo, Settings(), None, seg)
+    assert res.status == "no_reference"
+    assert res.scale_px_per_mm is None
+    assert res.n_measured == 5
+    assert res.n_left_out == 0
+    assert res.included == [0, 1, 2, 3, 4]

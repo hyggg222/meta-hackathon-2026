@@ -98,7 +98,12 @@ def summarize(
     # Build TrayResult from Analysis and optional included shrimp indices
     total = len(analysis.shrimp)
     if include is None:
-        chosen = [s.index for s in analysis.shrimp if not s.overlapped]
+        chosen = [
+            s.index
+            for s in analysis.shrimp
+            if not s.overlapped
+            and (s.length_mm is None or s.length_mm >= settings.min_length_mm)
+        ]
     else:
         if not isinstance(include, list):
             raise ValueError("include must be a list of ints or None")
