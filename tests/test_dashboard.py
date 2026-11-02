@@ -343,3 +343,55 @@ def test_empty_thresholds_copied():
     assert d.min_measured == 7
 
 
+def test_sample_row_growth():
+    # Calculate daily growth per sample row
+    s1 = SampleRecord(1, date(2026, 11, 1), 8, 0, 90.0, False, None)
+    s2 = SampleRecord(2, date(2026, 11, 4), 8, 0, 91.0, False, None)
+    s3 = SampleRecord(3, date(2026, 11, 5), 8, 0, 93.0, False, None)
+    d = build_dashboard([s3, s1, s2], [], Settings(), FakeTable())
+    row_by_day = {r.day: r for r in d.rows}
+    assert row_by_day[date(2026, 11, 1)].growth_mm_per_day is None
+    assert row_by_day[date(2026, 11, 4)].growth_mm_per_day == pytest.approx(1 / 3)
+    assert row_by_day[date(2026, 11, 5)].growth_mm_per_day == pytest.approx(2.0)
+
+
+def test_sample_row_growth_same_day():
+    # Same day sample row gives growth None
+    s1 = SampleRecord(1, date(2026, 11, 1), 8, 0, 90.0, False, None)
+    s2 = SampleRecord(2, date(2026, 11, 1), 8, 0, 91.0, False, None)
+    d = build_dashboard([s1, s2], [], Settings(), FakeTable())
+    assert d.rows[0].growth_mm_per_day is None
+    assert d.rows[1].growth_mm_per_day is None
+
+
+def test_sample_row_growth_missing_mean():
+    # Missing mean gives growth None for row and follower
+    s1 = SampleRecord(1, date(2026, 11, 1), 8, 0, 90.0, False, None)
+    s2 = SampleRecord(2, date(2026, 11, 4), 8, 0, None, False, None)
+    s3 = SampleRecord(3, date(2026, 11, 7), 8, 0, 93.0, False, None)
+    d = build_dashboard([s1, s2, s3], [], Settings(), FakeTable())
+    row_by_day = {r.day: r for r in d.rows}
+    assert row_by_day[date(2026, 11, 4)].growth_mm_per_day is None
+    assert row_by_day[date(2026, 11, 7)].growth_mm_per_day is None
+
+
+def test_sample_row_growth_single_sample():
+    # Single sample row gives growth None
+    s1 = SampleRecord(1, date(2026, 11, 1), 8, 0, 90.0, False, None)
+    d = build_dashboard([s1], [], Settings(), FakeTable())
+    assert len(d.rows) == 1
+    assert d.rows[0].growth_mm_per_day is None
+
+
+def test_sample_row_growth_matches_dashboard():
+    # Row growth of latest equals dashboard growth
+    s1 = SampleRecord(1, date(2026, 11, 1), 8, 0, 80.0, False, None)
+    s2 = SampleRecord(2, date(2026, 11, 4), 8, 0, 85.0, False, None)
+    s3 = SampleRecord(3, date(2026, 11, 8), 8, 0, 89.0, False, None)
+    d = build_dashboard([s1, s2, s3], [], Settings(), FakeTable())
+    assert d.rows[-1].growth_mm_per_day == d.growth_mm_per_day
+    assert d.growth_mm_per_day == pytest.approx(1.0)
+
+
+
+
