@@ -1,5 +1,10 @@
 # Tests for SAM mask reconstruction
 import base64
+import concurrent.futures
+import hashlib
+import json
+import os
+import time
 import unittest.mock
 import cv2
 import numpy as np
@@ -52,13 +57,18 @@ def test_upload_part_png():
 
 
 def test_upload_part_jpeg():
-    # JPEG bytes map to photo.jpg and image/jpeg
+    # JPEG bytes map to photo.jpg, image/jpeg, and decode to the same shape
     assert upload_part is not None, "upload_part must be defined"
-    photo = b"\xff\xd8\xff\xe0fake_jpeg_bytes"
+    img = np.zeros((20, 30, 3), dtype=np.uint8)
+    ok, enc = cv2.imencode(".jpg", img)
+    assert ok
+    photo = enc.tobytes()
     name, data, mime = upload_part(photo)
     assert name == "photo.jpg"
-    assert data == photo
     assert mime == "image/jpeg"
+    decoded = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
+    assert decoded is not None
+    assert decoded.shape == img.shape
 
 
 def test_upload_part_webp():
@@ -134,3 +144,185 @@ def test_sam_upload_png_and_cache(tmp_path):
 
     response_calls = [c for c in post_calls if "responses" in c[0]]
     assert len(response_calls) == 2
+
+
+def test_masks_from_records_invalid_raster_length():
+    # Raster length mismatch with bounds raises SegmentationError
+    rec = [{"id": 1, "bounds": {"top": 0, "bottom": 2, "left": 0, "right": 3}, "b64": base64.b64encode(b"12345").decode("ascii")}]
+    with pytest.raises(SegmentationError):
+        masks_from_records(rec, 10, 10)
+
+
+def test_masks_from_records_bounds_out_of_range():
+    # Negative bounds or bounds outside height and width raise SegmentationError
+    rec_neg = [{"id": 1, "bounds": {"top": -1, "bottom": 2, "left": 0, "right": 2}, "b64": base64.b64encode(b"123456").decode("ascii")}]
+    with pytest.raises(SegmentationError):
+        masks_from_records(rec_neg, 10, 10)
+
+    rec_out_h = [{"id": 1, "bounds": {"top": 0, "bottom": 12, "left": 0, "right": 2}, "b64": base64.b64encode(b"0" * 24).decode("ascii")}]
+    with pytest.raises(SegmentationError):
+        masks_from_records(rec_out_h, 10, 10)
+
+    rec_out_w = [{"id": 1, "bounds": {"top": 0, "bottom": 2, "left": 0, "right": 15}, "b64": base64.b64encode(b"0" * 30).decode("ascii")}]
+    with pytest.raises(SegmentationError):
+        masks_from_records(rec_out_w, 10, 10)
+
+
+def test_sam_cache_hit_no_post(tmp_path):
+    # Good cache file avoids network calls
+    img = np.zeros((10, 10, 3), dtype=np.uint8)
+    ok, enc = cv2.imencode(".png", img)
+    assert ok
+    photo = enc.tobytes()
+    photo_hash = hashlib.sha256(photo).hexdigest()
+    prompt = "shrimp"
+    cache_file = tmp_path / f"{photo_hash}_{prompt}.json"
+
+    ras = np.ones((4, 4), dtype=np.uint8)
+    b64 = base64.b64encode(ras.tobytes()).decode("ascii")
+    records = [{"id": 1, "bounds": {"top": 1, "bottom": 5, "left": 1, "right": 5}, "b64": b64}]
+    with open(cache_file, "w", encoding="utf-8") as f:
+        json.dump(records, f)
+
+    script = str(tmp_path / "decode.js")
+    with open(script, "w", encoding="utf-8") as f:
+        f.write("// stub")
+
+    segmenter = make_sam_segmenter(api_key="k", decode_script=script, cache_dir=str(tmp_path))
+    with unittest.mock.patch("shrimp.sam.requests.post") as mock_post:
+        masks = segmenter(photo, prompt)
+        assert len(masks) == 1
+        assert masks[0].shape == (10, 10)
+        assert mock_post.call_count == 0
+
+
+def test_sam_cache_truncated_miss(tmp_path):
+    # Truncated cache file is treated as a miss and replaced
+    img = np.zeros((10, 10, 3), dtype=np.uint8)
+    ok, enc = cv2.imencode(".png", img)
+    assert ok
+    photo = enc.tobytes()
+    photo_hash = hashlib.sha256(photo).hexdigest()
+    prompt = "shrimp"
+    cache_file = tmp_path / f"{photo_hash}_{prompt}.json"
+    with open(cache_file, "w", encoding="utf-8") as f:
+        f.write('{"id": 1, "bounds":')
+
+    ras = np.ones((2, 2), dtype=np.uint8)
+    b64 = base64.b64encode(ras.tobytes()).decode("ascii")
+    records = [{"id": 1, "bounds": {"top": 1, "bottom": 3, "left": 1, "right": 3}, "b64": b64}]
+
+    def fake_post(url, *args, **kwargs):
+        resp = unittest.mock.MagicMock()
+        resp.status_code = 200
+        if "files" in url:
+            resp.json.return_value = {"id": "file_test_id"}
+        else:
+            resp.iter_lines.return_value = []
+        return resp
+
+    def fake_subproc_run(cmd, **kwargs):
+        with open(cmd[3], "w", encoding="utf-8") as f:
+            json.dump(records, f)
+        proc = unittest.mock.MagicMock()
+        proc.returncode = 0
+        return proc
+
+    script = str(tmp_path / "decode.js")
+    with open(script, "w", encoding="utf-8") as f:
+        f.write("// stub")
+
+    segmenter = make_sam_segmenter(api_key="k", decode_script=script, cache_dir=str(tmp_path))
+    with unittest.mock.patch("shrimp.sam.requests.post", side_effect=fake_post), \
+         unittest.mock.patch("shrimp.sam.subprocess.run", side_effect=fake_subproc_run):
+        masks = segmenter(photo, prompt)
+        assert len(masks) == 1
+
+    with open(cache_file, "r", encoding="utf-8") as f:
+        saved = json.load(f)
+    assert saved == records
+
+
+def test_sam_cache_empty_not_cached(tmp_path):
+    # Empty decoded list leaves no cache file
+    img = np.zeros((10, 10, 3), dtype=np.uint8)
+    ok, enc = cv2.imencode(".png", img)
+    assert ok
+    photo = enc.tobytes()
+    photo_hash = hashlib.sha256(photo).hexdigest()
+    prompt = "shrimp"
+    cache_file = tmp_path / f"{photo_hash}_{prompt}.json"
+
+    def fake_post(url, *args, **kwargs):
+        resp = unittest.mock.MagicMock()
+        resp.status_code = 200
+        if "files" in url:
+            resp.json.return_value = {"id": "file_test_id"}
+        else:
+            resp.iter_lines.return_value = []
+        return resp
+
+    def fake_subproc_run(cmd, **kwargs):
+        with open(cmd[3], "w", encoding="utf-8") as f:
+            json.dump([], f)
+        proc = unittest.mock.MagicMock()
+        proc.returncode = 0
+        return proc
+
+    script = str(tmp_path / "decode.js")
+    with open(script, "w", encoding="utf-8") as f:
+        f.write("// stub")
+
+    segmenter = make_sam_segmenter(api_key="k", decode_script=script, cache_dir=str(tmp_path))
+    with unittest.mock.patch("shrimp.sam.requests.post", side_effect=fake_post), \
+         unittest.mock.patch("shrimp.sam.subprocess.run", side_effect=fake_subproc_run):
+        masks = segmenter(photo, prompt)
+        assert masks == []
+
+    assert not os.path.exists(cache_file)
+
+
+def test_sam_concurrent_upload_once(tmp_path):
+    # Concurrent first calls for same photo upload file exactly once
+    img = np.zeros((10, 10, 3), dtype=np.uint8)
+    ok, enc = cv2.imencode(".png", img)
+    assert ok
+    photo = enc.tobytes()
+
+    post_calls = []
+
+    def fake_post(url, *args, **kwargs):
+        post_calls.append((url, kwargs))
+        if "files" in url:
+            time.sleep(0.05)
+            resp = unittest.mock.MagicMock()
+            resp.status_code = 200
+            resp.json.return_value = {"id": "file_concurrent_id"}
+            return resp
+        resp = unittest.mock.MagicMock()
+        resp.status_code = 200
+        resp.iter_lines.return_value = []
+        return resp
+
+    def fake_subproc_run(cmd, **kwargs):
+        with open(cmd[3], "w", encoding="utf-8") as f:
+            json.dump([], f)
+        proc = unittest.mock.MagicMock()
+        proc.returncode = 0
+        return proc
+
+    script = str(tmp_path / "decode.js")
+    with open(script, "w", encoding="utf-8") as f:
+        f.write("// stub")
+
+    segmenter = make_sam_segmenter(api_key="k", decode_script=script)
+
+    with unittest.mock.patch("shrimp.sam.requests.post", side_effect=fake_post), \
+         unittest.mock.patch("shrimp.sam.subprocess.run", side_effect=fake_subproc_run):
+        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool:
+            futures = [pool.submit(segmenter, photo, f"prompt_{i}") for i in range(3)]
+            for f in futures:
+                f.result()
+
+    file_uploads = [c for c in post_calls if "files" in c[0]]
+    assert len(file_uploads) == 1

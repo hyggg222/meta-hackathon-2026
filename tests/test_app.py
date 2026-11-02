@@ -79,3 +79,19 @@ def test_analyze_route_sync():
     data = resp.json()
     assert data["status"] == "ok"
 
+
+def test_analyze_route_upload_too_large():
+    # Large photo upload returns 413 without invoking segmenter
+    def failing_segmenter(photo: bytes, prompt: str):
+        raise AssertionError("Segmenter should not be called")
+
+    app = create_app(failing_segmenter)
+    client = TestClient(app)
+    too_large_bytes = b"x" * (15 * 1024 * 1024 + 1)
+    resp = client.post(
+        "/api/analyze",
+        files={"photo": ("tray.jpg", too_large_bytes, "image/jpeg")},
+    )
+    assert resp.status_code == 413
+    assert resp.json() == {"error": "photo too large"}
+
