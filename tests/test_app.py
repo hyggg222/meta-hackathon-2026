@@ -169,7 +169,7 @@ def test_samples_route_upload_too_large():
 
 
 def test_root_page():
-    # GET / serves index.html with required UI elements and status messages
+    # GET / serves index.html without photo capture elements or photo analyses routes
     service = make_test_service()
     app = create_app(service)
     client = TestClient(app)
@@ -177,14 +177,14 @@ def test_root_page():
     resp = client.get("/")
     assert resp.status_code == 200
     html = resp.text
-    assert 'accept="image/*"' in html
-    assert 'capture="environment"' in html
-    assert "Working..." in html
-    assert "N measured, M left out" in html
-    assert "No ruler or card found, no millimetres shown" in html
-    assert "No shrimp found" in html
-    assert "Could not process the photo, nothing was saved" in html
-    assert "/api/analyses" in html
+    assert 'accept="image/*"' not in html
+    assert 'capture="environment"' not in html
+    assert "Working..." not in html
+    assert "N measured, M left out" not in html
+    assert "No ruler or card found, no millimetres shown" not in html
+    assert "No shrimp found" not in html
+    assert "Could not process the photo, nothing was saved" not in html
+    assert "/api/analyses" not in html
     assert "/api/samples" not in html
 
 

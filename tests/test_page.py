@@ -7,7 +7,7 @@ from tests.test_app import make_test_service
 
 
 def test_page_screen_labels():
-    # GET / serves HTML containing the three screen labels and disclaimer
+    # GET / serves HTML containing screen labels and disclaimer
     service = make_test_service()
     app = create_app(service)
     client = TestClient(app)
@@ -16,7 +16,6 @@ def test_page_screen_labels():
     assert resp.status_code == 200
     html = resp.text
 
-    assert "Photo" in html
     assert "Feed + setup" in html
     assert "Dashboard" in html
     assert "temporary table, not the CP table" in html
@@ -92,7 +91,7 @@ def test_page_body_background():
 
 
 def test_page_hash_navigation():
-    # The served HTML mentions hashchange and the three fragment names photo, feed, dashboard
+    # The served HTML mentions hashchange and the fragment names feed, dashboard
     service = make_test_service()
     app = create_app(service)
     client = TestClient(app)
@@ -102,7 +101,6 @@ def test_page_hash_navigation():
     html = resp.text
 
     assert "hashchange" in html
-    assert "photo" in html
     assert "feed" in html
     assert "dashboard" in html
 
@@ -152,20 +150,6 @@ def test_page_chart_date_label_anchors():
     assert re.search(r'text-anchor="end"[^>]*>\$\{lab\(', chart_code) or (
         re.search(r'text-anchor="end"[\s\S]*?\$\{lab\(', chart_code)
     )
-
-
-def test_page_in_flight_guard_and_request_counter():
-    # In-flight guard and request counter in script
-    service = make_test_service()
-    app = create_app(service)
-    client = TestClient(app)
-
-    resp = client.get("/")
-    assert resp.status_code == 200
-    html = resp.text
-
-    assert "inFlight" in html
-    assert "requestId" in html
 
 
 def test_page_parse_number():
@@ -255,120 +239,72 @@ def test_page_feed_screen_edited_flags():
     assert "feedPriceEdited" in html
 
 
-def test_page_no_reference_and_no_shrimp_count_line():
-    # Show measured and left out count line for no_reference and no_shrimp
+def test_page_photo_removed():
+    # The page has no type="file", no Measure photo, no Save sample, no renderPhotoSvg, no /api/analyses and no /api/samples
     service = make_test_service()
     app = create_app(service)
     client = TestClient(app)
 
-    resp = client.get("/")
-    assert resp.status_code == 200
-    html = resp.text
-
-    left_out_positions = [m.start() for m in re.finditer(r"left out", html)]
-    assert any(
-        "no_reference" in html[max(0, p - 800) : p + 800]
-        and "no_shrimp" in html[max(0, p - 800) : p + 800]
-        for p in left_out_positions
-    )
+    html = client.get("/").text
+    assert 'type="file"' not in html
+    assert "Measure photo" not in html
+    assert "Save sample" not in html
+    assert "renderPhotoSvg" not in html
+    assert "/api/analyses" not in html
+    assert "/api/samples" not in html
 
 
-def test_page_review_nits():
-    # Lowercase table range mid-sentence and 200 render error message
+def test_page_app_bar_and_default_route():
+    # App bar has buttons Dashboard and Feed + setup and no Photo; default route is dashboard
     service = make_test_service()
     app = create_app(service)
     client = TestClient(app)
 
-    resp = client.get("/")
-    assert resp.status_code == 200
-    html = resp.text
+    html = client.get("/").text
+    appbar_match = re.search(r'<nav class="appbar"[^>]*>([\s\S]*?)</nav>', html)
+    assert appbar_match is not None, "appbar not found"
+    appbar = appbar_match.group(1)
 
-    assert "outside the table range: no size per kg" in html
-    assert "Outside the table range: no size per kg" not in html
-    assert "The photo was saved, but the result could not be shown." in html
+    assert "Dashboard" in appbar
+    assert "Feed + setup" in appbar
+    assert "Photo" not in appbar
+
+    route_match = re.search(r"function\s+routeFromHash\s*\(\)\s*\{([\s\S]*?)\}", html)
+    assert route_match is not None, "routeFromHash not found"
+    route_code = route_match.group(1)
+    assert re.search(r'return\s+["\']dashboard["\']\s*;', route_code) is not None
 
 
-def test_page_photo_routes_and_no_samples():
-    # The script posts to /api/analyses, summary, and save, and no longer posts to /api/samples
+def test_page_dashboard_empty_state_text():
+    # The empty state text Send a photo of your tray to the bot on Messenger is in the script
     service = make_test_service()
     app = create_app(service)
     client = TestClient(app)
 
-    resp = client.get("/")
-    assert resp.status_code == 200
-    html = resp.text
-
-    assert not re.search(r'fetch\(\s*[`"\']/api/samples', html)
-    assert "/api/analyses" in html
-
-    fetch_calls = re.findall(
-        r'fetch\(\s*[`"\'](/api/[^`"\']+)[`"\'](?:\s*,\s*\{[^}]*method:\s*[`"\']([A-Z]+)[`"\'])?',
-        html,
-    )
-    posted_paths = {
-        re.sub(r"\$\{[^}]+\}", "{analysis_id}", path)
-        for path, method in fetch_calls
-        if method == "POST"
-    }
-    assert "/api/analyses" in posted_paths
-    assert "/api/analyses/{analysis_id}/summary" in posted_paths
-    assert "/api/analyses/{analysis_id}/save" in posted_paths
-    assert "/api/samples" not in posted_paths
+    html = client.get("/").text
+    assert "Send a photo of your tray to the bot on Messenger" in html
 
 
-def test_page_photo_overlay_and_choice_elements():
-    # The script builds polygon from outline, polyline from path, aria-pressed, and checkbox rows
+def test_page_setup_min_length_field():
+    # Setup form has setup-min-length input, label Shortest shrimp that counts, and script reads/writes min_length_mm with parseNumber(
     service = make_test_service()
     app = create_app(service)
     client = TestClient(app)
 
-    resp = client.get("/")
-    assert resp.status_code == 200
-    html = resp.text
+    html = client.get("/").text
+    assert 'id="setup-min-length"' in html
+    assert "Shortest shrimp that counts" in html
+    assert "min_length_mm" in html
 
-    assert "<polygon" in html
-    assert "outline" in html
-    assert "<polyline" in html
-    assert "path" in html
-    assert "aria-pressed" in html
-    assert 'type="checkbox"' in html
+    load_match = re.search(r"async\s+function\s+loadSettings\s*\(\)\s*\{([\s\S]*?)\}", html)
+    assert load_match is not None, "loadSettings not found"
+    assert "min_length_mm" in load_match.group(1)
 
-
-def test_page_photo_labels_and_hint():
-    # Overlay has left out and cm labels, Measure photo, Save sample, and Tap a shrimp hint
-    service = make_test_service()
-    app = create_app(service)
-    client = TestClient(app)
-
-    resp = client.get("/")
-    assert resp.status_code == 200
-    html = resp.text
-
-    assert "left out" in html
-    assert " cm" in html
-    assert "Measure photo" in html
-    assert "Save sample" in html
-    assert "Tap a shrimp" in html
-
-
-def test_page_summary_in_flight_guard():
-    # Summary call has in-flight guard, request counter, and latest summary wins comment
-    service = make_test_service()
-    app = create_app(service)
-    client = TestClient(app)
-
-    resp = client.get("/")
-    assert resp.status_code == 200
-    html = resp.text
-
-    assert "// latest summary wins" in html
-    match = re.search(
-        r"// latest summary wins\s*\n\s*(?:const|let|var)\s+(\w+)",
-        html,
-    )
-    assert match is not None
-    var_name = match.group(1).lower()
-    assert "summary" in var_name or "request" in var_name
+    save_match = re.search(r"async\s+function\s+saveSetupHandler\s*\(\)\s*\{([\s\S]*?)\}", html)
+    assert save_match is not None, "saveSetupHandler not found"
+    save_code = save_match.group(1)
+    assert "min_length_mm" in save_code
+    assert "parseNumber(" in save_code
 
 
 def test_page_no_mean_computed_in_page():
