@@ -37,5 +37,5 @@ Started 1 Nov 2026. Spec (approved, revision 2 approved 1 Nov): `docs/spec/shrim
 - Official hackathon rules text unread; Charlie accepts the research report's summary (community sources) as the rules. Open risk: "simple image analyzers" is on the anti-project list.
 - the first farmer: CP ruler table, restock date, confirm stall threshold and harvest size; two more farmers to call.
 - Which bonus to chase.
-- Privacy: the farmer's name, region and loss figures are in tracked files of a public repo; quoting him needs consent. Charlie decides before the first push.
+- Privacy (settled 2 Nov): name, region and personal loss figure removed from tracked docs; the two 1 Nov commits that hold the name must be rewritten before the first push.
 - Whether the SAM mask includes antennae and how the length method prunes them (check in slice 0).

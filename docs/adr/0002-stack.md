@@ -1,7 +1,7 @@
 # ADR-0002: Python FastAPI core with one Node script to decode SAM masks
 
 Date: 2026-11-01
-Status: proposed
+Status: accepted
 
 ## Context
 Solo build with three days. Rules (length table, stall flag, cost of a stall day) must be code, never a language model. SAM 3.1 returns masks in a custom format; the only decoder is the npm package `@meta-sam/parser` (the PyPI package of the same name is an empty placeholder). The length-along-the-body method from the spike is Python (scikit-image, networkx). This machine has Python 3.8. The farmer's phone only needs to take a photo; the history must be shared between phone and laptop.

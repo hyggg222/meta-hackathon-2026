@@ -1,6 +1,14 @@
 # Hackathon rules and Meta API facts
 
-Kept from the old dev brief (31 Oct 2026); only what the shrimp project still needs. Not verified: the official rules text, the rubric weights (30/25/25/20 come from community sources) and the bonus definitions.
+Kept from the old dev brief (31 Oct 2026); only what the shrimp project still needs.
+
+## Official rules, read on 2 Nov from the event page and the waiver
+Sources: https://cerebralvalley.ai/e/meta-ai-developer-hackathon and its /waiver page (the Official Rules text).
+- Judging weights (verified, not community numbers): Impact 30%, Use of Meta AI Tooling 25% ("beyond a basic integration, surfaced unexpected capabilities"), Technical Depth and Execution 20%, Demo 25% ("working, impressive demo", "holds up live", quality of the demo video). The Indie track page adds: judged on creativity, technical ambition, and whether it works.
+- Submission goes through the Cerebral Valley portal (`.../hackathon/submit`). Due Nov 4, 9:00 PM ET (the waiver dates use EST, so this is 02:00 on 5 Nov in Ireland; the project keeps the stricter 01:00 limit). Judging Nov 4 to 8, winners Nov 9; bonus prizes announced about Nov 10.
+- One track per participant and per project. Indie: individuals, students and teams up to four. Participants are 18 or older.
+- The submission must be the entrant's own original work, with no other party holding rights in it; open source is allowed if its licence is followed. The entrant keeps ownership and grants the organizers a perpetual, worldwide, non-exclusive licence to use it. Anything shared at the event is not confidential.
+- Not found in the public rules text (so unverified): the "new code only from 27 Oct" rule, a public repo requirement, a 3-minute video limit, and the bonus definitions. Check the submission form itself before the freeze.
 
 ## Event
 - Meta Global AI Developer Hackathon 2026, Indie Developer track, solo.

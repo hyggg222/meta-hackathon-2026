@@ -1,7 +1,7 @@
 # ADR-0001: Build the shrimp size check instead of the Werewolf game master
 
 Date: 2026-11-01
-Status: proposed
+Status: accepted
 
 ## Context
 The first idea was Moderator, an AI game master for in-person Werewolf. The pivot research (31 Oct, `docs/research/meta-hackathon-problem-selection/report.md`, local) found that entertainment projects win Creative prizes but score weakly on Impact, which community sources weight at 30%. In play tests the gesture selectors were not reliable enough: pointing was right first try only about 60 to 80% of the time.
