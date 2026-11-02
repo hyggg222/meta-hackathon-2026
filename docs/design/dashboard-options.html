@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shrimp size check: dashboard options</title>
+<style>
+:root{--bg:#fff;--ink:#101010;--muted:#4a4a4a;--line:#d6d4cc;--soft:#f1f0ea;--green:#0a5c36;--amber:#8a5a00;--blue:#0b4f9c;--yellow:#ffd23f;--page:#cfcdc5}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--ink);font:17px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+button{font:inherit;color:inherit}
+:focus-visible{outline:4px solid var(--blue);outline-offset:2px}
+.top{position:sticky;top:0;z-index:20;background:var(--ink);color:#fff;padding:10px 16px}
+.top h1{margin:0 0 8px;font-size:18px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.tab{min-height:44px;padding:0 14px;border:2px solid #fff;background:transparent;color:#fff;border-radius:8px;font-weight:700;cursor:pointer}
+.tab[aria-pressed=true]{background:#fff;color:var(--ink)}
+.top a{color:#fff;font-weight:700;margin-right:10px}
+main{padding:16px}
+.grid{display:grid;gap:32px;justify-items:center;align-items:start;max-width:1500px;margin:0 auto}
+.optwrap{width:100%;max-width:var(--w,420px)}
+.optwrap h2{margin:0 0 2px;font-size:22px}
+.optwrap p.idea{margin:0 0 8px;font-size:15px;color:var(--muted)}
+.frame{background:var(--bg);border:2px solid var(--ink);border-radius:6px;container-type:inline-size;overflow:hidden}
+
+/* shared app pieces */
+.appbar{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:8px 10px;background:var(--ink)}
+.appbar span{display:flex;align-items:center;justify-content:center;min-height:44px;border:2px solid #fff;border-radius:8px;color:#fff;font-weight:700;font-size:15px}
+.appbar span.on{background:#fff;color:var(--ink)}
+.app{padding:16px;min-height:640px}
+.chip{display:inline-block;padding:1px 8px;border-radius:6px;font-weight:800;font-size:13px;line-height:1.4;white-space:nowrap}
+.chip.demo{background:var(--yellow);color:var(--ink)}
+.chip.real{background:var(--ink);color:#fff}
+.muted{color:var(--muted)}
+.num{font-variant-numeric:tabular-nums}
+svg{display:block;width:100%;height:auto}
+svg text{font-family:inherit}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+th{font-size:13px;text-align:right;color:var(--muted);font-weight:700;padding:0 0 6px}
+td{padding:9px 0;border-top:1px solid var(--line);text-align:right}
+th:first-child,td:first-child{text-align:left}
+th:last-child,td:last-child{text-align:right}
+.legend{display:flex;gap:14px;font-size:13px;color:var(--muted);margin-top:6px;flex-wrap:wrap}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+.cap{font-size:13px;color:var(--muted)}
+
+/* A: quiet cards */
+.A .sec{border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px}
+.A h4{margin:0 0 10px;font-size:15px;font-weight:700;color:var(--muted);letter-spacing:.02em}
+.A .hero{display:flex;align-items:flex-end;gap:22px}
+.A .hero .big{font-size:52px;line-height:1;font-weight:800}
+.A .hero .u{font-size:17px;font-weight:700;margin-left:4px}
+.A .hint{border:1px solid var(--ink);border-left:8px solid var(--amber);border-radius:8px;padding:12px 14px;margin-bottom:14px}
+.A .hint b{display:block;font-size:18px}
+.A .hint p{margin:4px 0 0;font-size:16px}
+.A .hint small{display:block;margin-top:6px;color:var(--muted);font-size:14px}
+.A .cost .big{font-size:34px;font-weight:800;line-height:1.1;margin-top:6px}
+
+/* B: hero + chart first */
+.B .head{padding:18px 16px 4px}
+.B .head .big{font-size:76px;line-height:.95;font-weight:800;letter-spacing:-.02em}
+.B .head .u{font-size:22px;font-weight:700;margin-left:6px}
+.B .sub{display:flex;gap:16px;flex-wrap:wrap;margin-top:6px;font-size:16px}
+.B .chartwrap{padding:6px 0 0}
+.B .hintline{margin:0 16px;padding:12px 0;border-top:1px solid var(--ink);border-bottom:1px solid var(--line)}
+.B .hintline b{font-size:17px}
+.B .hintline p{margin:2px 0 0;font-size:15px}
+.B details{margin:0 16px;border-bottom:1px solid var(--line)}
+.B summary{min-height:52px;display:flex;align-items:center;justify-content:space-between;font-weight:700;cursor:pointer;list-style:none}
+.B summary::after{content:"+";font-size:22px}
+.B details[open] summary::after{content:"\2212"}
+.B .pad{padding:0 16px}
+
+/* C: ledger */
+.C .strip{display:grid;grid-template-columns:repeat(3,1fr);border:2px solid var(--ink);border-radius:10px;overflow:hidden}
+.C .strip div{padding:10px 10px 12px}
+.C .strip>div+div{border-left:2px solid var(--ink)}
+.C .strip .k{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.C .strip .v{font-size:26px;font-weight:800;line-height:1.15}
+.C .strip .v small{font-size:13px;font-weight:700}
+.C .flag{display:flex;gap:10px;align-items:flex-start;margin:12px 0;padding:10px 12px;background:var(--ink);color:#fff;border-radius:10px}
+.C .flag .dot{flex:none;width:14px;height:14px;border-radius:50%;background:var(--yellow);margin-top:5px}
+.C .flag p{margin:0;font-size:15px}
+.C .flag b{font-size:16px}
+.C h4{margin:16px 0 6px;font-size:15px}
+.C .g{font-weight:800}
+.C tr.latest td{font-weight:800}
+.C .costrow{display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding:12px;border:2px solid var(--ink);border-radius:10px}
+.C .costrow .big{font-size:24px;font-weight:800}
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>Dashboard options (demo data, 5 samples, latest 31 Oct)</h1>
+  <div class="row">
+    <a href="#A">A Quiet cards</a><a href="#B">B Chart first</a><a href="#C">C Ledger</a>
+    <span style="margin-left:auto"></span>
+    <button class="tab" data-w="375" aria-pressed="true">Phone 375</button>
+    <button class="tab" data-w="560" aria-pressed="false">Wide 560</button>
+  </div>
+</header>
+<main><div class="grid" id="grid">
+
+<section class="optwrap" id="A"><h2>A &middot; Quiet cards</h2>
+<p class="idea">Same blocks as today, but thin grey lines instead of thick black frames. One big number. The slow-growth hint is a neutral note, not a red alarm.</p>
+<div class="frame A"><div class="appbar"><span>Photo</span><span>Feed + setup</span><span class="on">Dashboard</span></div>
+<div class="app">
+  <div class="sec"><h4>Latest sample &middot; 31 Oct &middot; 8 shrimp measured</h4>
+    <div class="hero"><div><span class="big num">93</span><span class="u">per kg</span></div><div><span class="big num" style="font-size:34px">91.5</span><span class="u">mm</span></div></div>
+    <p class="cap" style="margin:8px 0 0">Table not yet checked with your farm: rough estimate, may be off by 20% or more. <span class="chip demo">demo data</span></p>
+  </div>
+  <div class="hint"><b>Growth looks slow</b><p>Average length grew 0.17 mm a day since 28 Oct. Your line is 0.33 mm a day.</p><small>A hint only, based on 8 and 8 shrimp. You decide what to do.</small></div>
+  <div class="sec"><h4>Average length per sample</h4><div data-chart="A"></div></div>
+  <div class="sec cost"><h4 style="margin:0">Feed in a day without growth</h4><div class="big num">4,500,000<span style="font-size:16px"> VND</span></div><span class="cap">100 kg &times; 45,000 VND</span></div>
+  <div class="sec"><h4>Samples</h4><div data-table="A"></div></div>
+</div></div></section>
+
+<section class="optwrap" id="B"><h2>B &middot; Chart first</h2>
+<p class="idea">The size is the headline, the chart runs edge to edge right under it. The hint is one line under the chart. Cost and samples fold away.</p>
+<div class="frame B"><div class="appbar"><span>Photo</span><span>Feed + setup</span><span class="on">Dashboard</span></div>
+<div class="app" style="padding:0 0 16px">
+  <div class="head"><div><span class="big num">93</span><span class="u">shrimp per kg</span></div>
+   <div class="sub num"><span><b>91.5 mm</b> average</span><span class="muted">31 Oct &middot; 8 measured</span><span class="chip demo">demo data</span></div></div>
+  <div class="chartwrap" data-chart="B"></div>
+  <div class="hintline"><b>Growth looks slow</b><p>0.17 mm a day since 28 Oct, under your 0.33. For your information only.</p></div>
+  <details open><summary><span>Feed, a day without growth</span><span class="num" style="margin-left:auto;margin-right:12px;white-space:nowrap">4,500,000 VND</span></summary><p class="cap" style="margin:0 0 12px">100 kg of feed &times; 45,000 VND per kg, from the 31 Oct entry.</p></details>
+  <details><summary>Samples (5)</summary><div data-table="B" class="pad"></div></details>
+  <p class="cap pad" style="margin-top:12px">Size per kg: temporary table, not the CP table.</p>
+</div></div></section>
+
+<section class="optwrap" id="C"><h2>C &middot; Ledger</h2>
+<p class="idea">Three numbers in one strip, a short dark note for the hint, a small chart, and a table that also shows growth per day for each sample.</p>
+<div class="frame C"><div class="appbar"><span>Photo</span><span>Feed + setup</span><span class="on">Dashboard</span></div>
+<div class="app">
+  <div class="strip num"><div><div class="k">Size</div><div class="v">93 <small>per kg</small></div></div><div><div class="k">Length</div><div class="v">91.5 <small>mm</small></div></div><div><div class="k">Growth</div><div class="v">0.17 <small>mm/day</small></div></div></div>
+  <p class="cap" style="margin:6px 0 0">31 Oct, 8 shrimp measured &middot; <span class="chip demo">demo data</span> &middot; temporary size table</p>
+  <div class="flag"><span class="dot"></span><p><b>Growth looks slow.</b> Under your 0.33 mm a day since 28 Oct. A hint only, you decide.</p></div>
+  <h4>Average length per sample</h4><div data-chart="C"></div>
+  <div class="costrow"><div><b>A day without growth</b><div class="cap">feed 100 kg &times; 45,000 VND</div></div><div class="big num" style="font-size:22px">4,500,000 <small style="font-size:13px">VND</small></div></div>
+  <h4>Samples</h4><div data-table="C"></div>
+</div></div></section>
+
+</div></main>
+
+<script>
+var S=[{d:"19 Oct",l:72.0,k:191,n:8},{d:"22 Oct",l:79.0,k:144,n:8},{d:"25 Oct",l:85.5,k:113,n:8},{d:"28 Oct",l:91.0,k:94,n:8},{d:"31 Oct",l:91.5,k:93,n:8}];
+function chart(kind){
+  var W=360,H=kind==="B"?190:200,pl=kind==="B"?14:40,pr=kind==="B"?14:14,pt=18,pb=30;
+  var min=60,max=100,X=function(i){return pl+i*(W-pl-pr)/(S.length-1)},Y=function(v){return pt+(max-v)*(H-pt-pb)/(max-min)};
+  var g="";
+  [60,70,80,90,100].forEach(function(v){
+    if(kind==="B"&&(v===60||v===100))return;
+    g+='<line x1="'+pl+'" x2="'+(W-pr)+'" y1="'+Y(v)+'" y2="'+Y(v)+'" stroke="#d6d4cc" stroke-width="1"/>';
+    if(kind!=="B")g+='<text x="'+(pl-8)+'" y="'+(Y(v)+4)+'" text-anchor="end" font-size="12" fill="#4a4a4a">'+v+'</text>';
+  });
+  if(kind==="B")g+='<text x="'+pl+'" y="12" font-size="12" fill="#4a4a4a">mm</text>';
+  var pts=S.map(function(s,i){return X(i)+","+Y(s.l)}).join(" ");
+  g+='<polyline points="'+pts+'" fill="none" stroke="#101010" stroke-width="'+(kind==="C"?2.5:3)+'" stroke-linejoin="round" stroke-linecap="round"/>';
+  // slow-growth marker on the last segment
+  g+='<line x1="'+X(3)+'" x2="'+X(4)+'" y1="'+Y(S[3].l)+'" y2="'+Y(S[4].l)+'" stroke="#8a5a00" stroke-width="6" stroke-linecap="round"/>';
+  S.forEach(function(s,i){
+    g+='<circle cx="'+X(i)+'" cy="'+Y(s.l)+'" r="5.5" fill="#fff" stroke="#101010" stroke-width="2.5"/>';
+    var a=i===0?"start":i===S.length-1?"end":"middle";
+    g+='<text x="'+X(i)+'" y="'+(H-8)+'" text-anchor="'+a+'" font-size="12" fill="#4a4a4a">'+s.d+'</text>';
+  });
+  g+='<text x="'+X(4)+'" y="'+(Y(S[4].l)-12)+'" text-anchor="end" font-size="13" font-weight="800" fill="#8a5a00">slow</text>';
+  var lg='<div class="legend" style="'+(kind==="B"?"padding:0 16px":"")+'"><span><i style="background:#fff;border:2px solid #101010"></i>demo data</span><span><i style="background:#8a5a00"></i>growth under your line</span></div>';
+  return '<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Average length per sample">'+g+'</svg>'+lg;
+}
+function table(kind){
+  var rows=S.slice().reverse(),h="";
+  if(kind==="C"){
+    h+='<table><thead><tr><th>Date</th><th>N</th><th>mm</th><th>per kg</th><th>mm/day</th></tr></thead><tbody>';
+    var gr={"31 Oct":"0.17","28 Oct":"0.50","25 Oct":"2.17","22 Oct":"2.33","19 Oct":""};
+    rows.forEach(function(s,i){h+='<tr'+(i===0?' class="latest"':'')+'><td>'+s.d+'</td><td>'+s.n+'</td><td>'+s.l.toFixed(1)+'</td><td>'+s.k+'</td><td'+(s.d==="31 Oct"?' class="g" style="color:#8a5a00"':'')+'>'+(gr[s.d]||"&ndash;")+'</td></tr>'});
+  } else {
+    h+='<table><thead><tr><th>Date</th><th>N</th><th>Avg mm</th><th>Per kg</th><th></th></tr></thead><tbody>';
+    rows.forEach(function(s){h+='<tr><td>'+s.d+'</td><td>'+s.n+'</td><td>'+s.l.toFixed(1)+'</td><td>'+s.k+'</td><td><span class="chip demo">demo</span></td></tr>'});
+  }
+  return h+'</tbody></table>';
+}
+document.querySelectorAll("[data-chart]").forEach(function(e){e.innerHTML=chart(e.dataset.chart)});
+document.querySelectorAll("[data-table]").forEach(function(e){e.innerHTML=table(e.dataset.table)});
+document.querySelectorAll(".tab").forEach(function(b){b.addEventListener("click",function(){
+  document.querySelectorAll(".tab").forEach(function(x){x.setAttribute("aria-pressed",x===b?"true":"false")});
+  document.getElementById("grid").style.setProperty("--w",b.dataset.w+"px");
+  document.querySelectorAll(".optwrap").forEach(function(o){o.style.setProperty("--w",b.dataset.w+"px")});
+})});
+document.querySelectorAll(".optwrap").forEach(function(o){o.style.setProperty("--w","375px")});
+</script>
+</body>
+</html>
