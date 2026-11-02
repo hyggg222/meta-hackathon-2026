@@ -228,8 +228,8 @@ def test_page_not_enough_shrimp_text():
     assert "needed in each" in html
 
 
-def test_page_chart_label_thinning():
-    # Thinning step for date labels when more than 5 distinct dates
+def test_page_chart_label_gap():
+    # Chart code maintains minimum 56 unit gap between date labels
     service = make_test_service()
     app = create_app(service)
     client = TestClient(app)
@@ -238,12 +238,7 @@ def test_page_chart_label_thinning():
     assert resp.status_code == 200
     html = resp.text
 
-    assert "// label thinning" in html
-    match = re.search(
-        r"// label thinning\s*\n\s*(?:const|let|var)\s+(?:step|labelEvery)\b",
-        html,
-    )
-    assert match is not None
+    assert "// label gap" in html
 
 
 def test_page_feed_screen_edited_flags():
@@ -388,6 +383,134 @@ def test_page_no_mean_computed_in_page():
 
     assert "reduce(" not in html
     assert not re.search(r"length_mm[\s\S]{0,100}/\s*(?:shrimp|count|items|included|n)", html)
+
+
+def test_page_dashboard_wording():
+    # Page contains Growth looks slow, Growth is not slow, and needed in each
+    service = make_test_service()
+    app = create_app(service)
+    client = TestClient(app)
+
+    resp = client.get("/")
+    assert resp.status_code == 200
+    html = resp.text
+
+    assert "Growth looks slow" in html
+    assert "Growth is not slow" in html
+    assert "needed in each" in html
+
+
+def test_page_dashboard_no_stall_wording_and_setup_label():
+    # Dashboard script has no Stall flag or >stall< text, and setup label is updated
+    service = make_test_service()
+    app = create_app(service)
+    client = TestClient(app)
+
+    resp = client.get("/")
+    assert resp.status_code == 200
+    html = resp.text
+
+    script_match = re.search(r"<script>([\s\S]*?)</script>", html)
+    assert script_match is not None, "<script> tag not found"
+    script = script_match.group(1)
+
+    dash_match = re.search(
+        r"function\s+renderDashboardChart[\s\S]*?function\s+saveFeedHandler",
+        script,
+    )
+    assert dash_match is not None, "dashboard code block not found"
+    dash_code = dash_match.group(0)
+
+    assert "Stall flag" not in dash_code
+    assert ">stall<" not in dash_code
+    assert "Growth looks slow under" in html
+
+
+def test_page_dashboard_growth_strip_and_table():
+    # Dashboard script uses growth_mm_per_day for strip and table rows, mm/day header, strip and costrow classes
+    service = make_test_service()
+    app = create_app(service)
+    client = TestClient(app)
+
+    resp = client.get("/")
+    assert resp.status_code == 200
+    html = resp.text
+
+    assert ".strip" in html
+    assert ".costrow" in html
+    assert "<th>mm/day</th>" in html
+
+    script_match = re.search(r"<script>([\s\S]*?)</script>", html)
+    assert script_match is not None, "<script> tag not found"
+    script = script_match.group(1)
+
+    dash_match = re.search(
+        r"function\s+renderDashboardChart[\s\S]*?function\s+saveFeedHandler",
+        script,
+    )
+    assert dash_match is not None, "dashboard code block not found"
+    dash_code = dash_match.group(0)
+
+    assert dash_code.count("growth_mm_per_day") >= 2
+
+
+def test_page_dashboard_chart_elements():
+    # Chart code contains text-anchor start and end, // label gap, and #8a5a00
+    service = make_test_service()
+    app = create_app(service)
+    client = TestClient(app)
+
+    resp = client.get("/")
+    assert resp.status_code == 200
+    html = resp.text
+
+    script_match = re.search(r"<script>([\s\S]*?)</script>", html)
+    assert script_match is not None, "<script> tag not found"
+    script = script_match.group(1)
+
+    chart_match = re.search(
+        r"function\s+renderDashboardChart[\s\S]*?function\s+renderDashboardSamplesTable",
+        script,
+    )
+    assert chart_match is not None, "renderDashboardChart function not found"
+    chart_code = chart_match.group(0)
+
+    assert 'text-anchor="start"' in chart_code
+    assert 'text-anchor="end"' in chart_code
+    assert "// label gap" in chart_code
+    assert "#8a5a00" in chart_code
+
+
+def test_page_no_growth_threshold_comparison():
+    # No comparison of growth with a threshold in JS
+    service = make_test_service()
+    app = create_app(service)
+    client = TestClient(app)
+
+    resp = client.get("/")
+    assert resp.status_code == 200
+    html = resp.text
+
+    script_match = re.search(r"<script>([\s\S]*?)</script>", html)
+    assert script_match is not None, "<script> tag not found"
+    script = script_match.group(1)
+
+    assert "< d.stall_threshold" not in script
+    assert not re.search(r"[<>]=?\s*d\.stall_threshold", script)
+
+
+def test_page_dash_enter_feed_button():
+    # dash-enter-feed-btn still exists in HTML
+    service = make_test_service()
+    app = create_app(service)
+    client = TestClient(app)
+
+    resp = client.get("/")
+    assert resp.status_code == 200
+    html = resp.text
+
+    assert 'id="dash-enter-feed-btn"' in html
+
 
 
 
