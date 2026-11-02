@@ -7,12 +7,12 @@
 <style>
 :root{--bg:#fff;--ink:#101010;--muted:#454545;--soft:#e9e8e2;--green:#0a5c36;--red:#b3200c;--blue:#0b4f9c;--yellow:#ffd23f;--page:#cfcdc5}
 *{box-sizing:border-box}
-body{margin:0;background:var(--page);color:var(--ink);font:18px/1.35 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+body{margin:0;background:var(--bg);color:var(--ink);font:18px/1.35 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
 button,input,select{font:inherit;color:inherit}
 :focus-visible{outline:4px solid var(--blue);outline-offset:2px}
 
 /* app styles (the real design) */
-.app{padding:0 16px 20px;min-height:600px;max-width:480px;margin:0 auto;background:var(--bg)}
+.app{padding:0 16px 20px;min-height:100vh;max-width:640px;margin:0 auto;background:var(--bg)}
 .appbar{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:0 -16px 16px;padding:8px 10px;background:var(--ink)}
 .appbar button{min-height:48px;border:2px solid #fff;border-radius:8px;background:transparent;color:#fff;font-weight:700;font-size:15px;padding:0 4px;cursor:pointer}
 .appbar button.on{background:#fff;color:var(--ink)}
@@ -121,8 +121,8 @@ details.fold>.in{padding:0 14px 14px}
 <main class="app">
   <nav class="appbar" aria-label="Pages">
     <button type="button" class="on" aria-current="page" data-screen="photo" id="nav-photo">Photo</button>
-    <button type="button" data-screen="setup" id="nav-setup">Feed + setup</button>
-    <button type="button" data-screen="dash" id="nav-dash">Dashboard</button>
+    <button type="button" data-screen="feed" id="nav-setup">Feed + setup</button>
+    <button type="button" data-screen="dashboard" id="nav-dash">Dashboard</button>
   </nav>
 
   <!-- Photo screen (capA) -->
@@ -290,18 +290,28 @@ let currentPhotoUrl = null;
 let photoNaturalWidth = 360;
 let photoNaturalHeight = 300;
 
+// Resolve URL fragment to a screen name: #photo (default), #feed, #dashboard
+function routeFromHash() {
+  const h = location.hash.replace(/^#/, "").toLowerCase();
+  if (h === "feed") return "feed";
+  if (h === "dashboard") return "dashboard";
+  return "photo";
+}
+
 // Switch active screen and update navigation state
 function switchScreen(target) {
   const screens = {
     photo: document.getElementById("screen-photo"),
-    setup: document.getElementById("screen-setup"),
-    dash: document.getElementById("screen-dash")
+    feed: document.getElementById("screen-setup"),
+    dashboard: document.getElementById("screen-dash")
   };
   const btns = {
     photo: document.getElementById("nav-photo"),
-    setup: document.getElementById("nav-setup"),
-    dash: document.getElementById("nav-dash")
+    feed: document.getElementById("nav-setup"),
+    dashboard: document.getElementById("nav-dash")
   };
+  if (!screens[target]) target = "photo";
+
   Object.keys(screens).forEach(k => {
     const on = (k === target);
     screens[k].hidden = !on;
@@ -314,16 +324,17 @@ function switchScreen(target) {
     }
   });
 
-  if (target === "setup") {
+  if (target === "feed") {
     loadSettings();
-  } else if (target === "dash") {
+  } else if (target === "dashboard") {
     loadDashboard();
   }
 }
 
 // Open feed input tab in setup screen
 function openFeedScreen() {
-  switchScreen("setup");
+  location.hash = "#feed";
+  switchScreen("feed");
   const btn = document.getElementById("seg-btn-feed");
   if (btn) btn.click();
 }
@@ -839,7 +850,12 @@ document.addEventListener("DOMContentLoaded", () => {
   document.addEventListener("click", e => {
     const screenBtn = e.target.closest("[data-screen]");
     if (screenBtn) {
-      switchScreen(screenBtn.dataset.screen);
+      const targetHash = "#" + screenBtn.dataset.screen;
+      if (location.hash === targetHash) {
+        switchScreen(routeFromHash());
+      } else {
+        location.hash = targetHash;
+      }
       return;
     }
 
@@ -857,7 +873,14 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  loadSettings();
+  window.addEventListener("hashchange", () => {
+    switchScreen(routeFromHash());
+  });
+
+  switchScreen(routeFromHash());
+  if (routeFromHash() !== "feed") {
+    loadSettings();
+  }
 });
 </script>
 </body>
