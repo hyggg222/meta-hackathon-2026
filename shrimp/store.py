@@ -1,5 +1,5 @@
 from dataclasses import fields, replace
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 import json
 from pathlib import Path
 import sqlite3
@@ -7,6 +7,14 @@ import threading
 from typing import Any, List, Optional, Union
 
 from shrimp.models import FeedEntry, SampleRecord, Settings
+
+# Convert date or datetime to ISO date string; raise TypeError for any other type.
+def _iso_day(day: Any) -> str:
+    if isinstance(day, datetime):
+        return day.date().isoformat()
+    if isinstance(day, date):
+        return day.isoformat()
+    raise TypeError(f"Expected date, got {type(day).__name__}")
 
 # Demo history: samples (offset, n_measured, n_left_out, mean_length_mm) and feed (offset, kg, price).
 DEMO_HISTORY = {
@@ -75,9 +83,9 @@ class Store:
         photo_path: Optional[str] = None,
         demo: bool = False,
     ) -> int:
-        with self._lock:
+        day_str = _iso_day(day)
+        with self._lock, self._conn:
             cur = self._conn.cursor()
-            day_str = day.isoformat() if hasattr(day, "isoformat") else str(day)
             cur.execute(
                 """
                 INSERT INTO samples (day, n_measured, n_left_out, mean_length_mm, demo, photo_path)
@@ -92,7 +100,6 @@ class Store:
                     photo_path,
                 ),
             )
-            self._conn.commit()
             return int(cur.lastrowid)
 
     # Return all sample records ordered by day, then id.
@@ -123,9 +130,9 @@ class Store:
 
     # Add or replace a feed entry for its day.
     def add_feed(self, entry: FeedEntry) -> None:
-        with self._lock:
+        day_str = _iso_day(entry.day)
+        with self._lock, self._conn:
             cur = self._conn.cursor()
-            day_str = entry.day.isoformat() if hasattr(entry.day, "isoformat") else str(entry.day)
             cur.execute(
                 """
                 INSERT OR REPLACE INTO feeds (day, kg_per_day, price_vnd)
@@ -137,7 +144,6 @@ class Store:
                     int(entry.price_vnd),
                 ),
             )
-            self._conn.commit()
 
     # Return all feed entries ordered by day.
     def feeds(self) -> List[FeedEntry]:
@@ -169,13 +175,23 @@ class Store:
             saved = dict(cur.fetchall())
         overrides = {}
         for f in fields(defaults):
-            if f.name in saved:
-                overrides[f.name] = json.loads(saved[f.name])
+            if f.name not in saved:
+                continue
+            try:
+                val = json.loads(saved[f.name])
+            except Exception:
+                continue
+            expected_type = type(getattr(defaults, f.name))
+            if expected_type is float and type(val) is int:
+                val = float(val)
+            elif type(val) is not expected_type:
+                continue
+            overrides[f.name] = val
         return replace(defaults, **overrides)
 
     # Save all settings fields to storage.
     def save_settings(self, settings: Settings) -> None:
-        with self._lock:
+        with self._lock, self._conn:
             cur = self._conn.cursor()
             for f in fields(settings):
                 val = getattr(settings, f.name)
@@ -183,11 +199,10 @@ class Store:
                     "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
                     (f.name, json.dumps(val)),
                 )
-            self._conn.commit()
 
     # Insert demo history once if no demo samples exist.
     def seed_demo(self, today: date) -> None:
-        with self._lock:
+        with self._lock, self._conn:
             cur = self._conn.cursor()
             cur.execute("SELECT 1 FROM samples WHERE demo = 1 LIMIT 1")
             if cur.fetchone() is not None:
@@ -207,12 +222,11 @@ class Store:
             feed_day = (today + timedelta(days=feed_offset)).isoformat()
             cur.execute(
                 """
-                INSERT OR REPLACE INTO feeds (day, kg_per_day, price_vnd)
+                INSERT OR IGNORE INTO feeds (day, kg_per_day, price_vnd)
                 VALUES (?, ?, ?)
                 """,
                 (feed_day, feed_kg, feed_price),
             )
-            self._conn.commit()
 
     # Close the database connection.
     def close(self) -> None:
