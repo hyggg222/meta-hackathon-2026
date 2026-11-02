@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shrimp size check: design options</title>
+<style>
+:root{--bg:#fff;--ink:#101010;--muted:#454545;--soft:#e9e8e2;--green:#0a5c36;--red:#b3200c;--blue:#0b4f9c;--yellow:#ffd23f;--page:#cfcdc5}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--ink);font:18px/1.35 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:4px solid var(--blue);outline-offset:2px}
+
+/* review chrome */
+.top{position:sticky;top:0;z-index:20;background:var(--ink);color:#fff;padding:10px 16px}
+.top h1{margin:0 0 8px;font-size:18px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:4px 0}
+.top .lbl{font-size:14px;opacity:.85;margin-right:4px}
+.tab{min-height:44px;padding:0 14px;border:2px solid #fff;background:transparent;color:#fff;border-radius:8px;font-weight:700;cursor:pointer}
+.tab[aria-pressed=true]{background:#fff;color:var(--ink)}
+.top a{color:#fff;font-weight:700;margin-right:8px}
+.note-bar{max-width:1250px;margin:12px auto 0;padding:0 16px;color:var(--muted);font-size:15px}
+main{padding:16px}
+.grid{display:grid;gap:28px;justify-items:center;align-items:start;max-width:1500px;margin:0 auto}
+.optwrap{width:100%;max-width:var(--w)}
+.optwrap h2{margin:0 0 4px;font-size:22px}
+.optwrap p{margin:0 0 6px;font-size:15px;color:var(--muted)}
+.optwrap p b{color:var(--ink)}
+.frame{background:var(--bg);border:3px solid var(--ink);border-radius:6px;container-type:inline-size;width:100%;margin-top:8px}
+
+/* app styles (the real design) */
+.app{padding:0 16px 20px;min-height:600px}
+.appbar{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:0 -16px 16px;padding:8px 10px;background:var(--ink)}
+.appbar button{min-height:48px;border:2px solid #fff;border-radius:8px;background:transparent;color:#fff;font-weight:700;font-size:15px;padding:0 4px;cursor:pointer}
+.appbar button.on{background:#fff;color:var(--ink)}
+h3{margin:18px 0 8px;font-size:20px}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:64px;padding:0 18px;border:3px solid var(--ink);border-radius:10px;background:#fff;color:var(--ink);font-size:21px;font-weight:800;cursor:pointer;text-align:center}
+.btn.go{background:var(--green);border-color:var(--green);color:#fff}
+.btn.dark{background:var(--ink);color:#fff}
+.btn[disabled]{background:var(--soft);border-color:#6b6b6b;color:#4a4a4a;cursor:not-allowed}
+.btn.sm{min-height:52px;font-size:18px}
+.stack>*+*{margin-top:12px}
+.card{border:3px solid var(--ink);border-radius:12px;padding:14px;background:#fff}
+.card.fill{background:var(--soft)}
+.band{padding:14px 16px;border-radius:10px;color:#fff;font-weight:700}
+.band p{margin:6px 0 0;font-weight:500;font-size:18px}
+.band.red{background:var(--red)}.band.blue{background:var(--blue)}.band.dark{background:var(--ink)}.band.green{background:var(--green)}
+.box-red{border:4px solid var(--red);border-radius:10px;padding:14px;background:#fff}
+.box-red b{color:var(--red);font-size:21px}.box-red p{margin:6px 0 0}
+.big{font-size:46px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
+.unit{font-size:20px;font-weight:800}
+.cap{font-size:15px;color:var(--muted);margin-top:4px}
+.nums{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.chip{display:inline-block;padding:2px 8px;border:2px solid var(--ink);border-radius:6px;font-weight:800;font-size:14px;line-height:1.3;white-space:nowrap}
+.chip.demo{background:var(--yellow)}
+.chip.tag{background:var(--ink);color:#fff;white-space:normal}
+.chip.red{background:var(--red);border-color:var(--red);color:#fff}
+.chip.blue{background:var(--blue);border-color:var(--blue);color:#fff}
+.small{font-size:15px;color:var(--muted)}
+.count{font-size:22px;font-weight:800}
+table.t{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.t th{text-align:left;font-size:14px;padding:6px 6px;border-bottom:3px solid var(--ink)}
+.t td{padding:10px 6px;border-bottom:2px solid #8a8a8a;font-size:17px}
+.t td.r,.t th.r{text-align:right}
+.t tr.out td{color:#4a4a4a;font-style:italic}
+.num{display:inline-flex;width:28px;height:28px;border-radius:50%;background:var(--ink);color:#fff;align-items:center;justify-content:center;font-weight:800;font-size:14px}
+.num.off{background:#fff;color:var(--red);border:2px solid var(--red)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:14px;margin-top:6px}
+.dot{display:inline-block;width:14px;height:14px;border-radius:50%;border:3px solid var(--ink);vertical-align:-2px;margin-right:4px}
+.dot.real{background:var(--green)}.dot.demo{background:#fff}
+.dash{display:inline-block;width:3px;height:14px;background:var(--red);vertical-align:-2px;margin-right:6px}
+svg{display:block;width:100%;height:auto}
+.stickybar{position:sticky;bottom:0;margin:16px -16px -20px;padding:10px 16px;background:var(--ink);color:#fff}
+.stickybar .btn{background:#fff;color:var(--ink);border-color:#fff}
+.photo{border:3px solid var(--ink);border-radius:8px;overflow:hidden;background:#bdb9ad}
+.empty{border:3px dashed var(--ink);border-radius:10px;min-height:200px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:16px;text-align:center;font-weight:700}
+.filebtn input{position:absolute;opacity:0;width:1px;height:1px}
+label.filebtn{position:relative}
+label.filebtn:focus-within{outline:4px solid var(--blue);outline-offset:2px}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:14px}
+.steps div{border:3px solid var(--ink);border-radius:10px;padding:8px 4px;text-align:center;font-weight:800;font-size:15px}
+.steps div.on{background:var(--ink);color:#fff}
+.steps div.done{background:var(--green);border-color:var(--green);color:#fff}
+.bars td{padding:7px 6px}
+.bar{height:22px;background:var(--green);border-radius:4px}
+.bar.out{background:#fff;border:3px dashed #6b6b6b}
+
+/* forms */
+.fld{margin:14px 0}
+.fld label{display:block;font-weight:800;margin-bottom:6px;font-size:19px}
+.inwrap{display:flex;align-items:stretch}
+.inwrap input{flex:1;min-width:0;height:60px;border:3px solid var(--ink);border-radius:10px;padding:0 12px;font-size:22px;font-weight:600;background:#fff}
+.inwrap .u{display:flex;align-items:center;padding:0 12px;font-weight:800;font-size:17px;white-space:nowrap}
+.fld.bad input{border:5px solid var(--red)}
+.hint{margin:6px 0 0;font-size:15px;color:var(--muted)}
+.err{margin:6px 0 0;font-weight:800;color:var(--red);font-size:17px}
+.err:before{content:"!";display:inline-flex;width:22px;height:22px;border-radius:50%;background:var(--red);color:#fff;align-items:center;justify-content:center;margin-right:8px;font-size:15px}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:0;border:3px solid var(--ink);border-radius:10px;overflow:hidden;margin-bottom:8px}
+.seg button{min-height:60px;border:0;background:#fff;font-weight:800;font-size:20px;cursor:pointer}
+.seg button+button{border-left:3px solid var(--ink)}
+.seg button.on{background:var(--ink);color:#fff}
+details.fold{border:3px solid var(--ink);border-radius:12px;margin-top:20px}
+details.fold>summary{min-height:64px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;font-weight:800;font-size:21px;cursor:pointer;list-style:none}
+details.fold>summary::-webkit-details-marker{display:none}
+details.fold>summary:after{content:"+";font-size:30px}
+details.fold[open]>summary:after{content:"\2212"}
+details.fold>.in{padding:0 14px 14px}
+.stepper{display:grid;grid-template-columns:64px 1fr 64px;gap:8px;align-items:stretch}
+.stepper button{min-height:64px;border:3px solid var(--ink);border-radius:10px;background:var(--ink);color:#fff;font-size:30px;font-weight:800;cursor:pointer}
+.stepper input{height:64px;min-width:0;text-align:center;border:3px solid var(--ink);border-radius:10px;font-size:26px;font-weight:800;background:#fff}
+.fld.bad .stepper input{border:5px solid var(--red)}
+.list details{border-bottom:2px solid #8a8a8a}
+.list summary{min-height:64px;display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;list-style:none;font-size:18px}
+.list summary::-webkit-details-marker{display:none}
+.list summary b{font-size:19px}
+.list summary span{font-weight:700;text-align:right}
+.list summary:after{content:"\203A";font-size:28px;font-weight:800;margin-left:6px}
+.list details[open]>summary:after{content:"\2304";}
+.list .in{padding:0 0 12px}
+.list details.bad summary b{color:var(--red)}
+.cardrow{border:3px solid var(--ink);border-radius:10px;padding:10px 12px;margin-top:8px}
+.cardrow .l1{display:flex;justify-content:space-between;align-items:center;gap:8px;font-weight:800;font-size:19px}
+.cardrow .l2{margin-top:2px;font-size:17px;font-variant-numeric:tabular-nums}
+.kv{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.kv .card{padding:12px}
+.kv .big{font-size:36px}
+.hdrline{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px}
+.hdrline .big{font-size:40px}
+@container (min-width:600px){
+  .app{padding:0 28px 24px}
+  .appbar{margin:0 -28px 16px}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}
+  .stickybar{margin:16px -28px -24px}
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>Shrimp size check: design options (3 per screen)</h1>
+  <div class="row" role="group" aria-label="Screen"><span class="lbl">Screen</span>
+    <button class="tab" data-screen="capture">1 Capture</button>
+    <button class="tab" data-screen="setup">2 Input and setup</button>
+    <button class="tab" data-screen="dash">3 Dashboard</button>
+  </div>
+  <div class="row" id="states" role="group" aria-label="State"></div>
+  <div class="row"><span class="lbl">Width</span>
+    <button class="tab" data-view="375">Phone 375</button>
+    <button class="tab" data-view="768">Tablet 768</button>
+    <button class="tab" data-view="1100">Desktop</button>
+    <span class="lbl" style="margin-left:12px">Jump</span><span id="jump"></span>
+  </div>
+</header>
+<p class="note-bar">All three options of a screen show the same state, so compare them side by side. Light theme only on purpose: dark mode is hard to read in sunlight. The dark bar at the top of each phone is navigation only, not dashboard content. Lengths and table are demo numbers; size per kg uses the temporary formula W = 1.3669e-5 * L^3.0077.</p>
+<main><div id="out"></div></main>
+
+<script>
+"use strict";
+// ---------- data and helpers ----------
+const MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const lab=iso=>{const p=iso.split("-");return (+p[2])+" "+MON[+p[1]-1]};
+const days=(a,b)=>(Date.parse(b)-Date.parse(a))/864e5;
+const perKg=L=>Math.round(1000/(1.3669e-5*Math.pow(L,3.0077)));
+const f1=n=>n.toFixed(1), f2=n=>n.toFixed(2);
+const vnd=n=>n.toLocaleString("en-US");
+const sgn=n=>(n>=0?"+":"−")+Math.abs(n).toFixed(1);
+
+const SHR=[78.4,81.2,76.9,79.8,83.1,77.5,80.3,74.6,86.0,72.9];
+const OUT=[8,9]; // indexes left out (overlapped)
+const MEAS=SHR.filter((_,i)=>!OUT.includes(i));
+const AVG=MEAS.reduce((a,b)=>a+b,0)/MEAS.length;
+const SCALE="6.42";
+
+function dash(st){
+  const H=st==="harvest"?150:50, MIN=5, STALL=0.33;
+  let s=[["2026-10-12",71.2,9,1],["2026-10-16",73.0,10,1],["2026-10-20",75.1,8,1],["2026-10-24",75.9,9,1],["2026-10-28",78.4,10,1],["2026-11-02",79.0,8,0]]
+    .map(r=>({d:r[0],avg:r[1],n:r[2],demo:!!r[3]}));
+  if(st==="one") s=[s[5]];
+  if(st==="few") s[5].n=4;
+  if(st==="same"){s[4].d="2026-11-02";s[4].demo=false}
+  const stalls=[];
+  for(let i=1;i<s.length;i++){const dd=days(s[i-1].d,s[i].d);
+    if(dd>=1&&s[i].n>=MIN&&s[i-1].n>=MIN&&(s[i].avg-s[i-1].avg)/dd<STALL) stalls.push(s[i].d);}
+  const L=s[s.length-1], P=s.length>1?s[s.length-2]:null;
+  let verdict="one", rate=null;
+  if(P){const dd=days(P.d,L.d);
+    if(dd===0) verdict="same";
+    else if(L.n<MIN||P.n<MIN) verdict="few";
+    else {rate=(L.avg-P.avg)/dd; verdict=rate<STALL?"stall":"ok";}}
+  return {s,L,P,stalls,verdict,rate,H,MIN,STALL,size:perKg(L.avg),psize:P?perKg(P.avg):null,
+    harvest:perKg(L.avg)<=H, feed:st==="nofeed"?null:{kg:100,price:45000,date:"1 Nov"}};
+}
+
+// ---------- small components ----------
+function appbar(on){const n=["Photo","Feed + setup","Dashboard"];
+  return '<nav class="appbar" aria-label="Pages">'+n.map((t,i)=>'<button type="button"'+(i===on?' class="on" aria-current="page"':'')+'>'+t+'</button>').join("")+'</nav>';}
+
+function photo(o){ // o: shrimp, ruler, masks
+  let g='<rect x="0" y="0" width="360" height="300" fill="#8f8b80"/><rect x="8" y="8" width="344" height="232" rx="6" fill="#c9c5b8" stroke="#5f5b52" stroke-width="3"/>';
+  if(o.shrimp){
+    for(let i=0;i<10;i++){const cx=i%2?262:98, y=44+Math.floor(i/2)*38, c=(i%3===0?14:-12);
+      const d='M'+(cx-62)+' '+y+' Q'+cx+' '+(y+c*2)+' '+(cx+62)+' '+y;
+      const left=OUT.includes(i);
+      if(o.masks) g+='<path d="'+d+'" fill="none" stroke="'+(left?'#b3200c':'#0a5c36')+'" stroke-width="15" stroke-linecap="round"'+(left?' stroke-dasharray="1 0"':'')+'/>';
+      g+='<path d="'+d+'" fill="none" stroke="'+(left&&o.masks?'#d9d6cc':'#e58b63')+'" stroke-width="9" stroke-linecap="round"/>';
+      if(o.masks) g+='<circle cx="'+(cx-76)+'" cy="'+y+'" r="11" fill="'+(left?'#fff':'#101010')+'" stroke="'+(left?'#b3200c':'#101010')+'" stroke-width="2"/><text x="'+(cx-76)+'" y="'+(y+5)+'" text-anchor="middle" font-size="13" font-weight="800" fill="'+(left?'#b3200c':'#fff')+'">'+(i+1)+'</text>';
+    }
+  }
+  if(o.ruler){
+    g+='<rect x="20" y="250" width="320" height="36" fill="#f3cf4d" stroke="#101010" stroke-width="2"/>';
+    for(let k=0;k<=32;k++) g+='<line x1="'+(20+k*10)+'" y1="250" x2="'+(20+k*10)+'" y2="'+(250+(k%5===0?18:10))+'" stroke="#101010" stroke-width="2"/>';
+    for(let k=0;k<=30;k+=10) g+='<text x="'+(24+k*10)+'" y="281" font-size="11" font-weight="800" fill="#101010">'+(k/10)+'</text>';
+  }
+  return '<div class="photo"><svg viewBox="0 0 360 300" role="img" aria-label="Photo of shrimp laid flat next to a ruler">'+g+'</svg></div>';
+}
+
+const fileBtn=(txt,cls)=>'<label class="btn filebtn '+(cls||"")+'"><input type="file" accept="image/*" capture="environment">'+txt+'</label>';
+
+function chart(d,o){o=o||{};
+  const W=360,H=o.h||230,pl=44,pr=14,pt=26,pb=34,s=d.s;
+  const vals=s.map(r=>r.avg);let lo=Math.floor(Math.min(...vals)-1),hi=Math.ceil(Math.max(...vals)+1);
+  if(hi-lo<6){hi=lo+6}
+  const ts=s.map(r=>Date.parse(r.d)),t0=Math.min(...ts),t1=Math.max(...ts);
+  const x=t=>t1===t0?(pl+W-pr)/2:pl+(t-t0)/(t1-t0)*(W-pl-pr);
+  const y=v=>pt+(hi-v)/(hi-lo)*(H-pt-pb);
+  let g="";
+  for(let k=0;k<=3;k++){const v=lo+(hi-lo)*k/3;g+='<line x1="'+pl+'" x2="'+(W-pr)+'" y1="'+y(v)+'" y2="'+y(v)+'" stroke="#8a8a8a" stroke-width="1.5"/><text x="'+(pl-6)+'" y="'+(y(v)+5)+'" text-anchor="end" font-size="14" font-weight="700" fill="#101010">'+Math.round(v)+'</text>';}
+  g+='<text x="4" y="14" font-size="13" font-weight="700" fill="#454545">mm</text>';
+  d.stalls.forEach(sd=>{const X=x(Date.parse(sd));g+='<line x1="'+X+'" x2="'+X+'" y1="'+(pt-4)+'" y2="'+(H-pb)+'" stroke="#b3200c" stroke-width="3" stroke-dasharray="6 4"/><text x="'+X+'" y="'+(pt-9)+'" text-anchor="middle" font-size="13" font-weight="800" fill="#b3200c">stall</text>';});
+  if(s.length>1) g+='<polyline fill="none" stroke="#101010" stroke-width="4" stroke-linejoin="round" points="'+s.map(r=>x(Date.parse(r.d))+','+y(r.avg)).join(" ")+'"/>';
+  const seen={};
+  s.forEach(r=>{const X=x(Date.parse(r.d)),Y=y(r.avg);
+    g+='<circle cx="'+X+'" cy="'+Y+'" r="8" fill="'+(r.demo?'#fff':'#0a5c36')+'" stroke="#101010" stroke-width="3.5"/>';
+    if(o.values) g+='<text x="'+X+'" y="'+(Y-14)+'" text-anchor="middle" font-size="14" font-weight="800" fill="#101010" stroke="#fff" stroke-width="4" paint-order="stroke">'+f1(r.avg)+'</text>';
+    if(!seen[r.d]){seen[r.d]=1;g+='<text x="'+X+'" y="'+(H-12)+'" text-anchor="middle" font-size="13" font-weight="700" fill="#101010">'+lab(r.d)+'</text>';}});
+  const legend='<div class="legend"><span><i class="dot real"></i>real sample</span><span><i class="dot demo"></i>demo data</span>'+(d.stalls.length?'<span><i class="dash"></i>stall date</span>':'')+'</div>';
+  return '<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Line chart of average length in millimetres per sample date">'+g+'</svg>'+legend;
+}
+
+function sizeTag(){return '<span class="chip tag">temporary table, not the CP table</span> <span class="small">Rough estimate, likely off by 20% or more.</span>';}
+
+function msgFlags(d){ // full-width flag blocks, shared text
+  let h="";
+  if(d.verdict==="stall") h+='<div class="band red" role="status">Stall flag<p>Average length grew '+f2(d.rate)+' mm a day since '+lab(d.P.d)+'. Flag shows under '+d.STALL+'. Based on '+d.L.n+' and '+d.P.n+' shrimp.</p></div>';
+  if(d.verdict==="ok") h+='<div class="card" role="status"><b>No stall flag.</b> Grew '+f2(d.rate)+' mm a day since '+lab(d.P.d)+'.</div>';
+  if(d.verdict==="one") h+='<div class="card" role="status"><b>Only one sample.</b> Take another photo in a few days to see growth.</div>';
+  if(d.verdict==="few") h+='<div class="card" role="status"><b>Not enough shrimp.</b> '+d.L.n+' measured in the latest sample, '+d.MIN+' needed to tell a stall.</div>';
+  if(d.verdict==="same") h+='<div class="card" role="status"><b>Same day.</b> Two samples on '+lab(d.L.d)+'. Growth cannot be told.</div>';
+  if(d.harvest) h+='<div class="band blue" role="status">At harvest size<p>'+d.size+' per kg is at or under your '+d.H+' per kg. For your information. You decide.</p></div>';
+  return h;
+}
+function changeLine(d){
+  if(!d.P) return "";
+  return 'Since '+lab(d.P.d)+': <b>'+sgn(d.L.avg-d.P.avg)+' mm</b>, size '+d.psize+' to '+d.size+' per kg <span class="small">('+d.L.n+' measured now, '+d.P.n+' before)</span>';
+}
+function costBlock(d,big){
+  if(!d.feed) return '<b>Cost of a stall day</b><div class="big" style="font-size:30px;margin-top:4px">Enter feed kg</div><button class="btn sm dark" type="button" style="margin-top:10px">Enter feed</button>';
+  const c=d.feed.kg*d.feed.price;
+  return '<b>Cost of a stall day</b><div class="big"'+(big?'':' style="font-size:34px"')+'>'+vnd(c)+' <span class="unit">VND</span></div><div class="cap">'+d.feed.kg+' kg feed a day at '+vnd(d.feed.price)+' VND per kg (entry of '+d.feed.date+')</div>';
+}
+function tableRows(d){return d.s.slice().reverse().map(r=>'<tr><td>'+lab(r.d)+'</td><td class="r">'+r.n+'</td><td class="r">'+f1(r.avg)+'</td><td class="r">'+perKg(r.avg)+'</td><td>'+(r.demo?'<span class="chip demo">demo data</span>':'real')+'</td></tr>').join("");}
+function tableBlock(d){return '<table class="t"><thead><tr><th>Date</th><th class="r">N measured</th><th class="r">Avg mm</th><th class="r">Per kg</th><th>Data</th></tr></thead><tbody>'+tableRows(d)+'</tbody></table><p class="small">'+'Size per kg: temporary table, not the CP table.</p>';}
+
+// ---------- DASHBOARD options ----------
+function dashA(st){const d=dash(st);
+  return appbar(2)+'<div class="stack">'+
+   '<div class="card"><div class="cap" style="margin:0 0 8px">Latest sample, '+lab(d.L.d)+', '+d.L.n+' shrimp measured '+(d.L.demo?'<span class="chip demo">demo data</span>':'')+'</div>'+
+   '<div class="nums"><div><span class="big">'+f1(d.L.avg)+'</span><span class="unit"> mm</span><div class="cap">average length</div></div><div><span class="big">'+d.size+'</span><span class="unit"> per kg</span><div class="cap">size</div></div></div>'+
+   '<p style="margin:10px 0 0">'+sizeTag()+'</p>'+(d.P?'<p style="margin:10px 0 0">'+changeLine(d)+'</p>':'')+'</div>'+
+   msgFlags(d)+
+   '<div class="card">'+costBlock(d,true)+'</div>'+
+   '<div class="card"><b>Average length per sample</b>'+chart(d)+'</div>'+
+   '<div class="card"><b>Samples</b>'+tableBlock(d)+'</div></div>';}
+
+function dashB(st){const d=dash(st);
+  let banner;
+  if(d.verdict==="stall") banner='<div class="band red" role="status" style="font-size:24px">STALL FLAG<p>'+f2(d.rate)+' mm a day since '+lab(d.P.d)+' (flag under '+d.STALL+'). Based on '+d.L.n+' and '+d.P.n+' shrimp.</p></div>';
+  else if(d.verdict==="ok") banner='<div class="band dark" role="status" style="font-size:24px">No stall flag<p>Grew '+f2(d.rate)+' mm a day since '+lab(d.P.d)+'.</p></div>';
+  else {const t={one:["Only one sample","Take another photo in a few days to see growth."],few:["Not enough shrimp",d.L.n+" measured in the latest sample, "+d.MIN+" needed to tell a stall."],same:["Same day","Two samples on "+lab(d.L.d)+". Growth cannot be told."]}[d.verdict];
+    banner='<div class="band dark" role="status" style="font-size:24px">'+t[0]+'<p>'+t[1]+'</p></div>';}
+  const harv=d.harvest?'<div class="band blue" role="status" style="margin-top:10px">At harvest size<p>'+d.size+' per kg is at or under your '+d.H+' per kg. For your information. You decide.</p></div>':'';
+  const chg=d.P?'<div class="card"><div class="cap" style="margin:0">Change since '+lab(d.P.d)+'</div><div class="big">'+sgn(d.L.avg-d.P.avg)+'<span class="unit"> mm</span></div><div class="cap">size '+d.psize+' to '+d.size+'; '+d.L.n+' vs '+d.P.n+' shrimp</div></div>':'<div class="card"><div class="cap" style="margin:0">Change</div><div class="big">&ndash;</div><div class="cap">needs a second sample</div></div>';
+  const cost=d.feed?'<div class="card"><div class="cap" style="margin:0">Cost of a stall day</div><div class="big" style="font-size:30px">'+vnd(d.feed.kg*d.feed.price)+'</div><div class="cap">VND. '+d.feed.kg+' kg at '+vnd(d.feed.price)+'</div></div>':'<div class="card"><div class="cap" style="margin:0">Cost of a stall day</div><div class="big" style="font-size:28px">Enter feed kg</div><button class="btn sm dark" type="button" style="margin-top:8px">Enter feed</button></div>';
+  return appbar(2)+banner+harv+
+   '<div class="kv" style="margin-top:12px"><div class="card"><div class="cap" style="margin:0">Average length</div><div class="big">'+f1(d.L.avg)+'<span class="unit"> mm</span></div><div class="cap">'+lab(d.L.d)+', '+d.L.n+' measured '+(d.L.demo?'<span class="chip demo">demo data</span>':'')+'</div></div>'+
+   '<div class="card"><div class="cap" style="margin:0">Size</div><div class="big">'+d.size+'<span class="unit"> /kg</span></div><div class="cap">per kg, rough estimate</div></div>'+chg+cost+'</div>'+
+   '<p style="margin:8px 0 0">'+sizeTag()+'</p>'+
+   '<h3>Average length per sample</h3>'+chart(d,{h:260})+
+   '<h3>Samples</h3>'+tableBlock(d);}
+
+function dashC(st){const d=dash(st);
+  const chips=(d.verdict==="stall"?'<span class="chip red" style="font-size:17px;padding:6px 12px">Stall flag: '+f2(d.rate)+' mm/day</span>':'')+(d.harvest?'<span class="chip blue" style="font-size:17px;padding:6px 12px">At harvest size (info only)</span>':'');
+  const note={ok:'No stall flag. Grew '+(d.rate||0).toFixed(2)+' mm a day since '+(d.P?lab(d.P.d):"")+'.',one:'Only one sample. Take another photo in a few days to see growth.',few:'Not enough shrimp: '+d.L.n+' measured, '+d.MIN+' needed to tell a stall.',same:'Same day: two samples on '+lab(d.L.d)+'. Growth cannot be told.',stall:'Based on '+d.L.n+' and '+d.P?.n+' shrimp. Flag shows under '+d.STALL+' mm a day.'}[d.verdict];
+  const cards=d.s.slice().reverse().map(r=>'<div class="cardrow"><div class="l1"><span>'+lab(r.d)+'</span>'+(r.demo?'<span class="chip demo">demo data</span>':'<span class="small" style="font-weight:700">real</span>')+'</div><div class="l2"><b>'+f1(r.avg)+' mm</b> &middot; '+perKg(r.avg)+' per kg &middot; '+r.n+' measured</div></div>').join("");
+  const bar=d.feed?'<div class="cap" style="color:#fff;margin:0">Cost of a stall day</div><div style="font-size:30px;font-weight:800">'+vnd(d.feed.kg*d.feed.price)+' VND</div><div class="cap" style="color:#fff">'+d.feed.kg+' kg a day at '+vnd(d.feed.price)+' VND per kg</div>':'<div style="font-size:24px;font-weight:800;margin-bottom:8px">Cost of a stall day: enter feed kg</div><button class="btn sm" type="button">Enter feed</button>';
+  return appbar(2)+
+   '<div class="hdrline"><span class="big">'+f1(d.L.avg)+'<span class="unit"> mm</span></span><span class="big">'+d.size+'<span class="unit"> per kg</span></span></div>'+
+   '<div class="cap">Latest sample '+lab(d.L.d)+', '+d.L.n+' measured '+(d.L.demo?'<span class="chip demo">demo data</span>':'')+(d.P?' &middot; '+changeLine(d):'')+'</div>'+
+   '<div style="margin:6px 0 10px">'+sizeTag()+'</div>'+
+   '<div class="card" style="padding:10px">'+chart(d,{values:true,h:250})+'</div>'+
+   '<div class="row" style="gap:8px;margin:12px 0 4px">'+chips+'</div><p style="margin:4px 0 0;font-weight:700">'+note+'</p>'+
+   (d.harvest?'<p class="small" style="margin:4px 0 0">'+d.size+' per kg is at or under your '+d.H+' per kg. You decide.</p>':'')+
+   '<h3>Samples</h3>'+cards+
+   '<div class="stickybar">'+bar+'</div>';}
+
+// ---------- CAPTURE options ----------
+const MSG={
+ noref:["No ruler or card found","Lay a ruler (or a credit card) flat next to the shrimp, fully in the photo. Then take the photo again."],
+ noshrimp:["No shrimp found","Lay the shrimp flat on the tray, in one layer and in good light. Then take the photo again."],
+ toofew:["Only 4 shrimp could be measured","At least 5 are needed. Lay the shrimp apart, one layer, and take a new photo."],
+ error:["Something went wrong","Nothing was saved. Check your signal and send the photo again."]
+};
+const isErr=st=>!!MSG[st];
+const phase=st=>st==="start"?0:(st==="ready"||st==="processing")?1:2;
+function pOpts(st){return {shrimp:st!=="noshrimp",ruler:st!=="noref",masks:st==="result"||st==="toofew"};}
+function shrimpTable(){
+  return '<table class="t"><thead><tr><th>#</th><th class="r">Length (mm)</th><th>Status</th></tr></thead><tbody>'+SHR.map((v,i)=>{const o=OUT.includes(i);return '<tr'+(o?' class="out"':'')+'><td><span class="num'+(o?' off':'')+'">'+(i+1)+'</span></td><td class="r">'+f1(v)+'</td><td>'+(o?'left out (overlapped)':'measured')+'</td></tr>';}).join("")+'</tbody></table>';}
+const countLine=()=>'<div class="count">'+MEAS.length+' measured, '+OUT.length+' left out</div>';
+const avgLine=()=>'<p style="margin:6px 0">Average <b>'+f1(AVG)+' mm</b>, about <b>'+perKg(AVG)+' per kg</b></p><p style="margin:0">'+sizeTag()+'</p>';
+
+function capA(st){
+  let h=appbar(0)+'<div class="stack">'+fileBtn(phase(st)?'Take another photo':'Take photo of tray','')+'<div class="small" style="margin-top:6px">Lay about 10 shrimp flat, one layer, next to a ruler.</div>';
+  if(phase(st)) h+=photo(pOpts(st));
+  h+=phase(st)===0?'<button class="btn go" type="button" disabled>Send photo</button>':
+     st==="processing"?'<button class="btn go" type="button" disabled>Working, up to 10 seconds</button>':
+     phase(st)===1?'<button class="btn go" type="button">Send photo</button>':'';
+  if(isErr(st)) h+='<div class="band red" role="alert">'+MSG[st][0]+'<p>'+MSG[st][1]+'</p></div>';
+  if(st==="result") h+='<div class="card"><div class="nums"><div><span class="big" style="font-size:38px">'+SCALE+'</span><div class="cap">scale, px per mm</div></div><div><span class="big" style="font-size:38px">Ruler</span><div class="cap">reference used</div></div></div></div>'+
+    '<div class="card">'+countLine()+avgLine()+'<div style="margin-top:8px">'+shrimpTable()+'</div></div>';
+  return h+'</div>';}
+
+function capB(st){
+  const p=phase(st), cls=i=>i<p?"done":i===p?"on":"";
+  let h=appbar(0)+'<div class="steps" aria-label="Steps"><div class="'+cls(0)+'">1 Photo</div><div class="'+cls(1)+'">2 Send</div><div class="'+cls(2)+'">3 Result</div></div>';
+  if(st==="start") h+='<div class="stack"><h3 style="margin:0">Step 1. Take the photo</h3><p style="margin:0">Lay about 10 shrimp flat, one layer, next to a ruler. Keep the whole ruler in the photo.</p>'+fileBtn('Take photo','go')+'</div>';
+  else if(p===1) h+='<div class="stack"><h3 style="margin:0">Step 2. Send</h3>'+photo(pOpts(st))+(st==="processing"?'<button class="btn go" type="button" disabled>Working, up to 10 seconds</button>':'<button class="btn go" type="button">Send photo</button>')+fileBtn('Take it again','')+'</div>';
+  else if(isErr(st)) h+='<div class="stack"><div class="box-red" role="alert"><b>'+MSG[st][0]+'</b><p>'+MSG[st][1]+'</p></div>'+fileBtn('Back to step 1: take a new photo','go')+'</div>';
+  else h+='<div class="stack"><div class="card fill"><div class="cap" style="margin:0">Scale (px per mm) from the reference</div><div class="big">'+SCALE+'</div><div class="cap">Reference used: <b>ruler</b></div></div>'+
+    '<div>'+countLine()+'</div>'+
+    '<table class="t bars"><tbody>'+SHR.map((v,i)=>{const o=OUT.includes(i);return '<tr><td style="width:36px"><span class="num'+(o?' off':'')+'">'+(i+1)+'</span></td><td><div class="bar'+(o?' out':'')+'" style="width:'+Math.round((v-50)/45*100)+'%"></div></td><td class="r" style="width:92px;white-space:nowrap">'+f1(v)+' mm'+(o?'<div class="small">left out</div>':'')+'</td></tr>';}).join("")+'</tbody></table>'+
+    '<div class="card">'+avgLine()+'</div>'+fileBtn('Take next photo','go')+'</div>';
+  return h;}
+
+function capC(st){
+  const e=isErr(st);
+  let h=appbar(0);
+  if(st==="result") h+='<div class="kv" style="margin-bottom:10px"><div class="card"><span class="big" style="font-size:32px">'+SCALE+'</span><div class="cap">scale, px per mm</div></div><div class="card"><span class="big" style="font-size:32px">Ruler</span><div class="cap">reference used</div></div></div>';
+  h+=phase(st)===0?'<div class="empty"><div style="font-size:20px">No photo yet</div><div class="small" style="font-weight:500">Lay about 10 shrimp flat, one layer, next to a ruler.</div></div>':photo(pOpts(st));
+  if(e) h+='<div class="band dark" role="alert" style="margin-top:10px">'+MSG[st][0]+'<p>'+MSG[st][1]+'</p></div>';
+  if(st==="processing") h+='<div class="band dark" style="margin-top:10px" role="status">Working. Up to 10 seconds.</div>';
+  if(st==="result") h+='<div style="margin:12px 0 4px">'+countLine()+'</div>'+avgLine()+'<div style="margin-top:8px">'+shrimpTable()+'</div>';
+  const act=st==="start"?fileBtn('Take photo','go'):st==="ready"?'<button class="btn go" type="button">Send photo</button>':st==="processing"?'<button class="btn go" type="button" disabled>Working</button>':fileBtn(e?'Take a new photo':'Take next photo','go');
+  return h+'<div class="stickybar">'+act+'</div>';}
+
+// ---------- SETUP options ----------
+function fld(o){const bad=o.err&&o.state==="errors";
+  return '<div class="fld'+(bad?' bad':'')+'"><label for="'+o.id+'">'+o.label+'</label><div class="inwrap"><input id="'+o.id+'" '+(o.type==="date"?'type="date"':'type="text" inputmode="decimal"')+' value="'+(bad?o.bad:o.v)+'"'+(bad?' aria-invalid="true"':'')+'>'+(o.u?'<span class="u">'+o.u+'</span>':'')+'</div>'+(o.hint?'<p class="hint">'+o.hint+'</p>':'')+(bad?'<p class="err" role="alert">'+o.err+'</p>':'')+'</div>';}
+function stepper(o){const bad=o.err&&o.state==="errors";
+  return '<div class="fld'+(bad?' bad':'')+'"><label for="'+o.id+'">'+o.label+'</label><div class="stepper"><button type="button" data-step="-'+o.step+'" data-t="'+o.id+'" aria-label="Less">&minus;</button><input id="'+o.id+'" inputmode="decimal" value="'+(bad?o.bad:o.v)+'"'+(o.comma?' data-comma="1"':'')+'><button type="button" data-step="'+o.step+'" data-t="'+o.id+'" aria-label="More">+</button></div>'+(o.hint?'<p class="hint">'+o.hint+'</p>':'')+(bad?'<p class="err" role="alert">'+o.err+'</p>':'')+'</div>';}
+
+const FEED=(p,st)=>[
+ {id:p+"d",label:"Date",type:"date",v:"2026-11-02"},
+ {id:p+"k",label:"Feed per day",v:"100",u:"kg",bad:"-20",err:"Enter feed as a number, zero or more. Nothing was saved.",state:st},
+ {id:p+"p",label:"Feed price",v:"45,000",u:"VND per kg",hint:"Filled from setup. Change it if the price changed."}];
+const SETUP=(p,st)=>[
+ {id:p+"n",label:"Pond name",v:"Pond 2",type:"text"},
+ {id:p+"fp",label:"Default feed price",v:"45,000",u:"VND per kg"},
+ {id:p+"r",label:"Reference size",v:"300",u:"mm",hint:"Long side of your ruler. A credit card is 85.6 by 54 mm."},
+ {id:p+"s",label:"Stall threshold",v:"0.33",u:"mm per day",hint:"Assumption, not verified with a farmer.",bad:"0",err:"Must be more than 0.",state:st},
+ {id:p+"h",label:"Harvest size",v:"50",u:"shrimp per kg",hint:"Assumption, not verified with a farmer."},
+ {id:p+"m",label:"Minimum shrimp count",v:"5",u:"shrimp",hint:"Fewer measured shrimp than this: no size."}];
+const saved=st=>st==="saved"?'<div class="band green" role="status" style="margin-bottom:10px">Saved.</div>':'';
+
+function setA(st){
+  return appbar(1)+saved(st)+'<div class="seg"><button type="button" class="on" data-seg="feed">Feed</button><button type="button" data-seg="setup">Setup</button></div>'+
+   '<section data-pane="feed"><h3>Add feed</h3>'+FEED("a",st).map(fld).join("")+'<button class="btn go" type="button">Save feed</button></section>'+
+   '<section data-pane="setup" hidden><h3>Pond setup</h3>'+SETUP("a",st).map(fld).join("")+'<button class="btn go" type="button">Save setup</button></section>';}
+
+function setB(st){
+  return appbar(1)+saved(st)+'<h3 style="margin-top:0">Add feed</h3>'+FEED("b",st).map(fld).join("")+'<button class="btn go" type="button">Save feed</button>'+
+   '<details class="fold"'+(st==="errors"?' open':'')+'><summary>Pond setup</summary><div class="in">'+SETUP("b",st).map(fld).join("")+'<button class="btn go" type="button">Save setup</button></div></details>';}
+
+function setC(st){
+  const rows=[
+   ["Pond name","Pond 2",fld({id:"cn",label:"Pond name",v:"Pond 2",type:"text"})],
+   ["Default feed price","45,000 VND/kg",stepper({id:"cfp",label:"VND per kg",v:"45,000",step:1000,comma:1})],
+   ["Reference size","300 mm",stepper({id:"cr",label:"Ruler long side, mm",v:"300",step:10,hint:"A credit card is 85.6 by 54 mm."})],
+   ["Stall threshold","0.33 mm/day",stepper({id:"cs",label:"mm per day",v:"0.33",step:0.01,bad:"0",err:"Must be more than 0.",state:st,hint:"Assumption, not verified with a farmer."}),st==="errors"],
+   ["Harvest size","50 per kg",stepper({id:"ch",label:"Shrimp per kg",v:"50",step:5,hint:"Assumption, not verified with a farmer."})],
+   ["Minimum shrimp count","5",stepper({id:"cm",label:"Shrimp",v:"5",step:1,hint:"Fewer measured shrimp than this: no size."})]];
+  return appbar(1)+saved(st)+'<h3 style="margin-top:0">Add feed</h3>'+
+   '<div class="fld"><label for="cd">Date</label><div class="stepper"><button type="button" data-day="-1" data-t="cd" aria-label="Previous day">&lsaquo;</button><input id="cd" type="date" value="2026-11-02"><button type="button" data-day="1" data-t="cd" aria-label="Next day">&rsaquo;</button></div></div>'+
+   stepper({id:"ck",label:"Feed per day, kg",v:"100",step:5,bad:"-20",err:"Enter feed as a number, zero or more. Nothing was saved.",state:st})+
+   stepper({id:"cp",label:"Feed price, VND per kg",v:"45,000",step:1000,comma:1,hint:"Filled from setup."})+
+   '<button class="btn go" type="button">Save feed</button>'+
+   '<h3>Pond setup</h3><div class="list">'+rows.map(r=>'<details'+(r[3]?' open class="bad"':'')+'><summary><b>'+r[0]+'</b><span>'+r[1]+'</span></summary><div class="in">'+r[2]+'<button class="btn sm go" type="button">Save</button></div></details>').join("")+'</div>';}
+
+// ---------- registry ----------
+const REG={
+ capture:{title:"Capture page",states:[["start","No photo yet"],["ready","Photo taken"],["processing","Sending"],["result","Result"],["noref","No ruler or card"],["noshrimp","No shrimp"],["toofew","Fewer than 5"],["error","Processing error"]],def:"result",opts:[
+  ["A","One column","Camera button, photo, Send button, result stacked below. Everything on one scroll.","Simplest and closest to the spec flow; the result is far below the Send button on a phone, so the farmer scrolls."],
+  ["B","Three steps","Photo, Send, Result are three separate steps, one task per screen. Shrimp lengths as bars.","Fewest decisions per screen and the clearest errors; adds a tap between steps. Bars show the spread at a glance but are less exact."],
+  ["C","Photo first","The photo is the page. Masks and numbers sit on it; one bottom button changes meaning (take, send, take next).","Links each number on the photo to a table row, the best check for a doubtful shrimp; the bottom button changes label, which needs learning."]]},
+ setup:{title:"Input and setup page",states:[["clean","Normal"],["errors","Rejected values"],["saved","Saved"]],def:"clean",opts:[
+  ["A","Feed or Setup switch","Big two-way switch; one short form at a time.","Short screens, nothing to scroll past; setup (rare) is one extra tap, and errors on the hidden form are not seen."],
+  ["B","Feed on top, setup folded","Feed form is the page. Pond setup folds away below it.","Fastest for the daily task and all on one page; the long page needs a scroll to reach setup, which opens by itself when it has an error."],
+  ["C","Steppers and rows","Minus and plus buttons for numbers, day arrows for the date. Setup is a list; tap a row to edit it.","Best for wet hands, little typing; the most code and the least common patterns, and exact values like 0.33 are slower to enter."]]},
+ dash:{title:"Dashboard",states:[["normal","Several samples, stall"],["one","Only one sample"],["few","Not enough shrimp"],["same","Same day"],["nofeed","No feed entered"],["harvest","At harvest size (preview: 150/kg)"]],def:"normal",opts:[
+  ["A","Stacked cards","Latest numbers, flags, cost, chart, table in the order of the spec.","Reads like a list, easy to build and test; the flag is below the first screen on small phones."],
+  ["B","Status first","A big solid banner states the flag before any number; four tiles; then chart and table.","The answer (stall or not) is seen in a second; tiles add height and the red banner dominates even when the flag is only information."],
+  ["C","Chart first, cost pinned","Latest numbers and chart on top, flags as chips, samples as cards, the cost always pinned at the bottom.","The trend and the money stay in view; the table becomes cards, which are bigger to tap but longer than a table."]]}
+};
+const FN={capture:[capA,capB,capC],setup:[setA,setB,setC],dash:[dashA,dashB,dashC]};
+
+// ---------- view ----------
+const S={screen:"capture",view:375,st:{capture:"result",setup:"clean",dash:"normal"}};
+function render(){
+  const R=REG[S.screen], st=S.st[S.screen];
+  document.querySelectorAll("[data-screen]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.screen===S.screen));
+  document.querySelectorAll("[data-view]").forEach(b=>b.setAttribute("aria-pressed",+b.dataset.view===S.view));
+  document.getElementById("states").innerHTML='<span class="lbl">State</span>'+R.states.map(x=>'<button class="tab" data-state="'+x[0]+'" aria-pressed="'+(x[0]===st)+'">'+x[1]+'</button>').join("");
+  document.getElementById("jump").innerHTML=R.opts.map(o=>'<a href="#opt-'+o[0]+'">'+o[0]+'</a>').join("");
+  document.getElementById("out").innerHTML='<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(min(100%,'+S.view+'px),1fr))">'+
+    R.opts.map((o,i)=>'<section class="optwrap" id="opt-'+o[0]+'" style="--w:'+S.view+'px"><h2>'+o[0]+'. '+o[1]+'</h2><p><b>Idea:</b> '+o[2]+'</p><p><b>Trade-offs:</b> '+o[3]+'</p><div class="frame"><div class="app">'+FN[S.screen][i](st)+'</div></div></section>').join("")+'</div>';
+}
+document.addEventListener("click",e=>{
+  const t=e.target.closest("button,a");if(!t)return;
+  if(t.dataset.screen){S.screen=t.dataset.screen;render();return}
+  if(t.dataset.view){S.view=+t.dataset.view;render();return}
+  if(t.dataset.state){S.st[S.screen]=t.dataset.state;render();return}
+  if(t.dataset.seg){const a=t.closest(".app");a.querySelectorAll("[data-seg]").forEach(b=>b.classList.toggle("on",b===t));a.querySelectorAll("[data-pane]").forEach(p=>p.hidden=p.dataset.pane!==t.dataset.seg);return}
+  if(t.dataset.step){const i=document.getElementById(t.dataset.t);const raw=parseFloat(String(i.value).replace(/,/g,""))||0;let v=Math.max(0,raw+parseFloat(t.dataset.step));
+    const dec=(t.dataset.step.split(".")[1]||"").length;v=+v.toFixed(dec);i.value=i.dataset.comma?v.toLocaleString("en-US"):(dec?v.toFixed(dec):String(v));return}
+  if(t.dataset.day){const i=document.getElementById(t.dataset.t);const d=new Date(i.value+"T00:00:00Z");d.setUTCDate(d.getUTCDate()+ +t.dataset.day);i.value=d.toISOString().slice(0,10);return}
+});
+render();
+</script>
+</body>
+</html>
