@@ -147,6 +147,8 @@ def _make_sample_dashboard(
         stall_unclear=False,
         days_needed=None,
         shrimp_needed=None,
+        trend_samples=None,
+        trend_span_days=None,
     )
 
 

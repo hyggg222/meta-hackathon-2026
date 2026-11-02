@@ -132,3 +132,5 @@ class Dashboard:
     stall_unclear: bool
     days_needed: Optional[int]
     shrimp_needed: Optional[int]
+    trend_samples: Optional[int]
+    trend_span_days: Optional[int]
