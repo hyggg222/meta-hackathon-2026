@@ -9,6 +9,6 @@ Copied from `~/.config/agents/workflows.md` on 1 Nov 2026. A skipped step says "
 - [ ] 4. Design: ADR-0001 (pivot) and ADR-0002 (stack) written, status proposed, waiting for Charlie. Backend shape approved (`docs/design/backend.md`) and the dashboard-rules prototype approved on 2 Nov. Still to do: design-options for the capture page, input form and dashboard.
 - [ ] 5. Scaffold: .gitignore (pics/, vids/, records/, docs-private/, .env), `.agent/checks`, repo CLAUDE.md rewritten for the shrimp project, slice 0 runs end to end. Skipped for a hackathon: issue and PR templates, labels, Scrumban board, deploy beyond a demo URL, unless time allows.
 - [x] 6. Backlog: nine slices S0 to S8 in the spec, approved by Charlie on 2 Nov.
-- [ ] 7. Every slice runs flow B through delegate (Gemini codes, test first).
+- [ ] 7. Every slice runs flow B through delegate (Gemini codes, test first). Done on 2 Nov: S0 (photo to lengths), S1 (overlap rule, minimum count), S2 (size table), S3 to S6 (store, service, routes, flags, feed, settings) and the page (S7, design A), each with RED proof, checks and a reviewer. Still to do: S8 error table (needs hand-measured trays), README, demo video.
 - [ ] 8. Release: submission before 22:00 on 4 Nov; demo video; README. check-analytics is skipped, because there is no deployed analytics.
 - [ ] 9. Look back: retro after submission.
