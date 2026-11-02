@@ -1,2 +1,2 @@
-.venv/bin/python -m pytest -q
-.venv/bin/ruff check .
+make test
+make lint
