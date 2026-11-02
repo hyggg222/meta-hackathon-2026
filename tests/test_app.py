@@ -1,6 +1,7 @@
 # Tests for FastAPI application routes
 from datetime import date
 import inspect
+import re
 from types import SimpleNamespace
 from fastapi.testclient import TestClient
 import numpy as np
@@ -186,7 +187,7 @@ def test_root_page():
     assert "No shrimp found" not in html
     assert "Could not process the photo, nothing was saved" not in html
     assert "/api/analyses" not in html
-    assert "/api/samples" not in html
+    assert not re.search(r"/api/samples(?!\.csv)", html)
 
 
 def test_dashboard_route_empty():

@@ -1,221 +1,434 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Shrimp Measurement</title>
+<title>Nhật ký nuôi tôm</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700;800&display=swap">
 <style>
-:root{--bg:#fff;--ink:#101010;--muted:#454545;--soft:#e9e8e2;--green:#0a5c36;--red:#b3200c;--blue:#0b4f9c;--yellow:#ffd23f;--page:#cfcdc5}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:18px/1.35 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
-button,input,select{font:inherit;color:inherit}
-:focus-visible{outline:4px solid var(--blue);outline-offset:2px}
+:root {
+  --bg: #EEF2F1;
+  --card-bg: #FFFFFF;
+  --border: #D5DEDC;
+  --ink: #0E2A2B;
+  --muted: #4B5F5F;
+  --brand-dark: #0F3B3C;
+  --primary-teal: #0F6B63;
+  --amber: #8A5A00;
+  --warm-red: #C4421E;
+  --demo-yellow: #FFD23F;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Be Vietnam Pro", system-ui, -apple-system, sans-serif;
+  font-size: 16px;
+  line-height: 1.4;
+  overflow-x: hidden;
+}
+button, input, select {
+  font-family: inherit;
+  color: inherit;
+}
+:focus-visible {
+  outline: 3px solid var(--primary-teal);
+  outline-offset: 2px;
+}
 
-/* app styles (the real design) */
-.app{padding:0 16px 20px;min-height:100vh;max-width:640px;margin:0 auto;background:var(--bg)}
-.appbar{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:0 -16px 16px;padding:8px 10px;background:var(--ink)}
-.appbar button{min-height:48px;border:2px solid #fff;border-radius:8px;background:transparent;color:#fff;font-weight:700;font-size:15px;padding:0 4px;cursor:pointer}
-.appbar button.on{background:#fff;color:var(--ink)}
-h3{margin:18px 0 8px;font-size:20px}
-.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:64px;padding:0 18px;border:3px solid var(--ink);border-radius:10px;background:#fff;color:var(--ink);font-size:21px;font-weight:800;cursor:pointer;text-align:center}
-.btn.go{background:var(--green);border-color:var(--green);color:#fff}
-.btn.dark{background:var(--ink);color:#fff}
-.btn[disabled]{background:var(--soft);border-color:#6b6b6b;color:#4a4a4a;cursor:not-allowed}
-.btn.sm{min-height:52px;font-size:18px}
-.stack>*+*{margin-top:12px}
-.card{border:3px solid var(--ink);border-radius:12px;padding:14px;background:#fff}
-.card.fill{background:var(--soft)}
-.band{padding:14px 16px;border-radius:10px;color:#fff;font-weight:700}
-.band p{margin:6px 0 0;font-weight:500;font-size:18px}
-.band.red{background:var(--red)}.band.blue{background:var(--blue)}.band.dark{background:var(--ink)}.band.green{background:var(--green)}
-.box-red{border:4px solid var(--red);border-radius:10px;padding:14px;background:#fff}
-.box-red b{color:var(--red);font-size:21px}.box-red p{margin:6px 0 0}
-.big{font-size:46px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
-.unit{font-size:20px;font-weight:800}
-.cap{font-size:15px;color:var(--muted);margin-top:4px}
-.chip{display:inline-block;padding:2px 8px;border:2px solid var(--ink);border-radius:6px;font-weight:800;font-size:14px;line-height:1.3;white-space:nowrap}
-.chip.demo{background:var(--yellow)}
-.chip.tag{background:var(--ink);color:#fff;white-space:normal}
-.chip.red{background:var(--red);border-color:var(--red);color:#fff}
-.chip.blue{background:var(--blue);border-color:var(--blue);color:#fff}
-.small{font-size:15px;color:var(--muted)}
-.num{font-variant-numeric:tabular-nums}
-.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:14px;margin-top:6px}
-.dot{display:inline-block;width:14px;height:14px;border-radius:50%;border:3px solid var(--ink);vertical-align:-2px;margin-right:4px}
-.dot.real{background:var(--green)}.dot.demo{background:#fff}
-/* Dashboard option C (Ledger) */
-.dash{--line:#d6d4cc;--amber:#8a5a00}
-.dash .strip{display:grid;grid-template-columns:repeat(3,1fr);border:2px solid var(--ink);border-radius:10px;overflow:hidden}
-.dash .strip div{padding:10px 10px 12px}
-.dash .strip>div+div{border-left:2px solid var(--ink)}
-.dash .strip .k{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
-.dash .strip .v{font-size:26px;font-weight:800;line-height:1.15}
-.dash .strip .v small{font-size:13px;font-weight:700}
-.dash .flag{display:flex;gap:10px;align-items:flex-start;margin:12px 0;padding:10px 12px;background:var(--ink);color:#fff;border-radius:10px}
-.dash .flag .dot{flex:none;width:14px;height:14px;border-radius:50%;margin-top:5px}
-.dash .flag p{margin:0;font-size:15px}
-.dash .flag b{font-size:16px}
-.dash h4{margin:16px 0 6px;font-size:15px}
-.dash .g{font-weight:800}
-.dash table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
-.dash th{font-size:13px;text-align:right;color:var(--muted);font-weight:700;padding:0 0 6px;white-space:nowrap}
-.dash td{padding:9px 0;border-top:1px solid var(--line);text-align:right;white-space:nowrap}
-.dash th:first-child,.dash td:first-child{text-align:left}
-.dash th:last-child,.dash td:last-child{text-align:right}
-.dash tr.latest td{font-weight:800}
-.dash .costrow{display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding:12px;border:2px solid var(--ink);border-radius:10px}
-.dash .costrow .big{font-size:24px;font-weight:800}
-.dash .legend{display:flex;gap:14px;font-size:13px;color:var(--muted);margin-top:6px;flex-wrap:wrap}
-.dash .legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}
-.dash .cap{font-size:13px;color:var(--muted)}
-svg{display:block;width:100%;height:auto}
-/* forms */
-.fld{margin:14px 0}
-.fld label{display:block;font-weight:800;margin-bottom:6px;font-size:19px}
-.inwrap{display:flex;align-items:stretch}
-.inwrap input{flex:1;min-width:0;height:60px;border:3px solid var(--ink);border-radius:10px;padding:0 12px;font-size:22px;font-weight:600;background:#fff}
-.inwrap .u{display:flex;align-items:center;padding:0 12px;font-weight:800;font-size:17px;white-space:nowrap}
-.fld.bad input{border:5px solid var(--red)}
-.hint{margin:6px 0 0;font-size:15px;color:var(--muted)}
-.err{margin:6px 0 0;font-weight:800;color:var(--red);font-size:17px}
-.err:before{content:"!";display:inline-flex;width:22px;height:22px;border-radius:50%;background:var(--red);color:#fff;align-items:center;justify-content:center;margin-right:8px;font-size:15px}
-.seg{display:grid;grid-template-columns:1fr 1fr;gap:0;border:3px solid var(--ink);border-radius:10px;overflow:hidden;margin-bottom:8px}
-.seg button{min-height:60px;border:0;background:#fff;font-weight:800;font-size:20px;cursor:pointer}
-.seg button+button{border-left:3px solid var(--ink)}
-.seg button.on{background:var(--ink);color:#fff}
-@media (min-width:600px){
-  .app{padding:0 28px 24px}
-  .appbar{margin:0 -28px 16px}
-  .two{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}
+.app {
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100vh;
+  background: var(--bg);
+  position: relative;
+  padding-bottom: 76px;
+}
+
+/* Header bar */
+.header-bar {
+  background: var(--brand-dark);
+  color: #FFFFFF;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.header-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--primary-teal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.header-titles {
+  display: flex;
+  flex-direction: column;
+}
+.header-title {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.header-pond {
+  font-size: 13px;
+  opacity: 0.85;
+  line-height: 1.2;
+  margin-top: 2px;
+}
+.header-date {
+  font-size: 13px;
+  opacity: 0.85;
+  white-space: nowrap;
+}
+
+/* Cards */
+.dash-content {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.screen-feed-content {
+  padding: 16px;
+}
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 18px 20px;
+}
+.status-card {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+.status-circle {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight: 700;
+  color: #FFFFFF;
+  line-height: 1;
+}
+.harvest-card {
+  border-radius: 16px;
+  padding: 14px 18px;
+  font-size: 15px;
+  color: var(--ink);
+  line-height: 1.4;
+}
+
+/* Chips and Pills */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 10px;
+  border: 1.5px solid var(--primary-teal);
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.chip-demo {
+  display: inline-block;
+  background: var(--demo-yellow);
+  color: var(--ink);
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.chip-demo-sm {
+  display: inline-block;
+  background: var(--demo-yellow);
+  color: var(--ink);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+  margin-top: 4px;
+  white-space: nowrap;
+}
+
+/* Download button */
+.btn-download {
+  outline: 2px solid var(--primary-teal);
+  border: none;
+  border-radius: 14px;
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--primary-teal);
+  font-size: 16px;
+  font-weight: 700;
+  text-decoration: none;
+  background: var(--card-bg);
+  cursor: pointer;
+  width: 100%;
+}
+
+/* Segmented switch */
+.seg {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  background: #FFFFFF;
+  margin-bottom: 16px;
+}
+.seg button {
+  min-height: 48px;
+  border: none;
+  background: #FFFFFF;
+  color: var(--muted);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0 8px;
+}
+.seg button + button {
+  border-left: 1.5px solid var(--border);
+}
+.seg button.on {
+  background: var(--primary-teal);
+  color: #FFFFFF;
+}
+
+/* Forms */
+.fld {
+  margin-bottom: 14px;
+}
+.fld label {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 6px;
+}
+.fld input {
+  height: 52px;
+  width: 100%;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 0 14px;
+  font-size: 16px;
+  font-weight: 600;
+  background: #FFFFFF;
+  color: var(--ink);
+}
+.fld.bad input {
+  border-color: var(--warm-red);
+}
+.hint {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.35;
+}
+.err {
+  margin: 6px 0 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--warm-red);
+}
+.saved-msg {
+  border: 1.5px solid var(--primary-teal);
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--primary-teal);
+  background: #FFFFFF;
+  margin-bottom: 14px;
+}
+.btn.go {
+  background: var(--primary-teal);
+  color: #FFFFFF;
+  border: none;
+  border-radius: 14px;
+  min-height: 52px;
+  font-size: 17px;
+  font-weight: 700;
+  width: 100%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 14px;
+}
+
+/* Bottom bar navigation */
+.bottom-bar {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 480px;
+  background: #FFFFFF;
+  border-top: 1px solid var(--border);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  height: 56px;
+  z-index: 100;
+}
+.tab-btn {
+  background: transparent;
+  border: none;
+  border-top: 3px solid transparent;
+  color: var(--muted);
+  font-size: 15px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  height: 100%;
+}
+.tab-btn.on {
+  color: var(--primary-teal);
+  font-weight: 700;
+  border-top-color: var(--primary-teal);
 }
 </style>
 </head>
 <body>
 <main class="app">
-  <nav class="appbar" aria-label="Pages">
-    <button type="button" class="on" aria-current="page" data-screen="dashboard" id="nav-dash">Dashboard</button>
-    <button type="button" data-screen="feed" id="nav-setup">Feed + setup</button>
-  </nav>
+  <!-- Header bar -->
+  <header class="header-bar">
+    <div class="header-left">
+      <div class="header-icon" aria-hidden="true">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 15c0-5 4-9 9-9 3 0 5 1.5 6 4"/>
+          <path d="M20 10c-3 0-5 2-5 4s2 3 4 3"/>
+          <path d="M5 15c1 2 3 3 6 3"/>
+          <circle cx="16.5" cy="8.5" r="0.75" fill="#FFFFFF"/>
+        </svg>
+      </div>
+      <div class="header-titles">
+        <span class="header-title">Nhật ký nuôi</span>
+        <span class="header-pond" id="header-pond-name"></span>
+      </div>
+    </div>
+    <div class="header-date" id="header-today-date"></div>
+  </header>
 
-  <!-- Feed + setup screen (setA) -->
-  <section id="screen-setup" hidden>
-    <div id="set-saved-msg" style="display:none"></div>
-    <div class="seg">
-      <button type="button" class="on" data-seg="feed" id="seg-btn-feed">Feed</button>
-      <button type="button" data-seg="setup" id="seg-btn-setup">Setup</button>
+  <!-- Screen 1: Dashboard (Nhật ký) -->
+  <section id="screen-dash">
+    <div id="dash-content" class="dash-content"></div>
+  </section>
+
+  <!-- Screen 2: Feed and setup (Thức ăn, cài đặt) -->
+  <section id="screen-setup" hidden class="screen-feed-content">
+    <div id="set-saved-msg" class="saved-msg" role="status" style="display:none"></div>
+
+    <div class="seg" role="tablist">
+      <button type="button" class="on" data-seg="feed" id="seg-btn-feed" role="tab" aria-selected="true">Nhập thức ăn</button>
+      <button type="button" data-seg="setup" id="seg-btn-setup" role="tab" aria-selected="false">Cài đặt</button>
     </div>
 
     <!-- Feed pane -->
-    <section data-pane="feed" id="pane-feed">
-      <h3>Add feed</h3>
+    <section data-pane="feed" id="pane-feed" class="card">
+      <h3 style="margin:0 0 16px;font-size:20px;font-weight:700;color:var(--ink)">Nhập thức ăn</h3>
       <div class="fld">
-        <label for="feed-date">Date</label>
-        <div class="inwrap"><input id="feed-date" type="date"></div>
+        <label for="feed-date">Ngày</label>
+        <input id="feed-date" type="date">
       </div>
       <div class="fld" id="fld-feed-kg">
-        <label for="feed-kg">Feed per day</label>
-        <div class="inwrap"><input id="feed-kg" type="text" inputmode="decimal"><span class="u">kg</span></div>
+        <label for="feed-kg">Thức ăn mỗi ngày (kg)</label>
+        <input id="feed-kg" type="text" inputmode="decimal">
       </div>
       <div class="fld" id="fld-feed-price">
-        <label for="feed-price">Feed price</label>
-        <div class="inwrap"><input id="feed-price" type="text" inputmode="decimal"><span class="u">VND per kg</span></div>
-        <p class="hint">Filled from setup. Change it if the price changed.</p>
+        <label for="feed-price">Giá thức ăn (đồng mỗi kg)</label>
+        <input id="feed-price" type="text" inputmode="decimal">
+        <p class="hint">Lấy từ cài đặt. Thay đổi nếu giá thức ăn đổi.</p>
       </div>
-      <button class="btn go" id="save-feed-btn" type="button">Save feed</button>
+      <button class="btn go" id="save-feed-btn" type="button">Lưu</button>
       <div id="feed-form-err" role="alert" style="display:none"></div>
     </section>
 
     <!-- Setup pane -->
-    <section data-pane="setup" id="pane-setup" hidden>
-      <h3>Pond setup</h3>
+    <section data-pane="setup" id="pane-setup" class="card" hidden>
+      <h3 style="margin:0 0 16px;font-size:20px;font-weight:700;color:var(--ink)">Cài đặt</h3>
       <div class="fld">
-        <label for="setup-name">Pond name</label>
-        <div class="inwrap"><input id="setup-name" type="text"></div>
+        <label for="setup-name">Tên ao</label>
+        <input id="setup-name" type="text">
       </div>
       <div class="fld">
-        <label for="setup-ruler">Ruler length (mm)</label>
-        <div class="inwrap"><input id="setup-ruler" type="text" inputmode="decimal"><span class="u">mm</span></div>
-        <p class="hint">Long side of your ruler. A credit card is 85.6 by 54 mm.</p>
+        <label for="setup-price">Giá thức ăn mặc định (đồng mỗi kg)</label>
+        <input id="setup-price" type="text" inputmode="decimal">
       </div>
       <div class="fld">
-        <label for="setup-price">Default feed price</label>
-        <div class="inwrap"><input id="setup-price" type="text" inputmode="decimal"><span class="u">VND per kg</span></div>
+        <label for="setup-ruler">Chiều dài thước (mm)</label>
+        <input id="setup-ruler" type="text" inputmode="decimal">
       </div>
       <div class="fld">
-        <label for="setup-stall">Growth looks slow under (mm a day)</label>
-        <div class="inwrap"><input id="setup-stall" type="text" inputmode="decimal"><span class="u">mm per day</span></div>
-        <p class="hint">Assumption, not verified with a farmer.</p>
+        <label for="setup-card">Chiều dài thẻ tham chiếu (mm)</label>
+        <input id="setup-card" type="text" inputmode="decimal">
       </div>
       <div class="fld">
-        <label for="setup-harvest">At harvest size at or under (per kg)</label>
-        <div class="inwrap"><input id="setup-harvest" type="text" inputmode="decimal"><span class="u">per kg</span></div>
-        <p class="hint">Assumption, not verified with a farmer.</p>
+        <label for="setup-stall">Ngưỡng "tôm lớn chậm" (mm mỗi ngày)</label>
+        <input id="setup-stall" type="text" inputmode="decimal">
       </div>
       <div class="fld">
-        <label for="setup-min-length">Shortest shrimp that counts (mm)</label>
-        <div class="inwrap"><input id="setup-min-length" type="text" inputmode="decimal"><span class="u">mm</span></div>
-        <p class="hint">Anything shorter is treated as a fragment and left out.</p>
+        <label for="setup-harvest">Cỡ tôm tham khảo (con/kg)</label>
+        <input id="setup-harvest" type="text" inputmode="decimal">
       </div>
       <div class="fld">
-        <label for="setup-ration">Feed per day (percent of shrimp weight)</label>
-        <div class="inwrap"><input id="setup-ration" type="text" inputmode="decimal"><span class="u">%</span></div>
-        <p class="hint">About 1.5 at 25 g. Used only for the break-even line.</p>
+        <label for="setup-min">Số con tối thiểu mỗi lần đo</label>
+        <input id="setup-min" type="text" inputmode="decimal">
       </div>
       <div class="fld">
-        <label for="setup-min">Shrimp needed per sample</label>
-        <div class="inwrap"><input id="setup-min" type="text" inputmode="decimal"><span class="u">shrimp</span></div>
-        <p class="hint">Assumption, not verified with a farmer.</p>
+        <label for="setup-min-length">Con ngắn nhất được tính (mm)</label>
+        <input id="setup-min-length" type="text" inputmode="decimal">
+        <p class="hint">Con ngắn hơn bị coi là mảnh vụn và bị loại.</p>
       </div>
-      <button class="btn go" id="save-setup-btn" type="button">Save setup</button>
+      <div class="fld">
+        <label for="setup-ration">Thức ăn mỗi ngày (phần trăm thể trọng)</label>
+        <input id="setup-ration" type="text" inputmode="decimal">
+        <p class="hint">Khoảng 1,5 ở cỡ 25 g. Chỉ dùng để tính, không ảnh hưởng gợi ý.</p>
+      </div>
+      <button class="btn go" id="save-setup-btn" type="button">Lưu cài đặt</button>
       <div id="setup-form-err" role="alert" style="display:none"></div>
     </section>
   </section>
 
-  <!-- Dashboard screen (dashC) -->
-  <section id="screen-dash" class="dash">
-    <div id="dash-content"></div>
-  </section>
+  <!-- Sticky bottom bar -->
+  <nav class="bottom-bar" aria-label="Điều hướng">
+    <button type="button" class="tab-btn on" aria-current="page" data-screen="dashboard" id="nav-dash">Nhật ký</button>
+    <button type="button" class="tab-btn" data-screen="feed" id="nav-setup">Thức ăn, cài đặt</button>
+  </nav>
 </main>
 
 <script>
 "use strict";
 
-// Month abbreviations for label formatting
-const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-// Format ISO date string into day and month label
-function lab(iso) {
-  if (!iso || typeof iso !== "string") return "";
-  const p = iso.split("-");
-  if (p.length < 3) return iso;
-  const m = +p[1] - 1;
-  if (m < 0 || m >= 12) return iso;
-  return (+p[2]) + " " + MON[m];
-}
-
-// Format number to one decimal place
-function f1(n) {
-  return (n !== null && n !== undefined && !isNaN(n)) ? Number(n).toFixed(1) : "-";
-}
-
-// Format number to two decimal places
-function f2(n) {
-  return (n !== null && n !== undefined && !isNaN(n)) ? Number(n).toFixed(2) : "-";
-}
-
-// Format integer with comma thousands separators
-function vnd(n) {
-  return (n !== null && n !== undefined && !isNaN(n)) ? Number(n).toLocaleString("en-US") : "0";
-}
-
-// Format growth in mm per day (two decimals, en dash when null)
-function growthText(val) {
-  if (val === null || val === undefined || isNaN(val)) return "&ndash;";
-  return Number(val).toFixed(2);
-}
-
-// Format shrimp count per kg as a whole number
-function perKgText(value, fallback = "n/a") {
+// Helper perKgText using Math.round
+function perKgText(value, fallback = "ngoài bảng cỡ") {
   if (value === null || value === undefined) return fallback;
   if (typeof value === "string" && isNaN(Number(value))) return value;
   const n = Number(value);
@@ -223,15 +436,23 @@ function perKgText(value, fallback = "n/a") {
   return String(Math.round(n));
 }
 
-// Escape HTML special characters in strings
-function esc(s) {
-  if (s === null || s === undefined) return "";
-  return String(s)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
+// Convert length in mm to cm with one decimal and decimal comma
+function f1cm(mm) {
+  if (mm === null || mm === undefined || isNaN(mm)) return "-";
+  const cm = Number(mm) / 10;
+  return cm.toFixed(1).replace(".", ",");
+}
+
+// Format number with two decimal places and decimal comma
+function f2vn(val) {
+  if (val === null || val === undefined || isNaN(val)) return "-";
+  return Number(val).toFixed(2).replace(".", ",");
+}
+
+// Format threshold number with decimal comma
+function formatThresh(val) {
+  if (val === null || val === undefined || isNaN(val)) return "-";
+  return String(val).replace(".", ",");
 }
 
 // Return browser local date formatted as YYYY-MM-DD
@@ -243,9 +464,24 @@ function todayIso() {
   return `${y}-${m}-${d}`;
 }
 
-// Return markup for temporary table disclaimer chip and hint
-function sizeTag() {
-  return '<span class="chip tag">temporary table, not the CP table</span> <span class="small">Rough estimate, likely off by 20% or more.</span>';
+// Format today's date as dd/mm/yyyy
+function formatTodayVn() {
+  const now = new Date();
+  const d = String(now.getDate()).padStart(2, "0");
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const y = now.getFullYear();
+  return `${d}/${m}/${y}`;
+}
+
+// Escape HTML special characters
+function esc(s) {
+  if (s === null || s === undefined) return "";
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 // Parse numeric input from form fields
@@ -267,7 +503,6 @@ function parseNumber(text, opts) {
   }
   return null;
 }
-
 
 // Set error message under form field
 function setFieldError(inputEl, msg) {
@@ -355,15 +590,8 @@ function switchScreen(target) {
     loadSettings();
   } else if (target === "dashboard") {
     loadDashboard();
+    loadSettings();
   }
-}
-
-// Open feed input tab in setup screen
-function openFeedScreen() {
-  location.hash = "#feed";
-  switchScreen("feed");
-  const btn = document.getElementById("seg-btn-feed");
-  if (btn) btn.click();
 }
 
 // Fetch active settings and populate setup form
@@ -373,234 +601,182 @@ async function loadSettings() {
     if (!resp.ok) return;
     currentSettings = await resp.json();
 
-    document.getElementById("setup-name").value = currentSettings.pond_name || "";
-    document.getElementById("setup-ruler").value = currentSettings.ruler_mm !== undefined ? currentSettings.ruler_mm : "";
-    document.getElementById("setup-price").value = currentSettings.feed_price_vnd !== undefined ? currentSettings.feed_price_vnd : "";
-    document.getElementById("setup-stall").value = currentSettings.stall_mm_per_day !== undefined ? currentSettings.stall_mm_per_day : "";
-    document.getElementById("setup-harvest").value = currentSettings.harvest_per_kg !== undefined ? currentSettings.harvest_per_kg : "";
-    document.getElementById("setup-min-length").value = currentSettings.min_length_mm !== undefined ? currentSettings.min_length_mm : "";
-    document.getElementById("setup-ration").value = currentSettings.ration_pct !== undefined ? currentSettings.ration_pct : "";
-    document.getElementById("setup-min").value = currentSettings.min_measured !== undefined ? currentSettings.min_measured : "";
+    const pondHeader = document.getElementById("header-pond-name");
+    if (pondHeader && currentSettings.pond_name) {
+      pondHeader.textContent = currentSettings.pond_name;
+    }
+
+    const nameEl = document.getElementById("setup-name");
+    if (nameEl) nameEl.value = currentSettings.pond_name || "";
+
+    const priceEl = document.getElementById("setup-price");
+    if (priceEl) priceEl.value = currentSettings.feed_price_vnd !== undefined ? currentSettings.feed_price_vnd : "";
+
+    const rulerEl = document.getElementById("setup-ruler");
+    if (rulerEl) rulerEl.value = currentSettings.ruler_mm !== undefined ? currentSettings.ruler_mm : "";
+
+    const cardEl = document.getElementById("setup-card");
+    if (cardEl) cardEl.value = currentSettings.card_mm !== undefined ? currentSettings.card_mm : "";
+
+    const stallEl = document.getElementById("setup-stall");
+    if (stallEl) stallEl.value = currentSettings.stall_mm_per_day !== undefined ? currentSettings.stall_mm_per_day : "";
+
+    const harvestEl = document.getElementById("setup-harvest");
+    if (harvestEl) harvestEl.value = currentSettings.harvest_per_kg !== undefined ? currentSettings.harvest_per_kg : "";
+
+    const minEl = document.getElementById("setup-min");
+    if (minEl) minEl.value = currentSettings.min_measured !== undefined ? currentSettings.min_measured : "";
+
+    const minLenEl = document.getElementById("setup-min-length");
+    if (minLenEl) minLenEl.value = currentSettings.min_length_mm !== undefined ? currentSettings.min_length_mm : "";
+
+    const rationEl = document.getElementById("setup-ration");
+    if (rationEl) rationEl.value = currentSettings.ration_pct !== undefined ? currentSettings.ration_pct : "";
 
     refreshFeedDefaults();
   } catch (_) {}
 }
 
-// Render trend chart SVG with sample markers and slow growth segment
-function renderDashboardChart(chartData, rowData) {
-  const W = 360, H = 200, pl = 40, pr = 14, pt = 18, pb = 30;
-  const vals = chartData.map(pt => pt.mean_length_mm);
-  let lo = Math.floor(Math.min(...vals) - 1);
-  let hi = Math.ceil(Math.max(...vals) + 1);
-  if (hi - lo < 6) hi = lo + 6;
-
-  const ts = chartData.map(r => Date.parse(r.day + "T00:00:00Z"));
-  const t0 = Math.min(...ts);
-  const t1 = Math.max(...ts);
-  const x = t => t1 === t0 ? (pl + W - pr) / 2 : pl + (t - t0) / (t1 - t0) * (W - pl - pr);
-  const y = v => pt + (hi - v) / (hi - lo) * (H - pt - pb);
-
-  let g = "";
-  for (let k = 0; k <= 3; k++) {
-    const v = lo + (hi - lo) * k / 3;
-    g += `<line x1="${pl}" x2="${W - pr}" y1="${y(v)}" y2="${y(v)}" stroke="#d6d4cc" stroke-width="1"/><text x="${pl - 8}" y="${y(v) + 4}" text-anchor="end" font-size="12" fill="#4a4a4a">${Math.round(v)}</text>`;
-  }
-
-  if (chartData.length > 1) {
-    const pts = chartData.map(r => `${x(Date.parse(r.day + "T00:00:00Z"))},${y(r.mean_length_mm)}`).join(" ");
-    g += `<polyline points="${pts}" fill="none" stroke="#101010" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
-  }
-
-  let hasSlow = false;
-  for (let i = 1; i < chartData.length; i++) {
-    if (chartData[i].stall) {
-      hasSlow = true;
-      const xPrev = x(Date.parse(chartData[i - 1].day + "T00:00:00Z"));
-      const yPrev = y(chartData[i - 1].mean_length_mm);
-      const xCurr = x(Date.parse(chartData[i].day + "T00:00:00Z"));
-      const yCurr = y(chartData[i].mean_length_mm);
-      g += `<line x1="${xPrev}" x2="${xCurr}" y1="${yPrev}" y2="${yCurr}" stroke="#8a5a00" stroke-width="6" stroke-linecap="round"/>`;
-      g += `<text x="${xCurr}" y="${yCurr - 10}" text-anchor="end" font-size="13" font-weight="800" fill="#8a5a00">slow</text>`;
-    }
-  }
-
-  const validRows = (rowData || []).filter(r => r.mean_length_mm !== null && r.mean_length_mm !== undefined);
-  chartData.forEach((r, i) => {
-    const X = x(Date.parse(r.day + "T00:00:00Z"));
-    const Y = y(r.mean_length_mm);
-    const isDemo = validRows[i] ? !!validRows[i].demo : false;
-    g += `<circle cx="${X}" cy="${Y}" r="5.5" fill="${isDemo ? '#fff' : '#0a5c36'}" stroke="#101010" stroke-width="2.5"/>`;
-  });
-
-  // label gap
-  const distinctDays = [];
-  chartData.forEach(r => {
-    if (!distinctDays.some(d => d.day === r.day)) {
-      distinctDays.push({
-        day: r.day,
-        x: x(Date.parse(r.day + "T00:00:00Z"))
-      });
-    }
-  });
-
-  if (distinctDays.length === 1) {
-    const d0 = distinctDays[0];
-    g += `<text x="${d0.x}" y="${H - 8}" text-anchor="start" font-size="12" fill="#4a4a4a">${lab(d0.day)}</text>`;
-  } else if (distinctDays.length >= 2) {
-    const first = distinctDays[0];
-    const last = distinctDays[distinctDays.length - 1];
-    g += `<text x="${first.x}" y="${H - 8}" text-anchor="start" font-size="12" fill="#4a4a4a">${lab(first.day)}</text>`;
-
-    let lastDrawnX = first.x;
-    for (let i = 1; i < distinctDays.length - 1; i++) {
-      const mid = distinctDays[i];
-      if (mid.x - lastDrawnX >= 56 && last.x - mid.x >= 56) {
-        g += `<text x="${mid.x}" y="${H - 8}" text-anchor="middle" font-size="12" fill="#4a4a4a">${lab(mid.day)}</text>`;
-        lastDrawnX = mid.x;
-      }
-    }
-
-    g += `<text x="${last.x}" y="${H - 8}" text-anchor="end" font-size="12" fill="#4a4a4a">${lab(last.day)}</text>`;
-  }
-
-  let legend = '<div class="legend"><span><i style="background:#0a5c36;border:2px solid #101010"></i>real sample</span><span><i style="background:#fff;border:2px solid #101010"></i>demo data</span>';
-  if (hasSlow) {
-    legend += '<span><i style="background:#8a5a00"></i>growth under your line</span>';
-  }
-  legend += '</div>';
-
-  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Average length per sample">${g}</svg>${legend}`;
-}
-
-// Render samples history table card with reverse chronological order
-function renderDashboardSamplesTable(rows, notices) {
-  const reversed = (rows || []).slice().reverse();
-  const trs = reversed.map((r, i) => {
-    const dStr = lab(r.day);
-    const demoBadge = r.demo ? ' <span class="chip demo" style="font-size:11px;padding:0 5px;vertical-align:1px">demo</span>' : '';
-    const n = r.n_measured;
-    const avg = (r.mean_length_mm !== null && r.mean_length_mm !== undefined) ? f1(r.mean_length_mm) : "&ndash;";
-    const perKg = perKgText(r.size_per_kg, "&ndash;");
-    const growth = growthText(r.growth_mm_per_day);
-    const isLatest = (i === 0) ? ' class="latest"' : '';
-    return `<tr${isLatest}><td>${dStr}${demoBadge}</td><td>${n}</td><td>${avg}</td><td>${perKg}</td><td>${growth}</td></tr>`;
-  }).join("");
-
-  const note = (notices && notices.includes("temporary_table"))
-    ? '<p class="cap" style="margin-top:8px">Size per kg: temporary table, not the CP table.</p>'
-    : '';
-
-  return `<h4>Samples</h4><table><thead><tr><th>Date</th><th>N</th><th>mm</th><th>per kg</th><th>mm/day</th></tr></thead><tbody>${trs}</tbody></table>${note}`;
-}
-
-// Fetch dashboard data and render option C ledger layout
+// Fetch dashboard data and render "Nhật ký" layout
 async function loadDashboard() {
   const target = document.getElementById("dash-content");
   try {
     const resp = await fetch("/api/dashboard");
     if (!resp.ok) {
-      target.innerHTML = '<div class="flag"><p>Could not load dashboard</p></div>';
+      target.innerHTML = '<div class="card"><p class="err" role="alert">Không tải được dữ liệu.</p></div>';
       return;
     }
     const d = await resp.json();
 
     if (d.empty) {
-      target.innerHTML = '<div class="card">No samples yet. Send a photo of your tray to the bot on Messenger.</div>';
+      target.innerHTML = '<div class="card status-card"><div><div style="font-size:19px;font-weight:700;color:var(--ink);margin-bottom:6px">Chưa có lần đo nào</div><div style="font-size:15px;color:var(--muted)">Gửi ảnh khay tôm cho bot trên Messenger để bắt đầu.</div></div></div>';
       return;
     }
 
-    const lastRow = (d.rows && d.rows.length > 0) ? d.rows[d.rows.length - 1] : null;
-    const lastDay = lastRow ? lastRow.day : "";
-    const isDemo = lastRow ? !!lastRow.demo : false;
+    const rows = d.rows || [];
+    const lastRow = rows.length > 0 ? rows[rows.length - 1] : null;
+    const isDemo = lastRow ? Boolean(lastRow.demo) : false;
     const notices = d.notices || [];
 
-    const sizeVal = (d.latest_size_per_kg !== null && d.latest_size_per_kg !== undefined) ? perKgText(d.latest_size_per_kg) : "&ndash;";
-    const lenVal = (d.latest_length_mm !== null && d.latest_length_mm !== undefined) ? f1(d.latest_length_mm) : "&ndash;";
-    const growthVal = growthText(d.growth_mm_per_day);
+    // 1. Card "latest"
+    let dayMonth = "";
+    if (lastRow && lastRow.day) {
+      const p = String(lastRow.day).split("-");
+      dayMonth = (p.length >= 3) ? `${p[2]}/${p[1]}` : lastRow.day;
+    }
 
-    const stripHtml = `<div class="strip num"><div><div class="k">Size</div><div class="v">${sizeVal} <small>per kg</small></div></div><div><div class="k">Length</div><div class="v">${lenVal} <small>mm</small></div></div><div><div class="k">Growth</div><div class="v">${growthVal} <small>mm/day</small></div></div></div>`;
+    const demoChipHtml = isDemo ? '<span class="chip-demo">dữ liệu mẫu</span>' : '';
 
-    const capParts = [`${lab(lastDay)}, ${d.n_latest} shrimp measured`];
-    if (isDemo) capParts.push('<span class="chip demo">demo data</span>');
-    if (notices.includes("temporary_table")) capParts.push('temporary size table');
-    const capHtml = `<p class="cap" style="margin:6px 0 0">${capParts.join(" &middot; ")}</p>`;
+    let sizeNumberHtml = '';
+    const isOutsideTable = (d.latest_size_per_kg === null || d.latest_size_per_kg === undefined || notices.includes("outside_table"));
+    if (isOutsideTable) {
+      sizeNumberHtml = '<div style="font-size:32px;font-weight:800;color:var(--ink);margin:14px 0 10px;line-height:1.1">ngoài bảng cỡ</div>';
+    } else {
+      sizeNumberHtml = `<div style="margin:14px 0 10px;line-height:1;display:flex;align-items:baseline;gap:8px"><span style="font-size:68px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums">${perKgText(d.latest_size_per_kg)}</span><span style="font-size:20px;font-weight:600;color:var(--ink)">con/kg</span></div>`;
+    }
 
-    let flagHtml = "";
-    const prevRow = (d.rows && d.rows.length >= 2) ? d.rows[d.rows.length - 2] : null;
-    const prevDay = prevRow ? lab(prevRow.day) : "";
+    const latestCardHtml = `<div class="card"><div style="display:flex;justify-content:space-between;align-items:flex-start"><div><div style="font-size:15px;font-weight:600;color:var(--ink)">Lần đo mới nhất</div><div style="font-size:14px;color:var(--muted);margin-top:2px">${dayMonth} - ${d.n_latest || 0} con</div></div>${demoChipHtml}</div>${sizeNumberHtml}<div style="font-size:17px;color:var(--ink)">Tôm dài trung bình <b>${f1cm(d.latest_length_mm)} cm</b></div></div>`;
+
+    // 2. Card "status"
+    let circleBg = "var(--amber)";
+    let circleIcon = "?";
+    let statusTitle = "";
+    let statusBody = "";
+    let statusHint = "";
 
     if (d.stall === true) {
-      flagHtml += `<div class="flag"><span class="dot" style="background:var(--yellow)"></span><p><b>Growth looks slow.</b> Under your ${d.stall_threshold_mm_per_day} mm a day since ${prevDay}. A hint only, you decide.</p></div>`;
+      circleBg = "var(--warm-red)";
+      circleIcon = "↓";
+      statusTitle = "Tôm đang lớn chậm";
+      statusBody = `Khoảng ${f2vn(d.growth_mm_per_day)} mm mỗi ngày, dưới mức ${formatThresh(d.stall_threshold_mm_per_day)} bạn đặt.`;
+      statusHint = '<div style="font-size:13px;color:var(--muted);margin-top:6px">Chỉ là gợi ý, bạn quyết định.</div>';
     } else if (d.stall === false) {
-      flagHtml += `<div class="flag"><span class="dot" style="background:var(--green)"></span><p>Growth is not slow: ${growthVal} mm a day since ${prevDay}.</p></div>`;
-    } else if (d.stall_unclear && d.growth_se_mm_per_day !== null && d.growth_se_mm_per_day !== undefined) {
-      flagHtml += `<div class="flag"><span class="dot" style="background:#8a8a8a"></span><p><b>Not clear yet.</b> The samples vary by about &plusmn;${Number(d.growth_se_mm_per_day).toFixed(2)} mm a day, too much to tell growth from your ${d.stall_threshold_mm_per_day} line. About ${d.shrimp_needed} shrimp per sample, or ${d.days_needed} days between samples, would settle it. A hint only, you decide.</p></div>`;
+      circleBg = "var(--primary-teal)";
+      circleIcon = "✓";
+      statusTitle = "Tôm vẫn đang lớn";
+      statusBody = `Khoảng ${f2vn(d.growth_mm_per_day)} mm mỗi ngày.`;
+    } else if (d.stall === null && d.stall_unclear) {
+      circleBg = "var(--amber)";
+      circleIcon = "?";
+      statusTitle = "Chưa xác định được";
+      statusBody = "Kích thước tôm dao động lên xuống. Cần đo nhiều mẫu để xác định chính xác.";
+    } else if (d.n_previous === null || d.n_previous === undefined) {
+      circleBg = "var(--amber)";
+      circleIcon = "?";
+      statusTitle = "Mới có một lần đo";
+      statusBody = "Đo lại sau vài ngày để xem tôm có lớn không.";
+    } else if (notices.includes("same_day")) {
+      circleBg = "var(--amber)";
+      circleIcon = "?";
+      statusTitle = "Hai lần đo cùng ngày";
+      statusBody = "Chưa so sánh được. Đo lại sau vài ngày.";
+    } else if (notices.includes("not_enough_shrimp")) {
+      circleBg = "var(--amber)";
+      circleIcon = "?";
+      statusTitle = "Chưa đủ số con để so";
+      const minCount = (d.min_measured !== null && d.min_measured !== undefined) ? d.min_measured : 5;
+      statusBody = `Cần ít nhất ${minCount} con mỗi lần đo.`;
     } else {
-      if (d.n_previous === null || d.n_previous === undefined) {
-        flagHtml += '<div class="flag"><span class="dot" style="background:#8a8a8a"></span><p><b>Only one sample.</b> Take another photo in a few days to see growth.</p></div>';
-      } else if (notices.includes("same_day")) {
-        flagHtml += `<div class="flag"><span class="dot" style="background:#8a8a8a"></span><p><b>Same day.</b> Two samples on ${lab(lastDay)}. Growth cannot be told.</p></div>`;
-      } else if (notices.includes("not_enough_shrimp")) {
-        const counts = (d.n_previous !== null && d.n_previous !== undefined)
-          ? `${d.n_latest} measured in the latest sample, ${d.n_previous} in the one before`
-          : `${d.n_latest} measured in the latest sample`;
-        const minNeeded = (d.min_measured !== null && d.min_measured !== undefined) ? d.min_measured : "the minimum";
-        flagHtml += `<div class="flag"><span class="dot" style="background:#8a8a8a"></span><p><b>Not enough shrimp.</b> ${counts}; ${minNeeded} are needed in each to tell.</p></div>`;
-      }
+      circleBg = "var(--amber)";
+      circleIcon = "?";
+      statusTitle = "Chưa xác định được";
+      statusBody = "Kích thước tôm dao động lên xuống. Cần đo nhiều mẫu để xác định chính xác.";
     }
 
+    const statusCardHtml = `<div class="card status-card"><div class="status-circle" style="background:${circleBg}">${circleIcon}</div><div style="flex:1"><div style="font-size:19px;font-weight:700;color:var(--ink);line-height:1.3;margin-bottom:4px">${statusTitle}</div><div style="font-size:15px;color:var(--muted);line-height:1.4">${statusBody}</div>${statusHint}</div></div>`;
+
+    // 3. Optional slim card if at_harvest
+    let harvestCardHtml = "";
     if (d.at_harvest) {
-      flagHtml += `<div class="flag"><span class="dot" style="background:var(--blue)"></span><p>Size is at or under your ${d.harvest_threshold_per_kg} per kg line. For your information, you decide.</p></div>`;
+      harvestCardHtml = `<div class="card harvest-card">Tôm đã đạt cỡ ${d.harvest_threshold_per_kg} con/kg bạn đặt. Chỉ để bạn tham khảo, bạn quyết định.</div>`;
     }
 
-    let valueCardHtml = "";
-    if (d.value_per_kg_vnd !== null && d.value_per_kg_vnd !== undefined) {
-      let vlines = [];
-      const vSize = (d.latest_size_per_kg !== null && d.latest_size_per_kg !== undefined) ? perKgText(d.latest_size_per_kg) : "";
-      vlines.push(`<p style="margin:0 0 6px">At ${vSize} per kg: about ${vnd(d.value_per_kg_vnd)} VND per kg (default price table, yours may differ).</p>`);
+    // 4. Card "Các lần đo"
+    const reversed = rows.slice().reverse();
+    const rowsHtml = reversed.map((r, i) => {
+      const p = String(r.day).split("-");
+      const dayNum = (p.length >= 3) ? parseInt(p[2], 10) : r.day;
+      const monthNum = (p.length >= 3) ? parseInt(p[1], 10) : "";
 
-      if (d.next_class_per_kg !== null && d.next_class_per_kg !== undefined && d.next_class_gain_pct !== null && d.next_class_gain_pct !== undefined) {
-        const daysPart = (d.days_to_next_class !== null && d.days_to_next_class !== undefined)
-          ? ` (about ${d.days_to_next_class} days away at the growth measured, very rough)`
-          : "";
-        vlines.push(`<p style="margin:0 0 6px">The next class, ${d.next_class_per_kg} per kg, usually pays about ${d.next_class_gain_pct}% more per kg${daysPart}.</p>`);
+      const demoChip = r.demo ? '<span class="chip-demo-sm">mẫu</span>' : '';
+      const lenCm = f1cm(r.mean_length_mm);
+      const sizeText = (r.size_per_kg !== null && r.size_per_kg !== undefined)
+        ? `${perKgText(r.size_per_kg)} con/kg`
+        : "ngoài bảng cỡ";
+
+      let rightHtml = "";
+      if (i === reversed.length - 1) {
+        rightHtml = '<span style="color:var(--muted);font-size:14px">lần đầu</span>';
+      } else {
+        const prevRow = reversed[i + 1];
+        if (r.mean_length_mm !== null && prevRow.mean_length_mm !== null) {
+          const diff = r.mean_length_mm - prevRow.mean_length_mm;
+          let diffStr = "";
+          if (diff >= 0) {
+            diffStr = "+" + diff.toFixed(1).replace(".", ",") + " mm";
+          } else {
+            diffStr = "−" + Math.abs(diff).toFixed(1).replace(".", ",") + " mm";
+          }
+          const isWarmRed = (i === 0 && d.stall === true);
+          const pillColor = isWarmRed ? 'var(--warm-red)' : 'var(--primary-teal)';
+          rightHtml = `<span class="pill" style="border-color:${pillColor};color:${pillColor}">${diffStr}</span>`;
+        } else {
+          rightHtml = '<span style="color:var(--muted);font-size:14px">-</span>';
+        }
       }
 
-      if (d.breakeven_mm_per_day !== null && d.breakeven_mm_per_day !== undefined) {
-        vlines.push(`<p style="margin:0 0 6px">Feed alone breaks even above about ${f2(d.breakeven_mm_per_day)} mm a day (not counting power, labour, risk).</p>`);
-      }
+      const borderTopStyle = (i > 0) ? 'border-top:1px solid var(--border);' : '';
+      return `<div class="sample-row" style="display:grid;grid-template-columns:52px 1fr auto;gap:12px;align-items:center;padding:12px 0;${borderTopStyle}"><div><div style="font-size:24px;font-weight:800;line-height:1;color:var(--ink)">${dayNum}</div><div style="font-size:12px;font-weight:600;color:var(--muted);margin-top:2px">thg ${monthNum}</div>${demoChip}</div><div><div style="font-size:17px;font-weight:700;color:var(--ink)">${lenCm} cm</div><div style="font-size:14px;color:var(--muted);margin-top:2px">${sizeText} &middot; ${r.n_measured} con</div></div><div style="display:flex;align-items:center;justify-content:flex-end">${rightHtml}</div></div>`;
+    }).join("");
 
-      if (d.price_source) {
-        vlines.push(`<p class="cap" style="margin:6px 0 0">${esc(d.price_source)}</p>`);
-      }
+    const samplesCardHtml = `<div class="card"><div style="font-size:17px;font-weight:700;color:var(--ink);margin-bottom:10px">Các lần đo</div><div>${rowsHtml}</div></div>`;
 
-      valueCardHtml = `<div class="card" style="margin:12px 0">${vlines.join("")}</div>`;
-    }
+    // 5. Button-like link to /api/samples.csv
+    const downloadLinkHtml = `<a href="/api/samples.csv" download class="btn-download"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span>Tải bảng (mở bằng Excel)</span></a>`;
 
-    let chartHtml = "";
-    if (d.chart && d.chart.length > 0) {
-      chartHtml = `<h4>Average length per sample</h4>${renderDashboardChart(d.chart, d.rows)}`;
-    }
-
-    let costHtml = "";
-    const feedKg = d.feed_kg || (d.feed && d.feed.kg);
-    const feedPrice = d.feed_price_vnd || (d.feed && d.feed.price_vnd);
-    let feedCap = "";
-    if (feedKg && feedPrice) {
-      feedCap = `<div class="cap">feed ${feedKg} kg &times; ${vnd(feedPrice)} VND</div>`;
-    }
-
-    if (d.stall_day_cost_vnd !== null && d.stall_day_cost_vnd !== undefined) {
-      costHtml = `<div class="costrow"><div><b>A day without growth</b>${feedCap}</div><div class="big num" style="font-size:22px">${vnd(d.stall_day_cost_vnd)} <small style="font-size:13px">VND</small></div></div>`;
-    } else {
-      costHtml = `<div class="costrow"><div><b>A day without growth</b>${feedCap}</div><button class="btn sm dark" id="dash-enter-feed-btn" type="button" style="width:auto;min-height:44px;padding:0 14px;margin:0;font-size:17px">Enter feed</button></div>`;
-    }
-
-    const samplesHtml = renderDashboardSamplesTable(d.rows, notices);
-
-    target.innerHTML = stripHtml + capHtml + flagHtml + valueCardHtml + chartHtml + costHtml + samplesHtml;
+    target.innerHTML = latestCardHtml + statusCardHtml + harvestCardHtml + samplesCardHtml + downloadLinkHtml;
   } catch (_) {
-    target.innerHTML = '<div class="flag"><p>Could not load dashboard</p></div>';
+    target.innerHTML = '<div class="card"><p class="err" role="alert">Không tải được dữ liệu.</p></div>';
   }
 }
 
@@ -624,11 +800,11 @@ async function saveFeedHandler() {
 
   let hasError = false;
   if (kg === null) {
-    setFieldError(kgInput, "Type a plain number, for example 100 or 45000.");
+    setFieldError(kgInput, "Nhập số bình thường, ví dụ 100 hoặc 45000.");
     hasError = true;
   }
   if (price === null) {
-    setFieldError(priceInput, "Type a plain number, for example 100 or 45000.");
+    setFieldError(priceInput, "Nhập số bình thường, ví dụ 100 hoặc 45000.");
     hasError = true;
   }
   if (hasError) return;
@@ -646,7 +822,7 @@ async function saveFeedHandler() {
       body: JSON.stringify(payload)
     });
     if (!resp.ok) {
-      let errText = "Could not save feed.";
+      let errText = "Không lưu được.";
       try {
         const errData = await resp.json();
         if (errData && errData.error) errText = errData.error;
@@ -655,20 +831,16 @@ async function saveFeedHandler() {
       errEl.style.display = "block";
       return;
     }
-    savedEl.className = "band green";
-    savedEl.setAttribute("role", "status");
-    savedEl.style.marginBottom = "10px";
-    savedEl.textContent = "Saved.";
+    savedEl.textContent = "Đã lưu.";
     savedEl.style.display = "block";
   } catch (_) {
-    errEl.innerHTML = '<p class="err" role="alert">Could not save feed.</p>';
+    errEl.innerHTML = '<p class="err" role="alert">Không lưu được.</p>';
     errEl.style.display = "block";
   }
 }
 
 // Save setup form submission handler
 async function saveSetupHandler() {
-  // Read and parse min_length_mm and ration_pct with parseNumber(
   const pane = document.getElementById("pane-setup");
   const errEl = document.getElementById("setup-form-err");
   const savedEl = document.getElementById("set-saved-msg");
@@ -678,62 +850,69 @@ async function saveSetupHandler() {
   savedEl.style.display = "none";
 
   const nameVal = document.getElementById("setup-name").value;
-  const rulerInput = document.getElementById("setup-ruler");
   const priceInput = document.getElementById("setup-price");
+  const rulerInput = document.getElementById("setup-ruler");
+  const cardInput = document.getElementById("setup-card");
   const stallInput = document.getElementById("setup-stall");
   const harvestInput = document.getElementById("setup-harvest");
+  const minInput = document.getElementById("setup-min");
   const minLengthInput = document.getElementById("setup-min-length");
   const rationInput = document.getElementById("setup-ration");
-  const minInput = document.getElementById("setup-min");
 
-  const ruler = parseNumber(rulerInput.value, { integer: false });
   const price = parseNumber(priceInput.value, { integer: true });
+  const ruler = parseNumber(rulerInput.value, { integer: false });
+  const card = cardInput ? parseNumber(cardInput.value, { integer: false }) : 85.6;
   const stall = parseNumber(stallInput.value, { integer: false });
   const harvest = parseNumber(harvestInput.value, { integer: false });
+  const min = parseNumber(minInput.value, { integer: true });
   const minLength = parseNumber(minLengthInput.value, { integer: false });
   const ration = parseNumber(rationInput.value, { integer: false });
-  const min = parseNumber(minInput.value, { integer: true });
 
   let hasError = false;
-  if (ruler === null) {
-    setFieldError(rulerInput, "Type a plain number, for example 100 or 45000.");
+  if (price === null) {
+    setFieldError(priceInput, "Nhập số bình thường, ví dụ 100 hoặc 45000.");
     hasError = true;
   }
-  if (price === null) {
-    setFieldError(priceInput, "Type a plain number, for example 100 or 45000.");
+  if (ruler === null) {
+    setFieldError(rulerInput, "Nhập số bình thường, ví dụ 100 hoặc 45000.");
+    hasError = true;
+  }
+  if (cardInput && card === null) {
+    setFieldError(cardInput, "Nhập số bình thường, ví dụ 100 hoặc 45000.");
     hasError = true;
   }
   if (stall === null) {
-    setFieldError(stallInput, "Type a plain number, for example 100 or 45000.");
+    setFieldError(stallInput, "Nhập số bình thường, ví dụ 100 hoặc 45000.");
     hasError = true;
   }
   if (harvest === null) {
-    setFieldError(harvestInput, "Type a plain number, for example 100 or 45000.");
-    hasError = true;
-  }
-  if (minLength === null) {
-    setFieldError(minLengthInput, "Type a plain number, for example 100 or 45000.");
-    hasError = true;
-  }
-  if (ration === null) {
-    setFieldError(rationInput, "Type a plain number, for example 100 or 45000.");
+    setFieldError(harvestInput, "Nhập số bình thường, ví dụ 100 hoặc 45000.");
     hasError = true;
   }
   if (min === null) {
-    setFieldError(minInput, "Type a plain number, for example 100 or 45000.");
+    setFieldError(minInput, "Nhập số bình thường, ví dụ 100 hoặc 45000.");
+    hasError = true;
+  }
+  if (minLength === null) {
+    setFieldError(minLengthInput, "Nhập số bình thường, ví dụ 100 hoặc 45000.");
+    hasError = true;
+  }
+  if (ration === null) {
+    setFieldError(rationInput, "Nhập số bình thường, ví dụ 100 hoặc 45000.");
     hasError = true;
   }
   if (hasError) return;
 
   const payload = {
     pond_name: nameVal,
-    ruler_mm: ruler,
     feed_price_vnd: price,
+    ruler_mm: ruler,
+    card_mm: card,
     stall_mm_per_day: stall,
     harvest_per_kg: harvest,
+    min_measured: min,
     min_length_mm: minLength,
-    ration_pct: ration,
-    min_measured: min
+    ration_pct: ration
   };
 
   try {
@@ -743,7 +922,7 @@ async function saveSetupHandler() {
       body: JSON.stringify(payload)
     });
     if (!resp.ok) {
-      let errText = "Could not save setup.";
+      let errText = "Không lưu được cài đặt.";
       try {
         const errData = await resp.json();
         if (errData && errData.error) errText = errData.error;
@@ -753,28 +932,44 @@ async function saveSetupHandler() {
       return;
     }
     currentSettings = await resp.json();
-    savedEl.className = "band green";
-    savedEl.setAttribute("role", "status");
-    savedEl.style.marginBottom = "10px";
-    savedEl.textContent = "Saved.";
+    const pondHeader = document.getElementById("header-pond-name");
+    if (pondHeader && currentSettings.pond_name) {
+      pondHeader.textContent = currentSettings.pond_name;
+    }
+    savedEl.textContent = "Đã lưu cài đặt.";
     savedEl.style.display = "block";
   } catch (_) {
-    errEl.innerHTML = '<p class="err" role="alert">Could not save setup.</p>';
+    errEl.innerHTML = '<p class="err" role="alert">Không lưu được cài đặt.</p>';
     errEl.style.display = "block";
   }
 }
 
-// Wire form events and page interaction handlers
+// Wire interaction handlers and lifecycle
 document.addEventListener("DOMContentLoaded", () => {
+  const dateEl = document.getElementById("header-today-date");
+  if (dateEl) {
+    dateEl.textContent = formatTodayVn();
+  }
+
   const feedDateInput = document.getElementById("feed-date");
   const feedPriceInput = document.getElementById("feed-price");
-  feedDateInput.addEventListener("input", () => { feedDateEdited = true; });
-  feedDateInput.addEventListener("change", () => { feedDateEdited = true; });
-  feedPriceInput.addEventListener("input", () => { feedPriceEdited = true; });
-  feedPriceInput.addEventListener("change", () => { feedPriceEdited = true; });
+  if (feedDateInput) {
+    feedDateInput.addEventListener("input", () => { feedDateEdited = true; });
+    feedDateInput.addEventListener("change", () => { feedDateEdited = true; });
+  }
+  if (feedPriceInput) {
+    feedPriceInput.addEventListener("input", () => { feedPriceEdited = true; });
+    feedPriceInput.addEventListener("change", () => { feedPriceEdited = true; });
+  }
 
-  document.getElementById("save-feed-btn").addEventListener("click", saveFeedHandler);
-  document.getElementById("save-setup-btn").addEventListener("click", saveSetupHandler);
+  const saveFeedBtn = document.getElementById("save-feed-btn");
+  if (saveFeedBtn) {
+    saveFeedBtn.addEventListener("click", saveFeedHandler);
+  }
+  const saveSetupBtn = document.getElementById("save-setup-btn");
+  if (saveSetupBtn) {
+    saveSetupBtn.addEventListener("click", saveSetupHandler);
+  }
 
   document.addEventListener("click", e => {
     const screenBtn = e.target.closest("[data-screen]");
@@ -791,13 +986,14 @@ document.addEventListener("DOMContentLoaded", () => {
     const segBtn = e.target.closest("[data-seg]");
     if (segBtn) {
       const parent = document.getElementById("screen-setup");
-      parent.querySelectorAll("[data-seg]").forEach(b => b.classList.toggle("on", b === segBtn));
-      parent.querySelectorAll("[data-pane]").forEach(p => p.hidden = (p.dataset.pane !== segBtn.dataset.seg));
-      return;
-    }
-
-    if (e.target.closest("#dash-enter-feed-btn")) {
-      openFeedScreen();
+      parent.querySelectorAll("[data-seg]").forEach(b => {
+        const isSelected = (b === segBtn);
+        b.classList.toggle("on", isSelected);
+        b.setAttribute("aria-selected", isSelected ? "true" : "false");
+      });
+      parent.querySelectorAll("[data-pane]").forEach(p => {
+        p.hidden = (p.dataset.pane !== segBtn.dataset.seg);
+      });
       return;
     }
   });
@@ -807,9 +1003,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   switchScreen(routeFromHash());
-  if (routeFromHash() !== "feed") {
-    loadSettings();
-  }
+  loadSettings();
 });
 </script>
 </body>
