@@ -33,6 +33,7 @@ class ShrimpMeasure:
     length_mm: Optional[float]
     overlapped: bool
     path: List[Tuple[float, float]]
+    outline: List[Tuple[float, float]] = field(default_factory=list)
 
 
 @dataclass

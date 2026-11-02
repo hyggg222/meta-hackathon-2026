@@ -4,7 +4,7 @@ from typing import List, Tuple
 import cv2
 import numpy as np
 
-from shrimp.measure import OverlapRule, measure
+from shrimp.measure import OverlapRule, centerline, measure
 
 
 def make_synth_mask(arc: float, r_curve: float, r0: float, r1: float, noise: int = 0) -> Tuple[np.ndarray, float]:
@@ -180,3 +180,48 @@ def test_overlap_custom_rule():
 
     res_custom = measure([s1, s2], px_per_mm=1.0, rule=OverlapRule(touch_px=6.0))
     assert res_custom[0].overlapped is True
+
+
+def shoelace_area(pts: List[Tuple[float, float]]) -> float:
+    # Compute polygon area using shoelace formula
+    n = len(pts)
+    if n < 3:
+        return 0.0
+    area = 0.0
+    for i in range(n):
+        j = (i + 1) % n
+        area += pts[i][0] * pts[j][1] - pts[j][0] * pts[i][1]
+    return abs(area) / 2.0
+
+
+def test_rectangle_outline():
+    # Filled 20x100 rectangle has simplified outline of 4 to 40 points and area within 10%
+    mask = np.zeros((200, 200), bool)
+    mask[50:70, 50:150] = True
+    results = measure([mask], px_per_mm=None)
+    assert len(results) == 1
+    shrimp = results[0]
+
+    assert 4 <= len(shrimp.outline) <= 40
+    for x, y in shrimp.outline:
+        assert 49.0 <= x <= 150.0
+        assert 49.0 <= y <= 70.0
+
+    area = shoelace_area(shrimp.outline)
+    assert 1800.0 <= area <= 2200.0
+
+    expected_len, sm, _, _ = centerline(mask)
+    assert shrimp.length_px == expected_len
+    assert shrimp.path == [(float(x), float(y)) for x, y in sm]
+    assert shrimp.overlapped is False
+
+
+def test_empty_mask_outline():
+    # Empty mask yields empty outline
+    empty = np.zeros((200, 200), bool)
+    results = measure([empty], px_per_mm=None)
+    assert len(results) == 1
+    assert results[0].outline == []
+    from shrimp.measure import outline_of
+    assert outline_of(empty) == []
+

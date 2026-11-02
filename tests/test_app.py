@@ -48,6 +48,10 @@ def test_samples_route_ok():
     assert isinstance(data["shrimp"][0]["length_px"], float)
     assert isinstance(data["shrimp"][0]["length_mm"], float)
     assert isinstance(data["shrimp"][0]["path"], list)
+    assert "outline" in data["shrimp"][0]
+    assert isinstance(data["shrimp"][0]["outline"], list)
+    assert len(data["shrimp"][0]["outline"]) > 0
+    assert all(isinstance(pt, list) and len(pt) == 2 for pt in data["shrimp"][0]["outline"])
 
 
 def test_samples_route_with_day():
