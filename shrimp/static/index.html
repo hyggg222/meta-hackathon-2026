@@ -60,9 +60,16 @@
 
       const formData = new FormData();
       formData.append("photo", file);
+      const now = new Date();
+      const localDay = [
+        now.getFullYear(),
+        String(now.getMonth() + 1).padStart(2, "0"),
+        String(now.getDate()).padStart(2, "0")
+      ].join("-");
+      formData.append("day", localDay);
 
       try {
-        const resp = await fetch("/api/analyze", {
+        const resp = await fetch("/api/samples", {
           method: "POST",
           body: formData,
         });

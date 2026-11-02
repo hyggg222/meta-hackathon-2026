@@ -1,10 +1,14 @@
 # Entry point factory for building the FastAPI app
+from datetime import date
 import os
 from pathlib import Path
 from fastapi import FastAPI
 
 from shrimp.app import create_app
 from shrimp.sam import make_sam_segmenter
+from shrimp.service import Service
+from shrimp.sizing import SizeTable
+from shrimp.store import Store
 
 
 def build() -> FastAPI:
@@ -32,4 +36,12 @@ def build() -> FastAPI:
         decode_script=str(decode_script),
         cache_dir=str(cache_dir),
     )
-    return create_app(segmenter)
+    db_path = repo_root / "data" / "shrimp.db"
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    store = Store(db_path)
+    table_path = repo_root / "shrimp" / "size_table.json"
+    table = SizeTable.load(table_path)
+    photos_dir = repo_root / "data" / "photos"
+    service = Service(segmenter, store, table, photos_dir=photos_dir)
+    store.seed_demo(date.today())
+    return create_app(service)
