@@ -326,3 +326,47 @@ def test_sam_concurrent_upload_once(tmp_path):
 
     file_uploads = [c for c in post_calls if "files" in c[0]]
     assert len(file_uploads) == 1
+
+
+def test_sam_cache_temp_dir_in_cache_dir(tmp_path):
+    # When cache_dir is set, temporary directory is created inside it
+    img = np.zeros((10, 10, 3), dtype=np.uint8)
+    ok, enc = cv2.imencode(".png", img)
+    assert ok
+    photo = enc.tobytes()
+
+    cache_dir = tmp_path / "custom_cache"
+    cache_dir.mkdir()
+
+    script = str(tmp_path / "decode.js")
+    with open(script, "w", encoding="utf-8") as f:
+        f.write("// stub")
+
+    subproc_calls = []
+
+    def fake_post(url, *args, **kwargs):
+        resp = unittest.mock.MagicMock()
+        resp.status_code = 200
+        if "files" in url:
+            resp.json.return_value = {"id": "file_id"}
+        else:
+            resp.iter_lines.return_value = []
+        return resp
+
+    def fake_subproc_run(cmd, **kwargs):
+        subproc_calls.append(cmd)
+        with open(cmd[3], "w", encoding="utf-8") as f:
+            f.write("[]")
+        proc = unittest.mock.MagicMock()
+        proc.returncode = 0
+        return proc
+
+    segmenter = make_sam_segmenter(api_key="k", decode_script=script, cache_dir=str(cache_dir))
+
+    with unittest.mock.patch("shrimp.sam.requests.post", side_effect=fake_post), \
+         unittest.mock.patch("shrimp.sam.subprocess.run", side_effect=fake_subproc_run):
+        segmenter(photo, "shrimp")
+
+    assert len(subproc_calls) == 1
+    output_path = subproc_calls[0][3]
+    assert os.path.abspath(output_path).startswith(os.path.abspath(str(cache_dir)))

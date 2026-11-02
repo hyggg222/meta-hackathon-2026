@@ -6,6 +6,11 @@ import numpy as np
 
 from shrimp.measure import measure
 
+try:
+    from shrimp.measure import OverlapRule
+except ImportError:
+    OverlapRule = None
+
 
 def make_synth_mask(arc: float, r_curve: float, r0: float, r1: float, noise: int = 0) -> Tuple[np.ndarray, float]:
     # Generate synthetic curved mask with known centerline length
@@ -80,3 +85,104 @@ def test_measure_zero_or_negative_scale():
     res_neg = measure([mask], px_per_mm=-1.5)
     assert len(res_neg) == 1
     assert res_neg[0].length_mm is None
+
+
+def make_straight_shrimp(x0: int, x1: int, y: int, r: int, shape=(400, 400)) -> np.ndarray:
+    # Create horizontal capsule shrimp mask from x0 to x1 with radius r
+    canvas = np.zeros(shape, np.uint8)
+    cv2.line(canvas, (x0, y), (x1, y), 255, thickness=2 * r)
+    cv2.circle(canvas, (x0, y), r, 255, -1)
+    cv2.circle(canvas, (x1, y), r, 255, -1)
+    return canvas > 127
+
+
+def add_antenna(mask: np.ndarray, path: List[Tuple[float, float]], length_ratio: float = 0.3, thickness: int = 1) -> np.ndarray:
+    # Add thin antenna line sticking out from mask end
+    m = mask.astype(np.uint8).copy()
+    p0 = np.array(path[0])
+    p1 = np.array(path[1]) if len(path) > 1 else p0 + np.array([1.0, 0.0])
+    v = p0 - p1
+    v_norm = float(np.hypot(v[0], v[1]))
+    v = v / v_norm if v_norm > 0 else np.array([-1.0, 0.0])
+    body_len = float(len(path))
+    ant_len = body_len * length_ratio
+    p_end = p0 + v * ant_len
+    cv2.line(
+        m,
+        (int(round(p0[0])), int(round(p0[1]))),
+        (int(round(p_end[0])), int(round(p_end[1]))),
+        1,
+        thickness=thickness,
+    )
+    return m > 0
+
+
+def test_antenna_length_tolerance():
+    # Adding thin antennae changes measured length by less than 3 percent
+    base_mask, _ = make_synth_mask(arc=200, r_curve=300, r0=14, r1=7, noise=0)
+    base_res = measure([base_mask], px_per_mm=None)
+    assert len(base_res) == 1
+    base_len = base_res[0].length_px
+    path = base_res[0].path
+
+    for thickness in (1, 2):
+        ant_mask = add_antenna(base_mask, path, length_ratio=0.3, thickness=thickness)
+        ant_res = measure([ant_mask], px_per_mm=None)
+        assert len(ant_res) == 1
+        ant_len = ant_res[0].length_px
+        err = abs(ant_len - base_len) / base_len
+        assert err < 0.03
+
+
+def test_overlap_touching_ends():
+    # Shrimp whose ends are 1 px apart are both flagged overlapped with length preserved
+    s1 = make_straight_shrimp(50, 150, 100, r=6)
+    s2 = make_straight_shrimp(163, 263, 100, r=6)
+    results = measure([s1, s2], px_per_mm=2.0)
+    assert len(results) == 2
+    assert results[0].overlapped is True
+    assert results[1].overlapped is True
+    assert results[0].length_mm is not None
+    assert results[1].length_mm is not None
+
+    s3 = make_straight_shrimp(50, 150, 100, r=6)
+    s4 = make_straight_shrimp(220, 320, 250, r=6)
+    res_far = measure([s3, s4], px_per_mm=2.0)
+    assert res_far[0].overlapped is False
+    assert res_far[1].overlapped is False
+
+
+def test_overlap_image_border():
+    # Shrimp touching border with end is overlapped; shrimp 30 px away is not
+    s_edge = make_straight_shrimp(6, 120, 100, r=6)
+    res_edge = measure([s_edge], px_per_mm=2.0)
+    assert res_edge[0].overlapped is True
+
+    s_away = make_straight_shrimp(36, 150, 100, r=6)
+    res_away = measure([s_away], px_per_mm=2.0)
+    assert res_away[0].overlapped is False
+
+
+def test_overlap_middle_touch_not_flagged():
+    # Touching another mask or border only along the middle does not flag the shrimp
+    s_main = make_straight_shrimp(50, 200, 100, r=6)
+    s_touch = make_straight_shrimp(125, 125, 120, r=4)
+    res = measure([s_main, s_touch], px_per_mm=2.0)
+    assert res[0].overlapped is False
+
+    canvas = np.zeros((400, 400), np.uint8)
+    cv2.ellipse(canvas, (200, 100), (96, 96), 0, 180, 360, 255, thickness=8)
+    res_arch = measure([canvas > 127], px_per_mm=2.0)
+    assert res_arch[0].overlapped is False
+
+
+def test_overlap_custom_rule():
+    # OverlapRule parameters are respected
+    assert OverlapRule is not None, "OverlapRule must be defined"
+    s1 = make_straight_shrimp(50, 150, 100, r=6)
+    s2 = make_straight_shrimp(167, 267, 100, r=6)
+    res_default = measure([s1, s2], px_per_mm=1.0)
+    assert res_default[0].overlapped is False
+
+    res_custom = measure([s1, s2], px_per_mm=1.0, rule=OverlapRule(touch_px=6.0))
+    assert res_custom[0].overlapped is True
