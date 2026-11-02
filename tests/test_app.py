@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 from shrimp.app import create_app
-from shrimp.models import SegmentationError
+from shrimp.models import SegmentationError, Settings
 from shrimp.service import Service
 from shrimp.store import Store
 from tests.conftest import FakeSegmenter
@@ -30,7 +30,9 @@ def test_samples_route_ok():
     shrimp = np.zeros((300, 300), bool)
     shrimp[100:110, 50:150] = True
     seg = FakeSegmenter({"ruler": [ruler], "shrimp": [shrimp]})
-    service = make_test_service(seg=seg)
+    store = Store(":memory:")
+    store.save_settings(Settings(min_measured=1))
+    service = make_test_service(seg=seg, store=store)
     app = create_app(service)
     client = TestClient(app)
 
@@ -56,6 +58,7 @@ def test_samples_route_with_day():
     shrimp[100:110, 50:150] = True
     seg = FakeSegmenter({"ruler": [ruler], "shrimp": [shrimp]})
     store = Store(":memory:")
+    store.save_settings(Settings(min_measured=1))
     service = make_test_service(seg=seg, store=store)
     app = create_app(service)
     client = TestClient(app)
@@ -107,7 +110,9 @@ def test_samples_route_sync():
     shrimp = np.zeros((300, 300), bool)
     shrimp[100:110, 50:150] = True
     seg = FakeSegmenter({"ruler": [ruler], "shrimp": [shrimp]})
-    service = make_test_service(seg=seg)
+    store = Store(":memory:")
+    store.save_settings(Settings(min_measured=1))
+    service = make_test_service(seg=seg, store=store)
     app = create_app(service)
     route = next(r for r in app.routes if getattr(r, "path", None) == "/api/samples")
     assert not inspect.iscoroutinefunction(route.endpoint)
@@ -117,6 +122,29 @@ def test_samples_route_sync():
     assert resp.status_code == 200
     data = resp.json()
     assert data["status"] == "ok"
+
+
+def test_samples_route_too_few():
+    # POST /api/samples returns too_few and does not save sample when below min_measured
+    ruler = np.zeros((300, 300), bool)
+    ruler[20:50, 20:200] = True
+    shrimp1 = np.zeros((300, 300), bool)
+    shrimp1[100:110, 50:150] = True
+    shrimp2 = np.zeros((300, 300), bool)
+    shrimp2[150:160, 50:150] = True
+    seg = FakeSegmenter({"ruler": [ruler], "shrimp": [shrimp1, shrimp2]})
+    service = make_test_service(seg=seg)
+    app = create_app(service)
+    client = TestClient(app)
+
+    resp = client.post("/api/samples", files={"photo": ("tray.jpg", b"fake_bytes", "image/jpeg")})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "too_few"
+
+    dash_resp = client.get("/api/dashboard")
+    assert dash_resp.status_code == 200
+    assert dash_resp.json()["empty"] is True
 
 
 def test_samples_route_upload_too_large():
