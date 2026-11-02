@@ -7,7 +7,7 @@ import pytest
 
 from shrimp.models import SegmentationError, Settings
 from shrimp.sizing import SizeTable
-from shrimp.tray import analyze_tray
+from shrimp.tray import analyze_shrimp, analyze_tray, summarize
 from tests.conftest import FakeSegmenter
 
 
@@ -260,3 +260,68 @@ def test_tray_notices_temporary_vs_permanent(fake_photo: bytes):
 
     res_none = analyze_tray(fake_photo, Settings(min_measured=5), None, seg)
     assert res_none.notices == []
+
+
+def test_summarize_default_equals_analyze_tray(fake_photo: bytes):
+    # summarize with include=None gives identical TrayResult as analyze_tray
+    ruler = make_rect_mask(30, 300, 20, 20)
+    clean = [make_capsule_shrimp(50, 138, 100 + i * 40, r=6) for i in range(4)]
+    ov1 = make_capsule_shrimp(50, 150, 300, r=6)
+    ov2 = make_capsule_shrimp(163, 263, 300, r=6)
+    shrimp = clean + [ov1, ov2]
+    seg = FakeSegmenter({"ruler": [ruler], "shrimp": shrimp})
+    settings = Settings(min_measured=3)
+    tray_res = analyze_tray(fake_photo, settings, None, seg)
+    analysis = analyze_shrimp(fake_photo, settings, seg)
+    sum_res = summarize(analysis, None, settings, None)
+    assert sum_res == tray_res
+
+
+def test_summarize_manual_selection_six_shrimp(fake_photo: bytes):
+    # Manual inclusion controls measured count, left out, and size calculation
+    ruler = make_rect_mask(30, 300, 20, 20)
+    clean = [make_capsule_shrimp(50, 150, 100 + i * 40, r=6) for i in range(5)]
+    edge = make_capsule_shrimp(0, 100, 350, r=6)
+    shrimp = clean + [edge]
+    seg = FakeSegmenter({"ruler": [ruler], "shrimp": shrimp})
+    settings = Settings(min_measured=5)
+    analysis = analyze_shrimp(fake_photo, settings, seg)
+
+    # Automatic rule leaves one out
+    auto_res = summarize(analysis, None, settings, None)
+    assert auto_res.n_measured == 5
+    assert auto_res.n_left_out == 1
+
+    # Include all 6
+    all_res = summarize(analysis, [0, 1, 2, 3, 4, 5], settings, None)
+    assert all_res.n_measured == 6
+    assert all_res.n_left_out == 0
+    all_lens = [s.length_mm for s in analysis.shrimp if s.length_mm is not None]
+    assert all_res.mean_length_mm == pytest.approx(float(np.mean(all_lens)))
+    assert all_res.included == [0, 1, 2, 3, 4, 5]
+
+    # Include [0, 1] with min_measured=5
+    few_res = summarize(analysis, [0, 1], settings, None)
+    assert few_res.status == "too_few"
+    assert few_res.size_per_kg is None
+    assert few_res.n_measured == 2
+    assert few_res.included == [0, 1]
+
+    # Empty list gives too_few and None mean
+    empty_res = summarize(analysis, [], settings, None)
+    assert empty_res.status == "too_few"
+    assert empty_res.mean_length_mm is None
+    assert empty_res.included == []
+
+
+def test_summarize_bad_indices(fake_photo: bytes):
+    # Non-ints, bools, duplicates, and out-of-range indices raise ValueError
+    ruler = make_rect_mask(30, 300, 20, 20)
+    clean = [make_capsule_shrimp(50, 150, 100 + i * 40, r=6) for i in range(5)]
+    edge = make_capsule_shrimp(0, 100, 350, r=6)
+    seg = FakeSegmenter({"ruler": [ruler], "shrimp": clean + [edge]})
+    analysis = analyze_shrimp(fake_photo, Settings(), seg)
+
+    for bad in ([7], [-1], [0, 0], [True], ["1"]):
+        with pytest.raises(ValueError):
+            summarize(analysis, bad, Settings(), None)
