@@ -69,6 +69,9 @@ Approved by Charlie on 2 Nov 2026 (36 criteria, rewritten from the first 11). Ea
 12. Given a shrimp whose body end touches the image edge, When processed, Then it is listed as overlapped and left out of the average.
 13. Given any photo, When processed, Then the screen shows "N measured, M left out".
 14. Given fewer than 5 measured shrimp, When processed, Then the app asks for a new photo, shows no size and saves nothing.
+37. Given a result screen, When the farmer taps a shrimp on the photo, Then it is added to or removed from the chosen shrimp and the count, mean length and size are recomputed by the code from exactly the chosen shrimp (added 2 Nov at the farmer's request).
+38. Given nothing has been tapped, When the result shows, Then the chosen shrimp are those not overlapped (the automatic rule is only the default).
+39. Given fewer than 5 chosen shrimp, When the farmer tries to save, Then nothing is saved and the screen says so (same as criterion 14).
 15. Given exactly 5 measured shrimp, When processed, Then the size is shown.
 
 **Size per kg**
@@ -129,7 +132,7 @@ Approved by Charlie on 2 Nov 2026 (36 criteria, rewritten from the first 11). Ea
 
 ## Decisions
 - Reference: ruler first (the hatchery CP, where the first farmer buys shrimp, hands them out [10:05]; better in the test), credit card as fallback, prompt text "ruler" and "credit card".
-- Overlap rule: strict (a body end touching another shrimp). Lay shrimp in a single layer so few are left out.
+- Overlap rule: strict (a body end touching another shrimp) as the default choice. Lay shrimp in a single layer so few are left out. A shrimp that lies on top and is whole is wrongly left out by this rule (the farmer pointed it out on 2 Nov), so the farmer can tap shrimp to choose which ones count (criteria 37 to 39); no geometric "on top" test, because tip shape alone is ambiguous.
 - Count of shrimp in the pond is not needed in the first version.
 - Size table format (1 Nov): rows of length in mm and shrimp per kg, with linear interpolation between rows. The temporary file is generated from the formula below at 5 mm steps and rounded; the CP table, when it arrives, replaces the file with no code change. Size per kg is looked up at the mean length.
 - Settings (1 Nov): defaults come from the config file; edits on the setup page are saved in SQLite and override the defaults.

@@ -17,10 +17,13 @@ _Avoid_: zoom
 **Length**: the distance along a shrimp's curved body, in millimetres. Not the bounding box.
 _Avoid_: size (size means shrimp per kg)
 
-**Overlapped shrimp**: a shrimp whose body end touches another shrimp or the image edge. It is listed but left out of the average.
+**Overlapped shrimp**: a shrimp whose body end touches another shrimp or the image edge. It is listed, and by default left out of the average; the farmer can choose to count it.
 _Avoid_: bad shrimp, rejected
 
-**Measured / left out**: the two counts on the result screen ("N measured, M left out").
+**Chosen shrimp**: the shrimp that count in the average of one sample. The photo starts with every shrimp that is not overlapped chosen; the farmer taps a shrimp on the photo to add or remove it, and the code recomputes length and size from exactly those shrimp.
+_Avoid_: selected, valid shrimp
+
+**Measured / left out**: the two counts on the result screen ("N measured, M left out"): measured is the number of chosen shrimp.
 _Avoid_: valid / invalid
 
 ## Sizing and money
@@ -30,8 +33,8 @@ _Avoid_: weight
 **Length table**: rows of average length (mm) and shrimp per kg, read from a replaceable data file, with straight-line interpolation between rows. It covers 60 to 140 mm; outside that range there is no size. Until the hatchery's (CP) table arrives it is a temporary public table, labelled as such on screen.
 _Avoid_: conversion formula
 
-**Stall flag**: shows when the average length grew less than the threshold (0.33 mm per day) between the last two samples. It needs both samples to have enough measured shrimp (5 by default) and at least one day between them; otherwise it says it cannot tell. The farmer decides what to do.
-_Avoid_: alarm, harvest alert
+**Stall flag**: shows when the average length grew less than the threshold (0.33 mm per day) between the last two samples. It needs both samples to have enough measured shrimp (5 by default) and at least one day between them; otherwise it says it cannot tell. The farmer decides what to do. On screen it is worded as a hint ("Growth looks slow"), never as an order or an alarm.
+_Avoid_: alarm, harvest alert, cull, sell
 
 **Harvest size flag**: shows when the size is at or below the harvest size (50 per kg by default). Information only, never advice to harvest.
 _Avoid_: harvest alert, harvest advice
