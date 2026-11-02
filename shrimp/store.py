@@ -3,6 +3,7 @@ from datetime import date, timedelta
 import json
 from pathlib import Path
 import sqlite3
+import threading
 from typing import Any, List, Optional, Union
 
 from shrimp.models import FeedEntry, SampleRecord, Settings
@@ -27,7 +28,8 @@ class Store:
         path_str = str(path)
         if path_str != ":memory:":
             Path(path_str).parent.mkdir(parents=True, exist_ok=True)
-        self._conn = sqlite3.connect(path_str)
+        self._lock = threading.Lock()
+        self._conn = sqlite3.connect(path_str, check_same_thread=False)
         self._init_tables()
 
     # Create tables if not present.
@@ -73,93 +75,98 @@ class Store:
         photo_path: Optional[str] = None,
         demo: bool = False,
     ) -> int:
-        cur = self._conn.cursor()
-        day_str = day.isoformat() if hasattr(day, "isoformat") else str(day)
-        cur.execute(
-            """
-            INSERT INTO samples (day, n_measured, n_left_out, mean_length_mm, demo, photo_path)
-            VALUES (?, ?, ?, ?, ?, ?)
-            """,
-            (
-                day_str,
-                int(tray.n_measured),
-                int(tray.n_left_out),
-                tray.mean_length_mm,
-                1 if demo else 0,
-                photo_path,
-            ),
-        )
-        self._conn.commit()
-        return int(cur.lastrowid)
+        with self._lock:
+            cur = self._conn.cursor()
+            day_str = day.isoformat() if hasattr(day, "isoformat") else str(day)
+            cur.execute(
+                """
+                INSERT INTO samples (day, n_measured, n_left_out, mean_length_mm, demo, photo_path)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    day_str,
+                    int(tray.n_measured),
+                    int(tray.n_left_out),
+                    tray.mean_length_mm,
+                    1 if demo else 0,
+                    photo_path,
+                ),
+            )
+            self._conn.commit()
+            return int(cur.lastrowid)
 
     # Return all sample records ordered by day, then id.
     def samples(self) -> List[SampleRecord]:
-        cur = self._conn.cursor()
-        cur.execute(
-            """
-            SELECT id, day, n_measured, n_left_out, mean_length_mm, demo, photo_path
-            FROM samples
-            ORDER BY day ASC, id ASC
-            """
-        )
-        records = []
-        for row in cur.fetchall():
-            records.append(
-                SampleRecord(
-                    id=row[0],
-                    day=date.fromisoformat(row[1]),
-                    n_measured=row[2],
-                    n_left_out=row[3],
-                    mean_length_mm=row[4],
-                    demo=bool(row[5]),
-                    photo_path=row[6],
-                )
+        with self._lock:
+            cur = self._conn.cursor()
+            cur.execute(
+                """
+                SELECT id, day, n_measured, n_left_out, mean_length_mm, demo, photo_path
+                FROM samples
+                ORDER BY day ASC, id ASC
+                """
             )
-        return records
+            records = []
+            for row in cur.fetchall():
+                records.append(
+                    SampleRecord(
+                        id=row[0],
+                        day=date.fromisoformat(row[1]),
+                        n_measured=row[2],
+                        n_left_out=row[3],
+                        mean_length_mm=row[4],
+                        demo=bool(row[5]),
+                        photo_path=row[6],
+                    )
+                )
+            return records
 
     # Add or replace a feed entry for its day.
     def add_feed(self, entry: FeedEntry) -> None:
-        cur = self._conn.cursor()
-        day_str = entry.day.isoformat() if hasattr(entry.day, "isoformat") else str(entry.day)
-        cur.execute(
-            """
-            INSERT OR REPLACE INTO feeds (day, kg_per_day, price_vnd)
-            VALUES (?, ?, ?)
-            """,
-            (
-                day_str,
-                float(entry.kg_per_day),
-                int(entry.price_vnd),
-            ),
-        )
-        self._conn.commit()
+        with self._lock:
+            cur = self._conn.cursor()
+            day_str = entry.day.isoformat() if hasattr(entry.day, "isoformat") else str(entry.day)
+            cur.execute(
+                """
+                INSERT OR REPLACE INTO feeds (day, kg_per_day, price_vnd)
+                VALUES (?, ?, ?)
+                """,
+                (
+                    day_str,
+                    float(entry.kg_per_day),
+                    int(entry.price_vnd),
+                ),
+            )
+            self._conn.commit()
 
     # Return all feed entries ordered by day.
     def feeds(self) -> List[FeedEntry]:
-        cur = self._conn.cursor()
-        cur.execute(
-            """
-            SELECT day, kg_per_day, price_vnd
-            FROM feeds
-            ORDER BY day ASC
-            """
-        )
-        entries = []
-        for row in cur.fetchall():
-            entries.append(
-                FeedEntry(
-                    day=date.fromisoformat(row[0]),
-                    kg_per_day=float(row[1]),
-                    price_vnd=int(row[2]),
-                )
+        with self._lock:
+            cur = self._conn.cursor()
+            cur.execute(
+                """
+                SELECT day, kg_per_day, price_vnd
+                FROM feeds
+                ORDER BY day ASC
+                """
             )
-        return entries
+            entries = []
+            for row in cur.fetchall():
+                entries.append(
+                    FeedEntry(
+                        day=date.fromisoformat(row[0]),
+                        kg_per_day=float(row[1]),
+                        price_vnd=int(row[2]),
+                    )
+                )
+            return entries
 
     # Return default settings overridden by saved values.
     def load_settings(self, defaults: Settings) -> Settings:
-        cur = self._conn.cursor()
-        cur.execute("SELECT key, value FROM settings")
-        saved = dict(cur.fetchall())
+        with self._lock:
+            cur = self._conn.cursor()
+            cur.execute("SELECT key, value FROM settings")
+            saved = dict(cur.fetchall())
         overrides = {}
         for f in fields(defaults):
             if f.name in saved:
@@ -168,43 +175,46 @@ class Store:
 
     # Save all settings fields to storage.
     def save_settings(self, settings: Settings) -> None:
-        cur = self._conn.cursor()
-        for f in fields(settings):
-            val = getattr(settings, f.name)
-            cur.execute(
-                "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
-                (f.name, json.dumps(val)),
-            )
-        self._conn.commit()
+        with self._lock:
+            cur = self._conn.cursor()
+            for f in fields(settings):
+                val = getattr(settings, f.name)
+                cur.execute(
+                    "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
+                    (f.name, json.dumps(val)),
+                )
+            self._conn.commit()
 
     # Insert demo history once if no demo samples exist.
     def seed_demo(self, today: date) -> None:
-        cur = self._conn.cursor()
-        cur.execute("SELECT 1 FROM samples WHERE demo = 1 LIMIT 1")
-        if cur.fetchone() is not None:
-            return
+        with self._lock:
+            cur = self._conn.cursor()
+            cur.execute("SELECT 1 FROM samples WHERE demo = 1 LIMIT 1")
+            if cur.fetchone() is not None:
+                return
 
-        for offset, n_meas, n_left, mean_len in DEMO_HISTORY["samples"]:
-            sample_day = (today + timedelta(days=offset)).isoformat()
+            for offset, n_meas, n_left, mean_len in DEMO_HISTORY["samples"]:
+                sample_day = (today + timedelta(days=offset)).isoformat()
+                cur.execute(
+                    """
+                    INSERT INTO samples (day, n_measured, n_left_out, mean_length_mm, demo, photo_path)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (sample_day, n_meas, n_left, mean_len, 1, None),
+                )
+
+            feed_offset, feed_kg, feed_price = DEMO_HISTORY["feed"]
+            feed_day = (today + timedelta(days=feed_offset)).isoformat()
             cur.execute(
                 """
-                INSERT INTO samples (day, n_measured, n_left_out, mean_length_mm, demo, photo_path)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT OR REPLACE INTO feeds (day, kg_per_day, price_vnd)
+                VALUES (?, ?, ?)
                 """,
-                (sample_day, n_meas, n_left, mean_len, 1, None),
+                (feed_day, feed_kg, feed_price),
             )
-
-        feed_offset, feed_kg, feed_price = DEMO_HISTORY["feed"]
-        feed_day = (today + timedelta(days=feed_offset)).isoformat()
-        cur.execute(
-            """
-            INSERT OR REPLACE INTO feeds (day, kg_per_day, price_vnd)
-            VALUES (?, ?, ?)
-            """,
-            (feed_day, feed_kg, feed_price),
-        )
-        self._conn.commit()
+            self._conn.commit()
 
     # Close the database connection.
     def close(self) -> None:
-        self._conn.close()
+        with self._lock:
+            self._conn.close()
