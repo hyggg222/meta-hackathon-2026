@@ -1,9 +1,12 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
+import sqlite3
 import threading
 from types import SimpleNamespace
 
+import pytest
+
 from shrimp.models import FeedEntry, SampleRecord, Settings
-from shrimp.store import Store
+from shrimp.store import DEMO_HISTORY, Store
 
 
 # Verify persistence of samples, feed and settings across reopen.
@@ -270,4 +273,113 @@ def test_concurrent_seed_demo(tmp_path):
     samples = store.samples()
     assert len(samples) == 5
     store.close()
+
+
+# Verify rollback when save_settings fails.
+def test_rollback_save_settings():
+    store = Store(":memory:")
+    defaults = Settings()
+    with pytest.raises(TypeError):
+        store.save_settings(Settings(pond_name=object()))
+    with pytest.raises(TypeError):
+        store.save_settings(Settings(pond_name="New Pond", card_mm=object()))
+    tray = SimpleNamespace(n_measured=8, n_left_out=2, mean_length_mm=80.0)
+    store.save_sample(date(2026, 11, 2), tray)
+    assert store.load_settings(defaults) == defaults
+
+
+# Verify rollback when seed_demo fails midway.
+def test_rollback_seed_demo(monkeypatch):
+    store = Store(":memory:")
+    today = date(2026, 11, 2)
+    feed_offset, feed_kg, _ = DEMO_HISTORY["feed"]
+    monkeypatch.setitem(DEMO_HISTORY, "feed", (feed_offset, feed_kg, object()))
+    with pytest.raises(sqlite3.Error):
+        store.seed_demo(today)
+    tray = SimpleNamespace(n_measured=8, n_left_out=2, mean_length_mm=80.0)
+    store.save_sample(today, tray)
+    assert [s for s in store.samples() if s.demo] == []
+
+
+# Verify corrupt or mistyped settings rows are ignored and valid settings load.
+def test_corrupt_settings():
+    store = Store(":memory:")
+    defaults = Settings()
+    rows = [
+        ("pond_name", '"Valid Pond"'),
+        ("card_mm", "garbage"),
+        ("min_measured", "[1, 2, 3]"),
+        ("ruler_mm", "1"),
+    ]
+    for key, val in rows:
+        store._conn.execute(
+            "INSERT INTO settings (key, value) VALUES (?, ?)", (key, val)
+        )
+    store._conn.commit()
+
+    loaded = store.load_settings(defaults)
+    assert loaded.pond_name == "Valid Pond"
+    assert loaded.card_mm == defaults.card_mm
+    assert loaded.min_measured == defaults.min_measured
+    assert loaded.ruler_mm == 1.0
+    assert isinstance(loaded.ruler_mm, float)
+
+    store._conn.execute(
+        "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
+        ("ruler_mm", '"abc"'),
+    )
+    store._conn.commit()
+    loaded_abc = store.load_settings(defaults)
+    assert loaded_abc.ruler_mm == defaults.ruler_mm
+
+    store._conn.execute(
+        "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
+        ("feed_price_vnd", "true"),
+    )
+    store._conn.commit()
+    assert store.load_settings(defaults).feed_price_vnd == defaults.feed_price_vnd
+
+
+# Verify datetime is stored as date and invalid date type raises TypeError.
+def test_date_handling():
+    store = Store(":memory:")
+    dt = datetime(2026, 11, 2, 10, 30, 0)
+    expected_d = date(2026, 11, 2)
+    tray = SimpleNamespace(n_measured=8, n_left_out=2, mean_length_mm=80.0)
+
+    sid = store.save_sample(dt, tray)
+    store.add_feed(FeedEntry(day=dt, kg_per_day=50.0, price_vnd=40000))
+
+    samples = store.samples()
+    feeds = store.feeds()
+    assert len(samples) == 1
+    assert samples[0].id == sid
+    assert samples[0].day == expected_d
+    assert type(samples[0].day) is date
+
+    assert len(feeds) == 1
+    assert feeds[0].day == expected_d
+    assert type(feeds[0].day) is date
+
+    with pytest.raises(TypeError):
+        store.save_sample("2026-11-02", tray)
+    with pytest.raises(TypeError):
+        store.add_feed(FeedEntry(day="2026-11-02", kg_per_day=20.0, price_vnd=40000))
+
+    assert len(store.samples()) == 1
+    assert len(store.feeds()) == 1
+
+
+# Verify real feed entry on demo feed day survives seed_demo.
+def test_seed_demo_preserves_real_feed():
+    store = Store(":memory:")
+    today = date(2026, 11, 2)
+    real_day = today - timedelta(days=14)
+    real_feed = FeedEntry(day=real_day, kg_per_day=50.0, price_vnd=40000)
+    store.add_feed(real_feed)
+
+    store.seed_demo(today)
+    feeds = store.feeds()
+    assert len(feeds) == 1
+    assert feeds[0] == real_feed
 
