@@ -176,3 +176,91 @@ def test_readonly_attributes(tmp_path):
         table.min_mm = 50
     with pytest.raises(AttributeError):
         table.max_mm = 150
+
+
+# Check bad file with invalid length factor raises ValueError
+@pytest.mark.parametrize(
+    "length_factor",
+    [True, False, "1.0", 0, -1.0, float("nan"), float("inf")],
+)
+def test_bad_file_length_factor(tmp_path, length_factor):
+    path = tmp_path / "bad.json"
+    path.write_text(json.dumps({
+        "source": "fixture",
+        "temporary": True,
+        "length_factor": length_factor,
+        "rows": [[60, 328], [100, 71]],
+    }))
+    with pytest.raises(ValueError):
+        SizeTable.load(path)
+
+
+# Check bad file with non-finite row length or count raises ValueError
+@pytest.mark.parametrize(
+    "rows",
+    [
+        [[float("nan"), 328], [100, 71]],
+        [[60, float("nan")], [100, 71]],
+        [[60, 328], [float("inf"), 71]],
+        [[60, float("inf")], [100, 71]],
+        [[float("-inf"), 328], [100, 71]],
+        [[60, float("-inf")], [100, 71]],
+        [[True, 328], [100, 71]],
+        [[60, True], [100, 71]],
+        [["60", 328], [100, 71]],
+        [[60, "328"], [100, 71]],
+    ],
+)
+def test_bad_file_row_not_finite(tmp_path, rows):
+    path = tmp_path / "bad.json"
+    path.write_text(json.dumps({
+        "source": "fixture",
+        "temporary": True,
+        "length_factor": 1.0,
+        "rows": rows,
+    }))
+    with pytest.raises(ValueError):
+        SizeTable.load(path)
+
+
+# Check bad file with non-positive row count raises ValueError
+@pytest.mark.parametrize("count", [0, -1, -0.5])
+def test_bad_file_row_count_non_positive(tmp_path, count):
+    path = tmp_path / "bad.json"
+    path.write_text(json.dumps({
+        "source": "fixture",
+        "temporary": True,
+        "length_factor": 1.0,
+        "rows": [[60, count], [100, 71]],
+    }))
+    with pytest.raises(ValueError):
+        SizeTable.load(path)
+
+
+# Check bad file with non-positive row length raises ValueError
+@pytest.mark.parametrize("length", [0, -1, -10.0])
+def test_bad_file_row_length_non_positive(tmp_path, length):
+    path = tmp_path / "bad.json"
+    path.write_text(json.dumps({
+        "source": "fixture",
+        "temporary": True,
+        "length_factor": 1.0,
+        "rows": [[length, 328], [100, 71]],
+    }))
+    with pytest.raises(ValueError):
+        SizeTable.load(path)
+
+
+# Check bad file with non-boolean temporary raises ValueError
+@pytest.mark.parametrize("temporary", ["false", "true", 0, 1])
+def test_bad_file_temporary_not_bool(tmp_path, temporary):
+    path = tmp_path / "bad.json"
+    path.write_text(json.dumps({
+        "source": "fixture",
+        "temporary": temporary,
+        "length_factor": 1.0,
+        "rows": [[60, 328], [100, 71]],
+    }))
+    with pytest.raises(ValueError):
+        SizeTable.load(path)
+
