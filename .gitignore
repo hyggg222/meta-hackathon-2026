@@ -7,3 +7,6 @@ docs/research/meta-hackathon-problem-selection/
 node_modules/
 __pycache__/
 *.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
