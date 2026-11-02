@@ -249,6 +249,12 @@ New criteria:
 51. Given a signed test webhook call with a photo URL, When handled end to end with a fake transport, Then the reply photo and text are sent.
 52. Given Muse Spark is unavailable or answers badly, When a reply is written, Then the template text is sent and the farmer sees no error.
 
+Revision of the slow-growth rule (2 Nov, after the sample-size analysis: two samples of 10 shrimp 3 days apart give a growth error of 1 to 2 mm per day, four to five times the 0.33 threshold). Criteria 22 to 26 still describe the rule for samples saved without a spread of lengths (the demo data); for samples with a spread they are refined by:
+53. Given two samples with a spread of lengths, When the growth plus 1.645 standard errors is below the threshold, Then the hint says growth looks slow; when the growth minus 1.645 standard errors is at or above the threshold, Then it says growth is not slow.
+54. Given two samples with a spread whose growth cannot be told from the threshold, When compared, Then the screen says it is unclear and states how many shrimp per sample, or how many days, would settle it.
+55. Given the same sample sizes, When the spread is large, Then the number of shrimp or days needed grows (the screen never shows a confident hint on noise).
+56. Given a sample, When saved, Then its standard deviation of lengths is saved with it (and old databases without the column still open).
+
 ## Risks and open questions
 - **Anti-project risk:** the research flags "simple image analyzers". The stall flag, the cost, the dashboard and the error table must carry the story (ADR-0001). Spark explaining results through the rules is the cheapest agent step and is the last thing to cut.
 - **Weak evidence:** persona is n=1; the error table is 5 trays; no real shrimp ground truth exists yet; the spike used drawn references on clean backgrounds.

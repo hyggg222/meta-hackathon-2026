@@ -33,7 +33,7 @@ _Avoid_: weight
 **Length table**: rows of average length (mm) and shrimp per kg, read from a replaceable data file, with straight-line interpolation between rows. It covers 60 to 140 mm; outside that range there is no size. Until the hatchery's (CP) table arrives it is a temporary public table, labelled as such on screen.
 _Avoid_: conversion formula
 
-**Stall flag**: shows when the average length grew less than the threshold (0.33 mm per day) between the last two samples. It needs both samples to have enough measured shrimp (5 by default) and at least one day between them; otherwise it says it cannot tell. The farmer decides what to do. On screen it is worded as a hint ("Growth looks slow"), never as an order or an alarm.
+**Stall flag**: shows when the average length grew less than the threshold (0.33 mm per day) between the last two samples. It needs both samples to have enough measured shrimp (5 by default) and at least one day between them; otherwise it says it cannot tell. The farmer decides what to do. On screen it is worded as a hint ("Growth looks slow"), never as an order or an alarm. When the samples are too noisy to tell growth from the threshold (a handful of shrimp varies by a few mm by chance) it says "unclear" and how many shrimp or days would settle it.
 _Avoid_: alarm, harvest alert, cull, sell
 
 **Harvest size flag**: shows when the size is at or below the harvest size (50 per kg by default). Information only, never advice to harvest.
