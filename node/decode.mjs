@@ -10,7 +10,7 @@ const r = await p.finalResult;
 console.error('outcome', JSON.stringify(r.outcome), 'diagnostics', r.diagnostics.length);
 const out = recordsOfKind(r.records, 'mask').map(m => {
   const ras = decodeMaskToRaster(m.mask);
-  return { id: m.objectId, bounds: m.bounds, len: ras.length, b64: Buffer.from(ras).toString('base64') };
+  return { id: m.objectId, bounds: m.bounds, len: ras.length, b64: Buffer.from(ras).toString('base64'), width: m.mask.width, height: m.mask.height };
 });
 fs.writeFileSync(process.argv[3], JSON.stringify(out));
 console.error(out.length, 'masks', out.map(o => `${o.id}:${o.bounds.right-o.bounds.left}x${o.bounds.bottom-o.bounds.top}=${o.len}`).join(' '));
