@@ -588,6 +588,27 @@ def test_dashboard_pricing_fields():
 
 
 
+def test_breakeven_uses_the_feed_price_of_the_latest_feed_entry():
+    # One feed price for the whole dashboard: the cost card and the break-even use the same one
+    s1 = SampleRecord(1, date(2026, 11, 1), 8, 0, 124.0, False, None)
+    s2 = SampleRecord(2, date(2026, 11, 3), 8, 0, 125.0, False, None)
+    table = FakeTable({124.0: 38.0, 125.0: 36.0, 126.0: 34.0})
+    prices = FakePriceTable()
+    entry = FeedEntry(day=date(2026, 11, 2), kg_per_day=100.0, price_vnd=45000)
+
+    # Setup says 450000 (a typo ten times too high); the feed entry says 45000
+    typo = Settings(feed_price_vnd=450000, stall_mm_per_day=0.33, ration_pct=1.5)
+    right = Settings(feed_price_vnd=45000, stall_mm_per_day=0.33, ration_pct=1.5)
+    from_entry = build_dashboard([s1, s2], [entry], typo, table, prices=prices)
+    from_setup_right = build_dashboard([s1, s2], [], right, table, prices=prices)
+    assert from_entry.stall_day_cost_vnd == 4500000
+    assert from_entry.breakeven_mm_per_day == from_setup_right.breakeven_mm_per_day
+
+    # no feed entry yet: the Setup price is the fallback
+    from_setup_typo = build_dashboard([s1, s2], [], typo, table, prices=prices)
+    assert from_setup_typo.breakeven_mm_per_day > from_entry.breakeven_mm_per_day
+
+
 def test_trend_constants():
     # Verify trend constants
     assert TREND_SAMPLES == 4

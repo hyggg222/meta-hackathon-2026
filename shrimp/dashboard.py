@@ -317,11 +317,14 @@ def build_dashboard(
     qualifying_feeds = [f for f in feeds if f.day <= latest.day]
     feed_notice: Optional[str] = None
     stall_day_cost_vnd: Optional[int] = None
+    # one feed price for the whole dashboard: the latest entry's, else the Setup price
+    feed_price_vnd: float = settings.feed_price_vnd
     if qualifying_feeds:
         latest_feed = max(
             enumerate(qualifying_feeds), key=lambda item: (item[1].day, item[0])
         )[1]
         stall_day_cost_vnd = int(round(latest_feed.kg_per_day * latest_feed.price_vnd))
+        feed_price_vnd = latest_feed.price_vnd
     else:
         feed_notice = "no_feed"
 
@@ -352,6 +355,7 @@ def build_dashboard(
         settings,
         table,
         prices,
+        feed_price_vnd,
     )
 
     return Dashboard(
@@ -397,6 +401,7 @@ def _calc_pricing(
     settings: Settings,
     table: Any,
     prices: Optional[Any],
+    feed_price_vnd: float,
 ) -> Tuple[
     Optional[int],
     Optional[int],
@@ -443,7 +448,7 @@ def _calc_pricing(
         breakeven = breakeven_growth_mm_per_day(
             latest_length_mm,
             latest_size_per_kg,
-            settings.feed_price_vnd,
+            feed_price_vnd,
             val_vnd,
             settings.ration_pct,
             table,
