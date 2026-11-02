@@ -28,6 +28,21 @@ def largest(mask: np.ndarray) -> np.ndarray:
     return m
 
 
+def outline_of(mask: np.ndarray) -> List[Tuple[float, float]]:
+    # Extract simplified outer contour of mask
+    if mask.size == 0 or not np.any(mask):
+        return []
+    m = (mask > 0).astype(np.uint8)
+    contours, _ = cv2.findContours(m, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    if not contours:
+        return []
+    contour = max(contours, key=cv2.contourArea)
+    arc_len = float(cv2.arcLength(contour, True))
+    epsilon = max(1.0, 0.002 * arc_len)
+    approx = cv2.approxPolyDP(contour, epsilon, True)
+    return [(float(x), float(y)) for x, y in approx.reshape(-1, 2)]
+
+
 def centerline(mask: np.ndarray, smooth: int = 7) -> Tuple[float, np.ndarray, float, float]:
     # Extract centerline length, smoothed coordinates, and tip half-widths
     m = largest(mask)
@@ -97,13 +112,14 @@ def measure(
             else None
         )
         path = [(float(x), float(y)) for x, y in sm]
-        parsed.append((idx, length_px, length_mm, path, sm, ha, hb, mask))
+        outline = outline_of(mask)
+        parsed.append((idx, length_px, length_mm, path, sm, ha, hb, mask, outline))
 
     results: List[ShrimpMeasure] = []
     n_masks = len(parsed)
 
     for i in range(n_masks):
-        idx, length_px, length_mm, path, sm, ha, hb, mask = parsed[i]
+        idx, length_px, length_mm, path, sm, ha, hb, mask, outline = parsed[i]
         if len(sm) == 0:
             results.append(
                 ShrimpMeasure(
@@ -112,6 +128,7 @@ def measure(
                     length_mm=length_mm,
                     overlapped=False,
                     path=path,
+                    outline=outline,
                 )
             )
             continue
@@ -162,6 +179,7 @@ def measure(
                 length_mm=length_mm,
                 overlapped=is_overlapped,
                 path=path,
+                outline=outline,
             )
         )
 
