@@ -4,7 +4,7 @@ from typing import List, Tuple
 import cv2
 import numpy as np
 
-from shrimp.measure import OverlapRule, centerline, measure
+from shrimp.measure import OverlapRule, centerline, longest_side_branch, measure
 
 
 def make_synth_mask(arc: float, r_curve: float, r0: float, r1: float, noise: int = 0) -> Tuple[np.ndarray, float]:
@@ -224,4 +224,85 @@ def test_empty_mask_outline():
     assert results[0].outline == []
     from shrimp.measure import outline_of
     assert outline_of(empty) == []
+
+
+def make_band_mask(pt1: Tuple[int, int], pt2: Tuple[int, int], thickness: int = 20, shape=(600, 600)) -> np.ndarray:
+    # Create straight band mask on canvas
+    canvas = np.zeros(shape, np.uint8)
+    cv2.line(canvas, pt1, pt2, 255, thickness=thickness)
+    return canvas > 127
+
+
+def make_x_mask(center: Tuple[int, int] = (300, 300), arm: int = 80, thickness: int = 20, shape=(600, 600)) -> np.ndarray:
+    # Create X-shaped mask of two crossing bands
+    canvas = np.zeros(shape, np.uint8)
+    cx, cy = center
+    cv2.line(canvas, (cx - arm, cy - arm), (cx + arm, cy + arm), 255, thickness=thickness)
+    cv2.line(canvas, (cx - arm, cy + arm), (cx + arm, cy - arm), 255, thickness=thickness)
+    return canvas > 127
+
+
+def make_t_mask(origin: Tuple[int, int] = (200, 200), bar_len: int = 160, stem_len: int = 120, thickness: int = 20, shape=(600, 600)) -> np.ndarray:
+    # Create T-shaped mask
+    canvas = np.zeros(shape, np.uint8)
+    x0, y0 = origin
+    cv2.line(canvas, (x0, y0), (x0 + bar_len, y0), 255, thickness=thickness)
+    cv2.line(canvas, (x0 + bar_len // 2, y0), (x0 + bar_len // 2, y0 + stem_len), 255, thickness=thickness)
+    return canvas > 127
+
+
+def test_branch_helper_curve_x_t():
+    # Single curved band has longest side branch < 0.35; X and T shapes have >= 0.35
+    curve, _ = make_synth_mask(arc=200, r_curve=300, r0=10, r1=10, noise=0)
+    branch_curve, main_curve = longest_side_branch(curve)
+    ratio_curve = branch_curve / main_curve if main_curve > 0 else 0.0
+    assert ratio_curve < 0.35
+
+    mask_x = make_x_mask(center=(200, 200), arm=80, thickness=20, shape=(400, 400))
+    branch_x, main_x = longest_side_branch(mask_x)
+    ratio_x = branch_x / main_x if main_x > 0 else 0.0
+    assert ratio_x >= 0.35
+
+    mask_t = make_t_mask(origin=(100, 100), bar_len=160, stem_len=120, thickness=20, shape=(400, 400))
+    branch_t, main_t = longest_side_branch(mask_t)
+    ratio_t = branch_t / main_t if main_t > 0 else 0.0
+    assert ratio_t >= 0.35
+
+
+def test_measure_branching_and_length_rule():
+    # Tray of 5 similar 20x100 bands + 1 X: only X is merged; double length among 5 similar is merged
+    bands = [make_band_mask((50, 40 + i * 40), (150, 40 + i * 40), thickness=20) for i in range(5)]
+    x_mask = make_x_mask(center=(400, 400), arm=60, thickness=20)
+    res_x = measure(bands + [x_mask], px_per_mm=None)
+    assert len(res_x) == 6
+    for s in res_x[:5]:
+        assert s.merged is False
+    assert res_x[5].merged is True
+
+    double_band = make_band_mask((50, 300), (250, 300), thickness=20)
+    res_double = measure(bands + [double_band], px_per_mm=None)
+    assert len(res_double) == 6
+    for s in res_double[:5]:
+        assert s.merged is False
+    assert res_double[5].merged is True
+
+
+def test_measure_two_masks_length_rule():
+    # With only two masks nothing is merged by the length rule
+    s1 = make_band_mask((50, 50), (150, 50), thickness=20)
+    s2 = make_band_mask((50, 150), (350, 150), thickness=20)
+    res = measure([s1, s2], px_per_mm=None)
+    assert len(res) == 2
+    assert res[0].merged is False
+    assert res[1].merged is False
+
+
+def test_measure_normal_tray_not_merged():
+    # Normal tray has no merged shrimp
+    bands = [make_band_mask((50, 40 + i * 50), (150, 40 + i * 50), thickness=20) for i in range(6)]
+    res = measure(bands, px_per_mm=None)
+    assert len(res) == 6
+    for s in res:
+        assert s.merged is False
+
 
