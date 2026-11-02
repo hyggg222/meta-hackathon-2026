@@ -1,6 +1,7 @@
 # Tests for Service orchestration layer
 from datetime import date
 import hashlib
+from types import SimpleNamespace
 from typing import Optional
 import numpy as np
 import pytest
@@ -516,4 +517,49 @@ def test_service_ration_pct_validation():
             "INSERT OR REPLACE INTO settings (key, value) VALUES ('ration_pct', '\"corrupt\"')"
         )
     assert service.settings().ration_pct == 1.5
+
+
+def test_samples_csv():
+    # Service.samples_csv formats header and rows with demo and spread oldest first
+    store = Store(":memory:")
+    table = FakeTable(per_kg_val=71.0)
+    service = Service(FakeSegmenter(), store, table)
+
+    t_demo = SimpleNamespace(n_measured=10, n_left_out=0, mean_length_mm=100.0, sd_length_mm=None)
+    store.save_sample(date(2026, 11, 3), t_demo, demo=True)
+
+    t_real = SimpleNamespace(n_measured=8, n_left_out=2, mean_length_mm=95.0, sd_length_mm=8.0)
+    store.save_sample(date(2026, 11, 2), t_real, demo=False)
+
+    csv_text = service.samples_csv()
+    lines = csv_text.split("\r\n")
+    assert lines[0] == "Ngày,Số con đo,Số con bị loại,Dài trung bình (cm),Độ lệch chiều dài (mm),Số con trên kg,Dữ liệu mẫu"
+    assert lines[1] == "02/11/2026,8,2,9.5,8.0,71,"
+    assert lines[2] == "03/11/2026,10,0,10.0,,71,có"
+
+
+def test_samples_csv_edge_cases():
+    # Service.samples_csv handles missing mean length and sizes outside lookup table
+    store = Store(":memory:")
+
+    class CustomTable:
+        def per_kg(self, length_mm: float) -> Optional[float]:
+            if length_mm == 95.0:
+                return 71.0
+            return None
+
+    service = Service(FakeSegmenter(), store, CustomTable())
+
+    t_no_mean = SimpleNamespace(n_measured=0, n_left_out=5, mean_length_mm=None, sd_length_mm=None)
+    store.save_sample(date(2026, 11, 1), t_no_mean, demo=False)
+
+    t_outside = SimpleNamespace(n_measured=6, n_left_out=1, mean_length_mm=150.0, sd_length_mm=None)
+    store.save_sample(date(2026, 11, 4), t_outside, demo=False)
+
+    csv_text = service.samples_csv()
+    assert "None" not in csv_text
+    lines = csv_text.split("\r\n")
+    assert lines[1] == "01/11/2026,0,5,,,,"
+    assert lines[2] == "04/11/2026,6,1,15.0,,,"
+
 

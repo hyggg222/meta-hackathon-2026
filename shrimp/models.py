@@ -21,7 +21,7 @@ Segmenter = Callable[[bytes, str], List[np.ndarray]]
 @dataclass
 class Settings:
     # Pond and calibration settings
-    pond_name: str = ""
+    pond_name: str = "Ao 1"
     ruler_mm: float = 150.0
     card_mm: float = 85.6
     feed_price_vnd: int = 45000
