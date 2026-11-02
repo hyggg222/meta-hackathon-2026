@@ -413,3 +413,85 @@ def test_signed_post_image_message(
     assert app_secret not in caplog.text
     assert page_token not in caplog.text
     assert verify_token not in caplog.text
+
+
+class FakeSparkWriter:
+    # Stand-in for SparkWriter so no test calls the network
+    instances: List["FakeSparkWriter"] = []
+
+    def __init__(self, api_key: str, **kwargs: Any) -> None:
+        self.api_key = api_key
+        FakeSparkWriter.instances.append(self)
+
+    def write_reply(self, tray: Any, min_measured: int, saved: Any = None) -> str:
+        return "SPARK-REPLY"
+
+    def write_status(self, dashboard: Any) -> str:
+        return "SPARK-STATUS"
+
+
+def _status_message(client: TestClient, app_secret: str, mid: str) -> None:
+    # Post a signed "tinh hinh" message from the allowed sender
+    payload = {
+        "object": "page",
+        "entry": [
+            {
+                "messaging": [
+                    {"sender": {"id": "u1"}, "message": {"mid": mid, "text": "tình hình"}}
+                ]
+            }
+        ],
+    }
+    raw = json.dumps(payload).encode("utf-8")
+    resp = client.post(
+        "/webhook/messenger",
+        content=raw,
+        headers={"x-hub-signature-256": _sign(raw, app_secret)},
+    )
+    assert resp.status_code == 200
+
+
+def _messenger_env(**extra: str) -> dict:
+    env = {
+        "META_API_KEY": "test_api_key",
+        "MESSENGER_PAGE_TOKEN": "page_tok",
+        "MESSENGER_APP_SECRET": "app_secret_1",
+        "MESSENGER_VERIFY_TOKEN": "verify_tok_1",
+        "MESSENGER_ALLOWED_IDS": "u1",
+    }
+    env.update(extra)
+    return env
+
+
+def test_spark_replies_used_when_enabled(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    # SPARK_REPLIES=1 puts Muse Spark in charge of the reply texts, built with the API key
+    RecordingTransport.instances.clear()
+    FakeSparkWriter.instances.clear()
+    monkeypatch.setattr(shrimp.main, "GraphTransport", RecordingTransport)
+    monkeypatch.setattr(shrimp.main, "SparkWriter", FakeSparkWriter)
+
+    app = build(root=tmp_path, env=_messenger_env(SPARK_REPLIES="1"), segmenter=FakeSegmenter())
+    client = TestClient(app)
+    transport = RecordingTransport.instances[-1]
+
+    _status_message(client, "app_secret_1", "m-spark")
+    assert _wait_until(lambda: len(transport.sent_texts) > 0)
+    assert "SPARK-STATUS" in transport.sent_texts[0][1]
+    assert FakeSparkWriter.instances[-1].api_key == "test_api_key"
+
+
+def test_spark_replies_off_by_default(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Without SPARK_REPLIES the fixed templates are used and no Spark writer is built
+    RecordingTransport.instances.clear()
+    FakeSparkWriter.instances.clear()
+    monkeypatch.setattr(shrimp.main, "GraphTransport", RecordingTransport)
+    monkeypatch.setattr(shrimp.main, "SparkWriter", FakeSparkWriter)
+
+    app = build(root=tmp_path, env=_messenger_env(), segmenter=FakeSegmenter())
+    client = TestClient(app)
+    transport = RecordingTransport.instances[-1]
+
+    _status_message(client, "app_secret_1", "m-plain")
+    assert _wait_until(lambda: len(transport.sent_texts) > 0)
+    assert "SPARK-STATUS" not in transport.sent_texts[0][1]
+    assert FakeSparkWriter.instances == []

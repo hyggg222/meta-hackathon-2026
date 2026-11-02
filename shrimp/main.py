@@ -14,6 +14,7 @@ from shrimp.reply_text import dashboard_reply, template_reply
 from shrimp.sam import make_sam_segmenter
 from shrimp.service import Service
 from shrimp.sizing import SizeTable
+from shrimp.spark import SparkWriter
 from shrimp.store import Store
 
 logger = logging.getLogger(__name__)
@@ -101,12 +102,20 @@ def build(
             app_secret=app_secret,
             allowed_ids=allowed_ids,
         )
+        # fixed templates by default; SPARK_REPLIES=1 lets Muse Spark write the texts
+        # (every text still goes through the guard and falls back to the template)
+        write_reply = template_reply
+        write_status = dashboard_reply
+        if read_setting("SPARK_REPLIES", root=repo_root, env=env) == "1":
+            spark = SparkWriter(api_key)
+            write_reply = spark.write_reply
+            write_status = spark.write_status
         conversation = Conversation(
             service,
             transport,
             render=render_reply,
-            write_reply=template_reply,
-            write_status=dashboard_reply,
+            write_reply=write_reply,
+            write_status=write_status,
             dashboard_url=dashboard_url,
         )
         router = create_messenger_router(
