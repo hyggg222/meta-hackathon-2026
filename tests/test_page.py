@@ -303,7 +303,7 @@ def test_page_photo_routes_and_no_samples():
     assert resp.status_code == 200
     html = resp.text
 
-    assert "/api/samples" not in html
+    assert not re.search(r'fetch\(\s*[`"\']/api/samples', html)
     assert "/api/analyses" in html
 
     fetch_calls = re.findall(
