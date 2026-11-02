@@ -256,3 +256,78 @@ def test_settings_routes():
     invalid_put = client.put("/api/settings", json={**data, "stall_mm_per_day": -0.5})
     assert invalid_put.status_code == 422
     assert "error" in invalid_put.json()
+
+
+def test_settings_partial_update_preserves_omitted_fields():
+    # PUT /api/settings applies only provided fields and rejects unknown keys
+    store = Store(":memory:")
+    service = make_test_service(store=store)
+    s = service.settings()
+    s.ruler_mm = 200.0
+    service.save_settings(s)
+
+    app = create_app(service)
+    client = TestClient(app)
+
+    put_resp = client.put("/api/settings", json={"pond_name": "B"})
+    assert put_resp.status_code == 200
+    assert put_resp.json()["pond_name"] == "B"
+    assert put_resp.json()["ruler_mm"] == 200.0
+
+    get_resp = client.get("/api/settings")
+    assert get_resp.status_code == 200
+    assert get_resp.json()["ruler_mm"] == 200.0
+    assert get_resp.json()["pond_name"] == "B"
+
+    bad_put = client.put("/api/settings", json={"unknown_key": "val"})
+    assert bad_put.status_code == 422
+
+
+def test_settings_route_huge_numbers():
+    # PUT /api/settings rejects huge numbers with 422 and saves nothing
+    store = Store(":memory:")
+    service = make_test_service(store=store)
+    app = create_app(service)
+    client = TestClient(app)
+    original = service.settings()
+
+    for val in (10**400, 1e30, 2**63):
+        for field_name in ("ruler_mm", "feed_price_vnd", "card_mm", "stall_mm_per_day", "harvest_per_kg", "min_measured"):
+            resp = client.put("/api/settings", json={field_name: val})
+            assert resp.status_code == 422
+            assert "error" in resp.json()
+            assert service.settings() == original
+
+
+def test_settings_route_invalid_pond_name_and_feed_price():
+    # PUT /api/settings rejects invalid types for pond_name and feed_price_vnd
+    store = Store(":memory:")
+    service = make_test_service(store=store)
+    app = create_app(service)
+    client = TestClient(app)
+    original = service.settings()
+
+    for payload in ({"pond_name": {"a": 1}}, {"a": 1}, {"pond_name": None}, {"feed_price_vnd": 45000.5}):
+        resp = client.put("/api/settings", json=payload)
+        assert resp.status_code == 422
+        assert "error" in resp.json()
+        assert service.settings() == original
+
+
+def test_feed_route_huge_numbers():
+    # POST /api/feed rejects huge numbers with 422 and saves nothing
+    store = Store(":memory:")
+    service = make_test_service(store=store)
+    app = create_app(service)
+    client = TestClient(app)
+
+    for val in (10**400, 1e30, 2**63):
+        resp_kg = client.post("/api/feed", json={"day": "2026-11-02", "kg_per_day": val, "price_vnd": 45000})
+        assert resp_kg.status_code == 422
+        assert "error" in resp_kg.json()
+        assert len(store.feeds()) == 0
+
+        resp_price = client.post("/api/feed", json={"day": "2026-11-02", "kg_per_day": 100.0, "price_vnd": val})
+        assert resp_price.status_code == 422
+        assert "error" in resp_price.json()
+        assert len(store.feeds()) == 0

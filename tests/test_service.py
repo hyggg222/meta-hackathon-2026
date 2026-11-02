@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 from shrimp.models import SegmentationError, Settings, ShrimpMeasure, TrayResult
-from shrimp.service import Service
+from shrimp.service import Service, _is_positive_finite
 from shrimp.store import Store
 from tests.conftest import FakeSegmenter
 
@@ -263,3 +263,112 @@ def test_real_analyze_tray_flow():
     assert res.status == "ok"
     assert res.n_measured == 5
     assert len(store.samples()) == 1
+
+
+def test_is_positive_finite_overflow():
+    # Large numbers do not raise OverflowError
+    assert _is_positive_finite(10**400) is False
+    assert _is_positive_finite(1e30) is True
+    assert _is_positive_finite(2**63) is True
+
+
+def test_settings_maximums_and_huge_numbers():
+    # Settings exceed maximums or huge numbers raise ValueError
+    store = Store(":memory:")
+    service = Service(FakeSegmenter(), store, FakeTable())
+    base = service.settings()
+
+    limits = {
+        "ruler_mm": (10000.0, 10001.0),
+        "card_mm": (10000.0, 10001.0),
+        "stall_mm_per_day": (1000.0, 1001.0),
+        "harvest_per_kg": (100000.0, 100001.0),
+        "feed_price_vnd": (1_000_000_000, 1_000_000_001),
+    }
+
+    for f, (valid_max, over_max) in limits.items():
+        s_ok = Settings(**{**base.__dict__, f: valid_max})
+        assert service.save_settings(s_ok) is not None
+
+        for bad in (over_max, 10**400, 1e30, 2**63):
+            s_bad = Settings(**{**base.__dict__, f: bad})
+            with pytest.raises(ValueError) as excinfo:
+                service.save_settings(s_bad)
+            assert f in str(excinfo.value)
+
+    s_min_ok = Settings(**{**base.__dict__, "min_measured": 100})
+    assert service.save_settings(s_min_ok) is not None
+    for bad in (101, 10**400, 1e30, 2**63):
+        s_bad = Settings(**{**base.__dict__, "min_measured": bad})
+        with pytest.raises(ValueError) as excinfo:
+            service.save_settings(s_bad)
+        assert "min_measured" in str(excinfo.value)
+
+
+def test_settings_pond_name_and_feed_price_type():
+    # String constraints on pond_name and int constraint on feed_price_vnd
+    store = Store(":memory:")
+    service = Service(FakeSegmenter(), store, FakeTable())
+    base = service.settings()
+
+    s_name_100 = Settings(**{**base.__dict__, "pond_name": "x" * 100})
+    assert service.save_settings(s_name_100).pond_name == "x" * 100
+
+    s_name_101 = Settings(**{**base.__dict__, "pond_name": "x" * 101})
+    with pytest.raises(ValueError) as excinfo:
+        service.save_settings(s_name_101)
+    assert "pond_name" in str(excinfo.value)
+
+    for bad_name in ({"a": 1}, None, 123, True):
+        s_bad = Settings(**{**base.__dict__, "pond_name": bad_name})
+        with pytest.raises(ValueError) as excinfo:
+            service.save_settings(s_bad)
+        assert "pond_name" in str(excinfo.value)
+
+    for bad_price in (45000.5, 45000.0, True, False, None):
+        s_bad = Settings(**{**base.__dict__, "feed_price_vnd": bad_price})
+        with pytest.raises(ValueError) as excinfo:
+            service.save_settings(s_bad)
+        assert "feed_price_vnd" in str(excinfo.value)
+
+
+def test_feed_maximums_and_huge_numbers():
+    # Feed values exceeding maximums or huge numbers raise ValueError
+    store = Store(":memory:")
+    service = Service(FakeSegmenter(), store, FakeTable())
+    day = date(2026, 11, 2)
+
+    service.add_feed(day, 1e6, 1e9)
+    assert len(store.feeds()) == 1
+
+    for bad_kg in (1e6 + 1, 10**400, 1e30, 2**63):
+        with pytest.raises(ValueError) as excinfo:
+            service.add_feed(day, bad_kg, 45000)
+        assert "kg_per_day" in str(excinfo.value)
+
+    for bad_price in (1e9 + 1, 10**400, 1e30, 2**63):
+        with pytest.raises(ValueError) as excinfo:
+            service.add_feed(day, 100.0, bad_price)
+        assert "price_vnd" in str(excinfo.value)
+
+
+def test_add_sample_store_failure_cleans_photo(monkeypatch, tmp_path):
+    # Store save failure unlinks written photo and re-raises
+    photos_dir = tmp_path / "photos"
+    store = Store(":memory:")
+
+    def failing_save(*args, **kwargs):
+        raise RuntimeError("database save failed")
+
+    monkeypatch.setattr(store, "save_sample", failing_save)
+    service = Service(FakeSegmenter(), store, FakeTable(), photos_dir=photos_dir)
+    monkeypatch.setattr(
+        "shrimp.service.analyze_tray",
+        lambda *args, **kwargs: make_tray("ok", mean_length_mm=100.0, n=5),
+    )
+
+    with pytest.raises(RuntimeError) as excinfo:
+        service.add_sample(b"orphan_photo_content", date(2026, 11, 2))
+    assert "database save failed" in str(excinfo.value)
+    assert photos_dir.exists()
+    assert list(photos_dir.glob("*.img")) == []
