@@ -5,6 +5,7 @@ import json
 import os
 import subprocess
 import tempfile
+import threading
 from typing import Any, Dict, List, Optional, Tuple
 import cv2
 import numpy as np
@@ -17,12 +18,10 @@ def upload_part(photo: bytes) -> Tuple[str, bytes, str]:
     # Select filename, content, and mime type based on image magic bytes
     if photo.startswith(b"\x89PNG"):
         return ("photo.png", photo, "image/png")
-    if photo.startswith(b"\xff\xd8"):
-        return ("photo.jpg", photo, "image/jpeg")
     img = cv2.imdecode(np.frombuffer(photo, np.uint8), cv2.IMREAD_COLOR)
     if img is None:
         raise SegmentationError("Failed to decode image bytes")
-    ok, enc = cv2.imencode(".jpg", img)
+    ok, enc = cv2.imencode(".jpg", img, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
     if not ok:
         raise SegmentationError("Failed to encode image to JPEG")
     return ("photo.jpg", enc.tobytes(), "image/jpeg")
@@ -41,11 +40,28 @@ def masks_from_records(
         bottom = bounds.get("bottom", 0)
         left = bounds.get("left", 0)
         right = bounds.get("right", 0)
+
+        if top < 0 or bottom < 0 or left < 0 or right < 0:
+            raise SegmentationError(f"Bounds cannot be negative: {bounds}")
+        if top > height or bottom > height or left > width or right > width:
+            raise SegmentationError(
+                f"Bounds {bounds} outside image dimensions {height}x{width}"
+            )
+        if bottom < top or right < left:
+            raise SegmentationError(f"Invalid bounds ordering: {bounds}")
+
         h = bottom - top
         w = right - left
+
+        raw_bytes = base64.b64decode(rec.get("b64", ""))
+        if len(raw_bytes) != h * w:
+            raise SegmentationError(
+                f"Raster length {len(raw_bytes)} does not match bounds size {h}*{w}={h * w}"
+            )
+
         if h <= 0 or w <= 0:
             continue
-        raw_bytes = base64.b64decode(rec["b64"])
+
         ras = np.frombuffer(raw_bytes, dtype=np.uint8).reshape((h, w))
         mask = np.zeros((height, width), dtype=bool)
         mask[top:bottom, left:right] = ras > 0
@@ -60,6 +76,7 @@ def make_sam_segmenter(
 ) -> Segmenter:
     # Build a segmenter function backed by SAM 3.1 API and Node decoder
     file_ids: Dict[str, str] = {}
+    upload_lock = threading.Lock()
     script_path = os.path.abspath(decode_script)
     script_dir = os.path.dirname(script_path)
 
@@ -83,33 +100,34 @@ def make_sam_segmenter(
                     with open(cache_file, "r", encoding="utf-8") as f:
                         cached_records = json.load(f)
                     return masks_from_records(cached_records, height, width)
-                except Exception as exc:
-                    raise SegmentationError(f"Failed to read cached records: {exc}") from exc
+                except Exception:
+                    pass
 
-        if photo_hash in file_ids:
-            file_id = file_ids[photo_hash]
-        else:
-            try:
-                part = upload_part(photo)
-                upload_resp = requests.post(
-                    "https://api.meta.ai/v1/files",
-                    headers={"Authorization": f"Bearer {api_key}"},
-                    files={"file": part},
-                    data={"purpose": "user_data"},
-                    timeout=60,
-                )
-                if upload_resp.status_code != 200:
-                    raise SegmentationError(
-                        f"Photo upload failed with status code {upload_resp.status_code}"
+        with upload_lock:
+            if photo_hash in file_ids:
+                file_id = file_ids[photo_hash]
+            else:
+                try:
+                    part = upload_part(photo)
+                    upload_resp = requests.post(
+                        "https://api.meta.ai/v1/files",
+                        headers={"Authorization": f"Bearer {api_key}"},
+                        files={"file": part},
+                        data={"purpose": "user_data"},
+                        timeout=60,
                     )
-                file_id = upload_resp.json().get("id")
-                if not file_id:
-                    raise SegmentationError("Photo upload did not return a file id")
-                file_ids[photo_hash] = file_id
-            except SegmentationError:
-                raise
-            except Exception as exc:
-                raise SegmentationError(f"Photo upload request failed: {exc}") from exc
+                    if upload_resp.status_code != 200:
+                        raise SegmentationError(
+                            f"Photo upload failed with status code {upload_resp.status_code}"
+                        )
+                    file_id = upload_resp.json().get("id")
+                    if not file_id:
+                        raise SegmentationError("Photo upload did not return a file id")
+                    file_ids[photo_hash] = file_id
+                except SegmentationError:
+                    raise
+                except Exception as exc:
+                    raise SegmentationError(f"Photo upload request failed: {exc}") from exc
 
         try:
             resp = requests.post(
@@ -143,11 +161,7 @@ def make_sam_segmenter(
 
         with tempfile.TemporaryDirectory() as tmp_dir:
             raw_path = os.path.join(tmp_dir, "stream.raw.txt")
-            json_path = (
-                os.path.join(cache_dir, f"{photo_hash}_{prompt_slug}.json")
-                if cache_dir is not None
-                else os.path.join(tmp_dir, "decoded.json")
-            )
+            tmp_json_path = os.path.join(tmp_dir, "decoded.json")
 
             try:
                 with open(raw_path, "w", encoding="utf-8") as f:
@@ -165,7 +179,7 @@ def make_sam_segmenter(
 
             try:
                 proc = subprocess.run(
-                    ["node", script_path, raw_path, json_path],
+                    ["node", script_path, raw_path, tmp_json_path],
                     cwd=script_dir,
                     env=env,
                     capture_output=True,
@@ -183,10 +197,19 @@ def make_sam_segmenter(
                 raise SegmentationError(f"Failed to run node decoder: {exc}") from exc
 
             try:
-                with open(json_path, "r", encoding="utf-8") as f:
+                with open(tmp_json_path, "r", encoding="utf-8") as f:
                     records = json.load(f)
             except Exception as exc:
                 raise SegmentationError(f"Failed to parse decoder output JSON: {exc}") from exc
+
+            if cache_dir is not None:
+                if records:
+                    os.replace(tmp_json_path, cache_file)
+                elif os.path.exists(cache_file):
+                    try:
+                        os.remove(cache_file)
+                    except OSError:
+                        pass
 
         return masks_from_records(records, height, width)
 

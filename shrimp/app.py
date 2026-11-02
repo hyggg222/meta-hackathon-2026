@@ -9,6 +9,9 @@ from shrimp.models import Segmenter, Settings, SegmentationError
 from shrimp.tray import analyze_tray
 
 
+MAX_UPLOAD_BYTES = 15 * 1024 * 1024
+
+
 def create_app(segmenter: Segmenter, settings: Optional[Settings] = None) -> FastAPI:
     # Build and configure FastAPI application
     app = FastAPI(title="Shrimp Measurement")
@@ -17,8 +20,10 @@ def create_app(segmenter: Segmenter, settings: Optional[Settings] = None) -> Fas
     @app.post("/api/analyze")
     def analyze(photo: UploadFile = File(...)):
         # Analyze uploaded tray photo
+        content = photo.file.read(MAX_UPLOAD_BYTES + 1)
+        if len(content) > MAX_UPLOAD_BYTES:
+            return JSONResponse(status_code=413, content={"error": "photo too large"})
         try:
-            content = photo.file.read()
             tray = analyze_tray(content, active_settings, None, segmenter)
             return JSONResponse(content=asdict(tray))
         except SegmentationError as exc:

@@ -1,4 +1,5 @@
 # Tray analysis orchestrating reference detection, scaling, and shrimp measurement
+import concurrent.futures
 from typing import Any, List, Tuple
 import cv2
 import numpy as np
@@ -20,6 +21,14 @@ def rect_sides(mask: np.ndarray) -> Tuple[float, float]:
     return float(max(w, h)), float(min(w, h))
 
 
+def is_valid_ref(mask: np.ndarray) -> bool:
+    # Reference mask counts only if long side is at least 5% of longer image side
+    if not np.any(mask):
+        return False
+    long_side, _ = rect_sides(mask)
+    return long_side >= 0.05 * max(mask.shape)
+
+
 def analyze_tray(
     photo: bytes,
     settings: Settings,
@@ -27,12 +36,20 @@ def analyze_tray(
     segmenter: Segmenter,
 ) -> TrayResult:
     # Analyze tray photo to detect reference, scale, and shrimp lengths
-    shrimp_raw = segmenter(photo, "shrimp")
-    ruler_raw = segmenter(photo, "ruler")
-    card_raw = segmenter(photo, "credit card")
+    prompts = ["shrimp", "ruler", "credit card"]
+    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+        futures = {executor.submit(segmenter, photo, p): p for p in prompts}
+        results = {}
+        for future in concurrent.futures.as_completed(futures):
+            prompt = futures[future]
+            results[prompt] = future.result()
 
-    valid_rulers = [m for m in ruler_raw if np.any(m)]
-    valid_cards = [m for m in card_raw if np.any(m)]
+    shrimp_raw = results["shrimp"]
+    ruler_raw = results["ruler"]
+    card_raw = results["credit card"]
+
+    valid_rulers = [m for m in ruler_raw if is_valid_ref(m)]
+    valid_cards = [m for m in card_raw if is_valid_ref(m)]
 
     if valid_rulers:
         reference = "ruler"

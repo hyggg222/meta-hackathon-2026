@@ -68,3 +68,15 @@ def test_curved_vs_bbox():
     assert shrimp.length_mm is not None
     assert abs(shrimp.length_mm - shrimp.length_px / 2.0) < 1e-4
     assert shrimp.overlapped is False
+
+
+def test_measure_zero_or_negative_scale():
+    # Scale 0.0 or negative yields length_mm None without ZeroDivisionError
+    mask, _ = make_synth_mask(arc=120, r_curve=60, r0=10, r1=5, noise=0)
+    res_zero = measure([mask], px_per_mm=0.0)
+    assert len(res_zero) == 1
+    assert res_zero[0].length_mm is None
+
+    res_neg = measure([mask], px_per_mm=-1.5)
+    assert len(res_neg) == 1
+    assert res_neg[0].length_mm is None
