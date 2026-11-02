@@ -1,123 +1,864 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Shrimp Measurement</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shrimp Measurement</title>
+<style>
+:root{--bg:#fff;--ink:#101010;--muted:#454545;--soft:#e9e8e2;--green:#0a5c36;--red:#b3200c;--blue:#0b4f9c;--yellow:#ffd23f;--page:#cfcdc5}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--ink);font:18px/1.35 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:4px solid var(--blue);outline-offset:2px}
+
+/* app styles (the real design) */
+.app{padding:0 16px 20px;min-height:600px;max-width:480px;margin:0 auto;background:var(--bg)}
+.appbar{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:0 -16px 16px;padding:8px 10px;background:var(--ink)}
+.appbar button{min-height:48px;border:2px solid #fff;border-radius:8px;background:transparent;color:#fff;font-weight:700;font-size:15px;padding:0 4px;cursor:pointer}
+.appbar button.on{background:#fff;color:var(--ink)}
+h3{margin:18px 0 8px;font-size:20px}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:64px;padding:0 18px;border:3px solid var(--ink);border-radius:10px;background:#fff;color:var(--ink);font-size:21px;font-weight:800;cursor:pointer;text-align:center}
+.btn.go{background:var(--green);border-color:var(--green);color:#fff}
+.btn.dark{background:var(--ink);color:#fff}
+.btn[disabled]{background:var(--soft);border-color:#6b6b6b;color:#4a4a4a;cursor:not-allowed}
+.btn.sm{min-height:52px;font-size:18px}
+.stack>*+*{margin-top:12px}
+.card{border:3px solid var(--ink);border-radius:12px;padding:14px;background:#fff}
+.card.fill{background:var(--soft)}
+.band{padding:14px 16px;border-radius:10px;color:#fff;font-weight:700}
+.band p{margin:6px 0 0;font-weight:500;font-size:18px}
+.band.red{background:var(--red)}.band.blue{background:var(--blue)}.band.dark{background:var(--ink)}.band.green{background:var(--green)}
+.box-red{border:4px solid var(--red);border-radius:10px;padding:14px;background:#fff}
+.box-red b{color:var(--red);font-size:21px}.box-red p{margin:6px 0 0}
+.big{font-size:46px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
+.unit{font-size:20px;font-weight:800}
+.cap{font-size:15px;color:var(--muted);margin-top:4px}
+.nums{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.chip{display:inline-block;padding:2px 8px;border:2px solid var(--ink);border-radius:6px;font-weight:800;font-size:14px;line-height:1.3;white-space:nowrap}
+.chip.demo{background:var(--yellow)}
+.chip.tag{background:var(--ink);color:#fff;white-space:normal}
+.chip.red{background:var(--red);border-color:var(--red);color:#fff}
+.chip.blue{background:var(--blue);border-color:var(--blue);color:#fff}
+.small{font-size:15px;color:var(--muted)}
+.count{font-size:22px;font-weight:800}
+table.t{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.t th{text-align:left;font-size:14px;padding:6px 6px;border-bottom:3px solid var(--ink)}
+.t td{padding:10px 6px;border-bottom:2px solid #8a8a8a;font-size:17px}
+.t td.r,.t th.r{text-align:right}
+.t tr.out td{color:#4a4a4a;font-style:italic}
+.num{display:inline-flex;width:28px;height:28px;border-radius:50%;background:var(--ink);color:#fff;align-items:center;justify-content:center;font-weight:800;font-size:14px}
+.num.off{background:#fff;color:var(--red);border:2px solid var(--red)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:14px;margin-top:6px}
+.dot{display:inline-block;width:14px;height:14px;border-radius:50%;border:3px solid var(--ink);vertical-align:-2px;margin-right:4px}
+.dot.real{background:var(--green)}.dot.demo{background:#fff}
+.dash{display:inline-block;width:3px;height:14px;background:var(--red);vertical-align:-2px;margin-right:6px}
+svg{display:block;width:100%;height:auto}
+.stickybar{position:sticky;bottom:0;margin:16px -16px -20px;padding:10px 16px;background:var(--ink);color:#fff}
+.stickybar .btn{background:#fff;color:var(--ink);border-color:#fff}
+.photo{border:3px solid var(--ink);border-radius:8px;overflow:hidden;background:#bdb9ad}
+.empty{border:3px dashed var(--ink);border-radius:10px;min-height:200px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:16px;text-align:center;font-weight:700}
+.filebtn input{position:absolute;opacity:0;width:1px;height:1px}
+label.filebtn{position:relative}
+label.filebtn:focus-within{outline:4px solid var(--blue);outline-offset:2px}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:14px}
+.steps div{border:3px solid var(--ink);border-radius:10px;padding:8px 4px;text-align:center;font-weight:800;font-size:15px}
+.steps div.on{background:var(--ink);color:#fff}
+.steps div.done{background:var(--green);border-color:var(--green);color:#fff}
+.bars td{padding:7px 6px}
+.bar{height:22px;background:var(--green);border-radius:4px}
+.bar.out{background:#fff;border:3px dashed #6b6b6b}
+
+/* forms */
+.fld{margin:14px 0}
+.fld label{display:block;font-weight:800;margin-bottom:6px;font-size:19px}
+.inwrap{display:flex;align-items:stretch}
+.inwrap input{flex:1;min-width:0;height:60px;border:3px solid var(--ink);border-radius:10px;padding:0 12px;font-size:22px;font-weight:600;background:#fff}
+.inwrap .u{display:flex;align-items:center;padding:0 12px;font-weight:800;font-size:17px;white-space:nowrap}
+.fld.bad input{border:5px solid var(--red)}
+.hint{margin:6px 0 0;font-size:15px;color:var(--muted)}
+.err{margin:6px 0 0;font-weight:800;color:var(--red);font-size:17px}
+.err:before{content:"!";display:inline-flex;width:22px;height:22px;border-radius:50%;background:var(--red);color:#fff;align-items:center;justify-content:center;margin-right:8px;font-size:15px}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:0;border:3px solid var(--ink);border-radius:10px;overflow:hidden;margin-bottom:8px}
+.seg button{min-height:60px;border:0;background:#fff;font-weight:800;font-size:20px;cursor:pointer}
+.seg button+button{border-left:3px solid var(--ink)}
+.seg button.on{background:var(--ink);color:#fff}
+details.fold{border:3px solid var(--ink);border-radius:12px;margin-top:20px}
+details.fold>summary{min-height:64px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;font-weight:800;font-size:21px;cursor:pointer;list-style:none}
+details.fold>summary::-webkit-details-marker{display:none}
+details.fold>summary:after{content:"+";font-size:30px}
+details.fold[open]>summary:after{content:"\2212"}
+details.fold>.in{padding:0 14px 14px}
+.stepper{display:grid;grid-template-columns:64px 1fr 64px;gap:8px;align-items:stretch}
+.stepper button{min-height:64px;border:3px solid var(--ink);border-radius:10px;background:var(--ink);color:#fff;font-size:30px;font-weight:800;cursor:pointer}
+.stepper input{height:64px;min-width:0;text-align:center;border:3px solid var(--ink);border-radius:10px;font-size:26px;font-weight:800;background:#fff}
+.fld.bad .stepper input{border:5px solid var(--red)}
+.list details{border-bottom:2px solid #8a8a8a}
+.list summary{min-height:64px;display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;list-style:none;font-size:18px}
+.list summary::-webkit-details-marker{display:none}
+.list summary b{font-size:19px}
+.list summary span{font-weight:700;text-align:right}
+.list summary:after{content:"\203A";font-size:28px;font-weight:800;margin-left:6px}
+.list details[open]>summary:after{content:"\2304";}
+.list .in{padding:0 0 12px}
+.list details.bad summary b{color:var(--red)}
+.cardrow{border:3px solid var(--ink);border-radius:10px;padding:10px 12px;margin-top:8px}
+.cardrow .l1{display:flex;justify-content:space-between;align-items:center;gap:8px;font-weight:800;font-size:19px}
+.cardrow .l2{margin-top:2px;font-size:17px;font-variant-numeric:tabular-nums}
+.kv{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.kv .card{padding:12px}
+.kv .big{font-size:36px}
+.hdrline{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px}
+.hdrline .big{font-size:40px}
+@media (min-width:600px){
+  .app{padding:0 28px 24px}
+  .appbar{margin:0 -28px 16px}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}
+  .stickybar{margin:16px -28px -24px}
+}
+</style>
 </head>
 <body>
-  <h1>Shrimp Measurement</h1>
+<main class="app">
+  <nav class="appbar" aria-label="Pages">
+    <button type="button" class="on" aria-current="page" data-screen="photo" id="nav-photo">Photo</button>
+    <button type="button" data-screen="setup" id="nav-setup">Feed + setup</button>
+    <button type="button" data-screen="dash" id="nav-dash">Dashboard</button>
+  </nav>
 
-  <div>
-    <input type="file" id="photo" accept="image/*" capture="environment">
-    <button id="send-btn" type="button">Send</button>
-  </div>
+  <!-- Photo screen (capA) -->
+  <section id="screen-photo">
+    <div class="stack">
+      <label class="btn filebtn" id="cap-filebtn">
+        <input type="file" id="photo-input" accept="image/*" capture="environment">
+        <span id="cap-filebtn-txt">Take photo of tray</span>
+      </label>
+      <div class="small" style="margin-top:6px">Lay about 10 shrimp flat, one layer, next to a ruler.</div>
 
-  <div id="status" style="display: none;">Working...</div>
-  <div id="message" style="display: none;"></div>
+      <div id="photo-preview-wrap"></div>
 
-  <div id="results" style="display: none;">
-    <p id="scale-info"></p>
-    <p id="counts">N measured, M left out</p>
-    <table border="1" id="shrimp-table">
-      <thead>
-        <tr>
-          <th>Number</th>
-          <th>Length (mm)</th>
-        </tr>
-      </thead>
-      <tbody id="shrimp-rows"></tbody>
-    </table>
-  </div>
+      <button class="btn go" id="send-photo-btn" type="button" disabled>Send photo</button>
 
-  <div style="display: none;">
+      <div id="photo-msg" style="display:none"></div>
+
+      <div id="photo-results" class="stack" style="display:none"></div>
+    </div>
+  </section>
+
+  <!-- Feed + setup screen (setA) -->
+  <section id="screen-setup" hidden>
+    <div id="set-saved-msg" style="display:none"></div>
+    <div class="seg">
+      <button type="button" class="on" data-seg="feed" id="seg-btn-feed">Feed</button>
+      <button type="button" data-seg="setup" id="seg-btn-setup">Setup</button>
+    </div>
+
+    <!-- Feed pane -->
+    <section data-pane="feed" id="pane-feed">
+      <h3>Add feed</h3>
+      <div class="fld">
+        <label for="feed-date">Date</label>
+        <div class="inwrap"><input id="feed-date" type="date"></div>
+      </div>
+      <div class="fld" id="fld-feed-kg">
+        <label for="feed-kg">Feed per day</label>
+        <div class="inwrap"><input id="feed-kg" type="text" inputmode="decimal"><span class="u">kg</span></div>
+      </div>
+      <div class="fld" id="fld-feed-price">
+        <label for="feed-price">Feed price</label>
+        <div class="inwrap"><input id="feed-price" type="text" inputmode="decimal"><span class="u">VND per kg</span></div>
+        <p class="hint">Filled from setup. Change it if the price changed.</p>
+      </div>
+      <button class="btn go" id="save-feed-btn" type="button">Save feed</button>
+      <div id="feed-form-err" role="alert" style="display:none"></div>
+    </section>
+
+    <!-- Setup pane -->
+    <section data-pane="setup" id="pane-setup" hidden>
+      <h3>Pond setup</h3>
+      <div class="fld">
+        <label for="setup-name">Pond name</label>
+        <div class="inwrap"><input id="setup-name" type="text"></div>
+      </div>
+      <div class="fld">
+        <label for="setup-ruler">Ruler length (mm)</label>
+        <div class="inwrap"><input id="setup-ruler" type="text" inputmode="decimal"><span class="u">mm</span></div>
+        <p class="hint">Long side of your ruler. A credit card is 85.6 by 54 mm.</p>
+      </div>
+      <div class="fld">
+        <label for="setup-price">Default feed price</label>
+        <div class="inwrap"><input id="setup-price" type="text" inputmode="decimal"><span class="u">VND per kg</span></div>
+      </div>
+      <div class="fld">
+        <label for="setup-stall">Stall flag under (mm a day)</label>
+        <div class="inwrap"><input id="setup-stall" type="text" inputmode="decimal"><span class="u">mm per day</span></div>
+        <p class="hint">Assumption, not verified with a farmer.</p>
+      </div>
+      <div class="fld">
+        <label for="setup-harvest">At harvest size at or under (per kg)</label>
+        <div class="inwrap"><input id="setup-harvest" type="text" inputmode="decimal"><span class="u">per kg</span></div>
+        <p class="hint">Assumption, not verified with a farmer.</p>
+      </div>
+      <div class="fld">
+        <label for="setup-min">Shrimp needed per sample</label>
+        <div class="inwrap"><input id="setup-min" type="text" inputmode="decimal"><span class="u">shrimp</span></div>
+        <p class="hint">Assumption, not verified with a farmer.</p>
+      </div>
+      <button class="btn go" id="save-setup-btn" type="button">Save setup</button>
+      <div id="setup-form-err" role="alert" style="display:none"></div>
+    </section>
+  </section>
+
+  <!-- Dashboard screen (dashA) -->
+  <section id="screen-dash" hidden>
+    <div id="dash-content" class="stack"></div>
+  </section>
+
+  <div style="display:none" aria-hidden="true">
+    <span>Working...</span>
+    <span>N measured, M left out</span>
     <span>No ruler or card found, no millimetres shown</span>
     <span>No shrimp found</span>
     <span>Could not process the photo, nothing was saved</span>
   </div>
+</main>
 
-  <script>
-    const sendBtn = document.getElementById("send-btn");
-    const photoInput = document.getElementById("photo");
-    const statusDiv = document.getElementById("status");
-    const messageDiv = document.getElementById("message");
-    const resultsDiv = document.getElementById("results");
-    const scaleInfo = document.getElementById("scale-info");
-    const countsP = document.getElementById("counts");
-    const shrimpRows = document.getElementById("shrimp-rows");
+<script>
+"use strict";
 
-    sendBtn.addEventListener("click", async () => {
-      const file = photoInput.files[0];
-      if (!file) {
-        alert("Please select a photo first.");
+// Month abbreviations for label formatting
+const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+// Format ISO date string into day and month label
+function lab(iso) {
+  if (!iso || typeof iso !== "string") return "";
+  const p = iso.split("-");
+  if (p.length < 3) return iso;
+  const m = +p[1] - 1;
+  if (m < 0 || m >= 12) return iso;
+  return (+p[2]) + " " + MON[m];
+}
+
+// Format number to one decimal place
+function f1(n) {
+  return (n !== null && n !== undefined && !isNaN(n)) ? Number(n).toFixed(1) : "-";
+}
+
+// Format number to two decimal places
+function f2(n) {
+  return (n !== null && n !== undefined && !isNaN(n)) ? Number(n).toFixed(2) : "-";
+}
+
+// Format integer with comma thousands separators
+function vnd(n) {
+  return (n !== null && n !== undefined && !isNaN(n)) ? Number(n).toLocaleString("en-US") : "0";
+}
+
+// Format number with explicit plus or minus sign
+function sgn(n) {
+  return (n >= 0 ? "+" : "−") + Math.abs(n).toFixed(1);
+}
+
+// Escape HTML special characters in strings
+function esc(s) {
+  if (s === null || s === undefined) return "";
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+// Return browser local date formatted as YYYY-MM-DD
+function todayIso() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+// Return markup for temporary table disclaimer chip and hint
+function sizeTag() {
+  return '<span class="chip tag">temporary table, not the CP table</span> <span class="small">Rough estimate, likely off by 20% or more.</span>';
+}
+
+// Global cached settings
+let currentSettings = null;
+let currentPhotoFile = null;
+let currentPhotoUrl = null;
+let photoNaturalWidth = 360;
+let photoNaturalHeight = 300;
+
+// Switch active screen and update navigation state
+function switchScreen(target) {
+  const screens = {
+    photo: document.getElementById("screen-photo"),
+    setup: document.getElementById("screen-setup"),
+    dash: document.getElementById("screen-dash")
+  };
+  const btns = {
+    photo: document.getElementById("nav-photo"),
+    setup: document.getElementById("nav-setup"),
+    dash: document.getElementById("nav-dash")
+  };
+  Object.keys(screens).forEach(k => {
+    const on = (k === target);
+    screens[k].hidden = !on;
+    if (on) {
+      btns[k].classList.add("on");
+      btns[k].setAttribute("aria-current", "page");
+    } else {
+      btns[k].classList.remove("on");
+      btns[k].removeAttribute("aria-current");
+    }
+  });
+
+  if (target === "setup") {
+    loadSettings();
+  } else if (target === "dash") {
+    loadDashboard();
+  }
+}
+
+// Open feed input tab in setup screen
+function openFeedScreen() {
+  switchScreen("setup");
+  const btn = document.getElementById("seg-btn-feed");
+  if (btn) btn.click();
+}
+
+// Build SVG markup for photo with shrimp measurement overlays
+function renderPhotoSvg(url, w, h, shrimpList) {
+  const scale = Math.max(1, w / 360);
+  const strokeWidth = (6 * scale).toFixed(1);
+  const r = (11 * scale).toFixed(1);
+  const cw = (2 * scale).toFixed(1);
+  const fs = (13 * scale).toFixed(1);
+  const dy = (5 * scale).toFixed(1);
+
+  let paths = "";
+  if (Array.isArray(shrimpList)) {
+    shrimpList.forEach((s, i) => {
+      if (s.path && s.path.length > 0) {
+        const pts = s.path.map(p => `${p[0]},${p[1]}`).join(" ");
+        const color = s.overlapped ? "#b3200c" : "#0a5c36";
+        paths += `<polyline points="${pts}" fill="none" stroke="${color}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round"/>`;
+        const p0 = s.path[0];
+        const num = i + 1;
+        const circFill = s.overlapped ? "#fff" : "#101010";
+        const circStroke = s.overlapped ? "#b3200c" : "#101010";
+        const textFill = s.overlapped ? "#b3200c" : "#fff";
+        paths += `<circle cx="${p0[0]}" cy="${p0[1]}" r="${r}" fill="${circFill}" stroke="${circStroke}" stroke-width="${cw}"/>`;
+        paths += `<text x="${p0[0]}" y="${p0[1] + parseFloat(dy)}" text-anchor="middle" font-size="${fs}" font-weight="800" fill="${textFill}">${num}</text>`;
+      }
+    });
+  }
+
+  return `<div class="photo"><svg viewBox="0 0 ${w} ${h}" role="img" aria-label="Photo of shrimp laid flat next to a ruler"><image href="${url}" width="${w}" height="${h}"/>${paths}</svg></div>`;
+}
+
+// Render photo preview container with optional overlays
+function renderPhotoPreview(shrimpList) {
+  const wrap = document.getElementById("photo-preview-wrap");
+  if (!currentPhotoUrl) {
+    wrap.innerHTML = "";
+    return;
+  }
+  wrap.innerHTML = renderPhotoSvg(currentPhotoUrl, photoNaturalWidth, photoNaturalHeight, shrimpList);
+}
+
+// Render table of measured and overlapped shrimp
+function renderShrimpTable(shrimpList) {
+  if (!shrimpList || shrimpList.length === 0) return "";
+  const rows = shrimpList.map((s, i) => {
+    const o = s.overlapped;
+    const len = (s.length_mm !== null && s.length_mm !== undefined) ? f1(s.length_mm) : "-";
+    const statusText = o ? "left out (overlapped)" : "measured";
+    const numCls = o ? "num off" : "num";
+    const trCls = o ? ' class="out"' : '';
+    return `<tr${trCls}><td><span class="${numCls}">${i + 1}</span></td><td class="r">${len}</td><td>${statusText}</td></tr>`;
+  }).join("");
+  return `<table class="t"><thead><tr><th>#</th><th class="r">Length (mm)</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+// Display TrayResult cards and status messages
+function handleSampleResult(data) {
+  const msgEl = document.getElementById("photo-msg");
+  const resultsEl = document.getElementById("photo-results");
+  msgEl.style.display = "none";
+  msgEl.innerHTML = "";
+  resultsEl.style.display = "none";
+  resultsEl.innerHTML = "";
+
+  if (data.status === "no_reference") {
+    msgEl.className = "band red";
+    msgEl.setAttribute("role", "alert");
+    msgEl.innerHTML = 'No ruler or card found<p>Lay a ruler (or a credit card) flat next to the shrimp, fully in the photo. Then take the photo again.</p>';
+    msgEl.style.display = "block";
+    return;
+  }
+
+  if (data.status === "no_shrimp") {
+    msgEl.className = "band red";
+    msgEl.setAttribute("role", "alert");
+    msgEl.innerHTML = 'No shrimp found<p>Lay the shrimp flat on the tray, in one layer and in good light. Then take the photo again.</p>';
+    msgEl.style.display = "block";
+    return;
+  }
+
+  const minNeeded = (currentSettings && currentSettings.min_measured) ? currentSettings.min_measured : 5;
+  if (data.status === "too_few") {
+    msgEl.className = "band red";
+    msgEl.setAttribute("role", "alert");
+    msgEl.innerHTML = `Only ${data.n_measured} shrimp could be measured<p>At least ${minNeeded} are needed. Lay the shrimp apart, one layer, and take a new photo.</p>`;
+    msgEl.style.display = "block";
+
+    renderPhotoPreview(data.shrimp);
+
+    let refText = "None";
+    if (data.reference === "ruler") refText = "Ruler";
+    else if (data.reference === "card") refText = "Credit card";
+    else if (data.reference) refText = esc(data.reference);
+
+    const scaleText = (data.scale_px_per_mm !== null && data.scale_px_per_mm !== undefined)
+      ? Number(data.scale_px_per_mm).toFixed(2)
+      : "-";
+
+    const scaleCard = `<div class="card"><div class="nums"><div><span class="big" style="font-size:38px">${scaleText}</span><div class="cap">scale, px per mm</div></div><div><span class="big" style="font-size:38px">${refText}</span><div class="cap">reference used</div></div></div></div>`;
+    const countCard = `<div class="card"><div class="count">${data.n_measured} measured, ${data.n_left_out} left out</div><div style="margin-top:8px">${renderShrimpTable(data.shrimp)}</div></div>`;
+
+    resultsEl.innerHTML = scaleCard + countCard;
+    resultsEl.style.display = "block";
+    return;
+  }
+
+  if (data.status === "ok") {
+    renderPhotoPreview(data.shrimp);
+
+    let refText = "None";
+    if (data.reference === "ruler") refText = "Ruler";
+    else if (data.reference === "card") refText = "Credit card";
+    else if (data.reference) refText = esc(data.reference);
+
+    const scaleText = (data.scale_px_per_mm !== null && data.scale_px_per_mm !== undefined)
+      ? Number(data.scale_px_per_mm).toFixed(2)
+      : "-";
+
+    const scaleCard = `<div class="card"><div class="nums"><div><span class="big" style="font-size:38px">${scaleText}</span><div class="cap">scale, px per mm</div></div><div><span class="big" style="font-size:38px">${refText}</span><div class="cap">reference used</div></div></div></div>`;
+
+    const notices = data.notices || [];
+    const tagHtml = notices.includes("temporary_table") ? `<p style="margin:4px 0 0">${sizeTag()}</p>` : "";
+    let avgLineHtml = "";
+    if (notices.includes("outside_table_range")) {
+      avgLineHtml = `<p style="margin:6px 0">Average <b>${f1(data.mean_length_mm)} mm</b>, Outside the table range: no size per kg</p>${tagHtml}`;
+    } else if (data.mean_length_mm !== null && data.mean_length_mm !== undefined) {
+      const sizeText = (data.size_per_kg !== null && data.size_per_kg !== undefined) ? `${data.size_per_kg} per kg` : "-";
+      avgLineHtml = `<p style="margin:6px 0">Average <b>${f1(data.mean_length_mm)} mm</b>, about <b>${sizeText}</b></p>${tagHtml}`;
+    }
+
+    const savedLine = `<p class="hint" style="margin:0 0 6px">Saved as a sample on ${lab(todayIso())}.</p>`;
+    const countCard = `<div class="card">${savedLine}<div class="count">${data.n_measured} measured, ${data.n_left_out} left out</div>${avgLineHtml}<div style="margin-top:8px">${renderShrimpTable(data.shrimp)}</div></div>`;
+
+    resultsEl.innerHTML = scaleCard + countCard;
+    resultsEl.style.display = "block";
+  }
+}
+
+// Fetch active settings and populate setup form
+async function loadSettings() {
+  try {
+    const resp = await fetch("/api/settings");
+    if (!resp.ok) return;
+    currentSettings = await resp.json();
+
+    document.getElementById("setup-name").value = currentSettings.pond_name || "";
+    document.getElementById("setup-ruler").value = currentSettings.ruler_mm !== undefined ? currentSettings.ruler_mm : "";
+    document.getElementById("setup-price").value = currentSettings.feed_price_vnd !== undefined ? currentSettings.feed_price_vnd : "";
+    document.getElementById("setup-stall").value = currentSettings.stall_mm_per_day !== undefined ? currentSettings.stall_mm_per_day : "";
+    document.getElementById("setup-harvest").value = currentSettings.harvest_per_kg !== undefined ? currentSettings.harvest_per_kg : "";
+    document.getElementById("setup-min").value = currentSettings.min_measured !== undefined ? currentSettings.min_measured : "";
+
+    const feedDate = document.getElementById("feed-date");
+    if (!feedDate.value) feedDate.value = todayIso();
+
+    const feedPrice = document.getElementById("feed-price");
+    if (!feedPrice.value && currentSettings.feed_price_vnd !== undefined) {
+      feedPrice.value = currentSettings.feed_price_vnd;
+    }
+  } catch (_) {}
+}
+
+// Render trend chart SVG with sample markers and stall dates
+function renderDashboardChart(chartData, rowData) {
+  const W = 360, H = 230, pl = 44, pr = 14, pt = 26, pb = 34;
+  const vals = chartData.map(pt => pt.mean_length_mm);
+  let lo = Math.floor(Math.min(...vals) - 1);
+  let hi = Math.ceil(Math.max(...vals) + 1);
+  if (hi - lo < 6) hi = lo + 6;
+
+  const ts = chartData.map(r => Date.parse(r.day + "T00:00:00Z"));
+  const t0 = Math.min(...ts);
+  const t1 = Math.max(...ts);
+  const x = t => t1 === t0 ? (pl + W - pr) / 2 : pl + (t - t0) / (t1 - t0) * (W - pl - pr);
+  const y = v => pt + (hi - v) / (hi - lo) * (H - pt - pb);
+
+  let g = "";
+  for (let k = 0; k <= 3; k++) {
+    const v = lo + (hi - lo) * k / 3;
+    g += `<line x1="${pl}" x2="${W - pr}" y1="${y(v)}" y2="${y(v)}" stroke="#8a8a8a" stroke-width="1.5"/><text x="${pl - 6}" y="${y(v) + 5}" text-anchor="end" font-size="14" font-weight="700" fill="#101010">${Math.round(v)}</text>`;
+  }
+  g += '<text x="4" y="14" font-size="13" font-weight="700" fill="#454545">mm</text>';
+
+  const stalls = chartData.filter(r => r.stall);
+  stalls.forEach(r => {
+    const X = x(Date.parse(r.day + "T00:00:00Z"));
+    g += `<line x1="${X}" x2="${X}" y1="${pt - 4}" y2="${H - pb}" stroke="#b3200c" stroke-width="3" stroke-dasharray="6 4"/><text x="${X}" y="${pt - 9}" text-anchor="middle" font-size="13" font-weight="800" fill="#b3200c">stall</text>`;
+  });
+
+  if (chartData.length > 1) {
+    const pts = chartData.map(r => `${x(Date.parse(r.day + "T00:00:00Z"))},${y(r.mean_length_mm)}`).join(" ");
+    g += `<polyline fill="none" stroke="#101010" stroke-width="4" stroke-linejoin="round" points="${pts}"/>`;
+  }
+
+  const validRows = (rowData || []).filter(r => r.mean_length_mm !== null && r.mean_length_mm !== undefined);
+  const seen = {};
+  chartData.forEach((r, i) => {
+    const X = x(Date.parse(r.day + "T00:00:00Z"));
+    const Y = y(r.mean_length_mm);
+    const isDemo = validRows[i] ? !!validRows[i].demo : false;
+    g += `<circle cx="${X}" cy="${Y}" r="8" fill="${isDemo ? '#fff' : '#0a5c36'}" stroke="#101010" stroke-width="3.5"/>`;
+    if (!seen[r.day]) {
+      seen[r.day] = 1;
+      g += `<text x="${X}" y="${H - 12}" text-anchor="middle" font-size="13" font-weight="700" fill="#101010">${lab(r.day)}</text>`;
+    }
+  });
+
+  const legend = `<div class="legend"><span><i class="dot real"></i>real sample</span><span><i class="dot demo"></i>demo data</span>${stalls.length ? '<span><i class="dash"></i>stall date</span>' : ''}</div>`;
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Line chart of average length in millimetres per sample date">${g}</svg>${legend}`;
+}
+
+// Render samples history table card with reverse chronological order
+function renderDashboardSamplesTable(rows, notices) {
+  const reversed = (rows || []).slice().reverse();
+  const trs = reversed.map(r => {
+    const dStr = lab(r.day);
+    const n = r.n_measured;
+    const avg = (r.mean_length_mm !== null && r.mean_length_mm !== undefined) ? f1(r.mean_length_mm) : "-";
+    const perKg = (r.size_per_kg !== null && r.size_per_kg !== undefined) ? r.size_per_kg : "n/a";
+    const dataBadge = r.demo ? '<span class="chip demo">demo data</span>' : 'real';
+    return `<tr><td>${dStr}</td><td class="r">${n}</td><td class="r">${avg}</td><td class="r">${perKg}</td><td>${dataBadge}</td></tr>`;
+  }).join("");
+
+  const note = (notices && notices.includes("temporary_table"))
+    ? '<p class="small">Size per kg: temporary table, not the CP table.</p>'
+    : '';
+
+  return `<div class="card"><b>Samples</b><table class="t"><thead><tr><th>Date</th><th class="r">N measured</th><th class="r">Avg mm</th><th class="r">Per kg</th><th>Data</th></tr></thead><tbody>${trs}</tbody></table>${note}</div>`;
+}
+
+// Fetch dashboard data and render cards in option A layout
+async function loadDashboard() {
+  const target = document.getElementById("dash-content");
+  try {
+    if (!currentSettings) {
+      const sResp = await fetch("/api/settings");
+      if (sResp.ok) currentSettings = await sResp.json();
+    }
+    const resp = await fetch("/api/dashboard");
+    if (!resp.ok) {
+      target.innerHTML = '<div class="band red" role="alert">Could not load dashboard</div>';
+      return;
+    }
+    const d = await resp.json();
+
+    if (d.empty) {
+      target.innerHTML = '<div class="card">No samples yet. Take a photo on the Photo screen.</div>';
+      return;
+    }
+
+    const lastRow = (d.rows && d.rows.length > 0) ? d.rows[d.rows.length - 1] : null;
+    const lastDay = lastRow ? lastRow.day : "";
+    const isDemo = lastRow ? !!lastRow.demo : false;
+    const demoChip = isDemo ? '<span class="chip demo">demo data</span>' : '';
+    const avgLen = (d.latest_length_mm !== null && d.latest_length_mm !== undefined) ? f1(d.latest_length_mm) : "-";
+
+    const notices = d.notices || [];
+    let sizeDisplay = "";
+    if (d.latest_size_per_kg !== null && d.latest_size_per_kg !== undefined) {
+      sizeDisplay = `<span class="big">${d.latest_size_per_kg}</span><span class="unit"> per kg</span>`;
+    } else if (notices.includes("outside_table_range")) {
+      sizeDisplay = '<span class="big" style="font-size:26px">outside table range</span>';
+    } else {
+      sizeDisplay = '<span class="big">-</span><span class="unit"> per kg</span>';
+    }
+
+    const tagHtml = notices.includes("temporary_table") ? `<p style="margin:10px 0 0">${sizeTag()}</p>` : "";
+
+    let changeLineHtml = "";
+    if (d.n_previous !== null && d.n_previous !== undefined && d.rows && d.rows.length >= 2) {
+      const prevRow = d.rows[d.rows.length - 2];
+      const prevDay = prevRow.day;
+      const chgMm = (d.change_length_mm !== null && d.change_length_mm !== undefined) ? sgn(d.change_length_mm) + " mm" : "-";
+      const prevSize = (prevRow.size_per_kg !== null && prevRow.size_per_kg !== undefined)
+        ? prevRow.size_per_kg
+        : (notices.includes("outside_table_range") ? "outside table range" : "-");
+      const currSize = (d.latest_size_per_kg !== null && d.latest_size_per_kg !== undefined)
+        ? d.latest_size_per_kg
+        : (notices.includes("outside_table_range") ? "outside table range" : "-");
+      changeLineHtml = `<p style="margin:10px 0 0">Since ${lab(prevDay)}: <b>${chgMm}</b>, size ${prevSize} to ${currSize} per kg <span class="small">(${d.n_latest} measured now, ${d.n_previous} before)</span></p>`;
+    }
+
+    const latestCard = `<div class="card"><div class="cap" style="margin:0 0 8px">Latest sample, ${lab(lastDay)}, ${d.n_latest} shrimp measured ${demoChip}</div><div class="nums"><div><span class="big">${avgLen}</span><span class="unit"> mm</span><div class="cap">average length</div></div><div>${sizeDisplay}<div class="cap">size</div></div></div>${tagHtml}${changeLineHtml}</div>`;
+
+    const threshold = currentSettings ? currentSettings.stall_mm_per_day : 0.33;
+    const minShrimp = currentSettings ? currentSettings.min_measured : 5;
+    const harvestThreshold = currentSettings ? currentSettings.harvest_per_kg : 50;
+    const rate = (d.days_between && d.days_between > 0 && d.change_length_mm !== null && d.change_length_mm !== undefined)
+      ? (d.change_length_mm / d.days_between)
+      : 0;
+
+    let flagHtml = "";
+    if (d.stall === true) {
+      const prevDay = (d.rows && d.rows.length >= 2) ? d.rows[d.rows.length - 2].day : "";
+      flagHtml += `<div class="band red" role="status">Stall flag<p>Average length grew ${f2(rate)} mm a day since ${lab(prevDay)}. Flag shows under ${threshold}. Based on ${d.n_latest} and ${d.n_previous} shrimp.</p></div>`;
+    } else if (d.stall === false) {
+      const prevDay = (d.rows && d.rows.length >= 2) ? d.rows[d.rows.length - 2].day : "";
+      flagHtml += `<div class="card" role="status"><b>No stall flag.</b> Grew ${f2(rate)} mm a day since ${lab(prevDay)}.</div>`;
+    } else {
+      if (d.n_previous === null || d.n_previous === undefined) {
+        flagHtml += '<div class="card" role="status"><b>Only one sample.</b> Take another photo in a few days to see growth.</div>';
+      } else if (notices.includes("same_day")) {
+        flagHtml += `<div class="card" role="status"><b>Same day.</b> Two samples on ${lab(lastDay)}. Growth cannot be told.</div>`;
+      } else if (notices.includes("not_enough_shrimp")) {
+        flagHtml += `<div class="card" role="status"><b>Not enough shrimp.</b> ${d.n_latest} measured in the latest sample, ${minShrimp} needed to tell a stall.</div>`;
+      }
+    }
+
+    if (d.at_harvest) {
+      flagHtml += `<div class="band blue" role="status">At harvest size<p>${d.latest_size_per_kg} per kg is at or under your ${harvestThreshold} per kg. For your information. You decide.</p></div>`;
+    }
+
+    let costHtml = "";
+    if (d.stall_day_cost_vnd !== null && d.stall_day_cost_vnd !== undefined) {
+      costHtml = `<div class="card"><b>Cost of a stall day</b><div class="big">${vnd(d.stall_day_cost_vnd)} <span class="unit">VND</span></div></div>`;
+    } else {
+      costHtml = '<div class="card"><b>Cost of a stall day</b><div class="big" style="font-size:30px;margin-top:4px">Enter feed kg</div><button class="btn sm dark" id="dash-enter-feed-btn" type="button" style="margin-top:10px">Enter feed</button></div>';
+    }
+
+    let chartHtml = "";
+    if (d.chart && d.chart.length > 0) {
+      chartHtml = `<div class="card"><b>Average length per sample</b>${renderDashboardChart(d.chart, d.rows)}</div>`;
+    }
+
+    const samplesHtml = renderDashboardSamplesTable(d.rows, notices);
+
+    target.innerHTML = latestCard + flagHtml + costHtml + chartHtml + samplesHtml;
+  } catch (_) {
+    target.innerHTML = '<div class="band red" role="alert">Could not load dashboard</div>';
+  }
+}
+
+// Wire form events and page interaction handlers
+document.addEventListener("DOMContentLoaded", () => {
+  const photoInput = document.getElementById("photo-input");
+  const sendBtn = document.getElementById("send-photo-btn");
+
+  photoInput.addEventListener("change", () => {
+    const file = photoInput.files[0];
+    if (!file) return;
+    currentPhotoFile = file;
+    if (currentPhotoUrl) URL.revokeObjectURL(currentPhotoUrl);
+    currentPhotoUrl = URL.createObjectURL(file);
+    document.getElementById("cap-filebtn-txt").textContent = "Take another photo";
+    sendBtn.disabled = false;
+    sendBtn.textContent = "Send photo";
+
+    document.getElementById("photo-msg").style.display = "none";
+    document.getElementById("photo-results").style.display = "none";
+    document.getElementById("photo-results").innerHTML = "";
+
+    const img = new Image();
+    img.onload = () => {
+      photoNaturalWidth = img.naturalWidth || 360;
+      photoNaturalHeight = img.naturalHeight || 300;
+      renderPhotoPreview();
+    };
+    img.src = currentPhotoUrl;
+  });
+
+  sendBtn.addEventListener("click", async () => {
+    if (!currentPhotoFile) return;
+    sendBtn.disabled = true;
+    sendBtn.textContent = "Working, up to 10 seconds";
+
+    const msgEl = document.getElementById("photo-msg");
+    const resultsEl = document.getElementById("photo-results");
+    msgEl.style.display = "none";
+    msgEl.innerHTML = "";
+    resultsEl.style.display = "none";
+    resultsEl.innerHTML = "";
+
+    const formData = new FormData();
+    formData.append("photo", currentPhotoFile);
+    formData.append("day", todayIso());
+
+    try {
+      const resp = await fetch("/api/samples", {
+        method: "POST",
+        body: formData
+      });
+      sendBtn.disabled = false;
+      sendBtn.textContent = "Send photo";
+
+      if (!resp.ok) {
+        let errDetail = "";
+        if (resp.status === 413 || resp.status === 422) {
+          try {
+            const errData = await resp.json();
+            if (errData && errData.error) errDetail = errData.error;
+          } catch (_) {}
+        }
+        msgEl.className = "band red";
+        msgEl.setAttribute("role", "alert");
+        msgEl.innerHTML = `Something went wrong<p>Nothing was saved.${errDetail ? " " + esc(errDetail) : ""}</p>`;
+        msgEl.style.display = "block";
         return;
       }
 
-      statusDiv.style.display = "block";
-      messageDiv.style.display = "none";
-      resultsDiv.style.display = "none";
-      messageDiv.textContent = "";
+      const data = await resp.json();
+      handleSampleResult(data);
+    } catch (_) {
+      sendBtn.disabled = false;
+      sendBtn.textContent = "Send photo";
+      msgEl.className = "band red";
+      msgEl.setAttribute("role", "alert");
+      msgEl.innerHTML = 'Something went wrong<p>Nothing was saved.</p>';
+      msgEl.style.display = "block";
+    }
+  });
 
-      const formData = new FormData();
-      formData.append("photo", file);
-      const now = new Date();
-      const localDay = [
-        now.getFullYear(),
-        String(now.getMonth() + 1).padStart(2, "0"),
-        String(now.getDate()).padStart(2, "0")
-      ].join("-");
-      formData.append("day", localDay);
+  document.getElementById("save-feed-btn").addEventListener("click", async () => {
+    const errEl = document.getElementById("feed-form-err");
+    const savedEl = document.getElementById("set-saved-msg");
+    errEl.style.display = "none";
+    errEl.innerHTML = "";
+    savedEl.style.display = "none";
 
-      try {
-        const resp = await fetch("/api/samples", {
-          method: "POST",
-          body: formData,
-        });
+    const dayVal = document.getElementById("feed-date").value;
+    const kgRaw = document.getElementById("feed-kg").value.trim();
+    const priceRaw = document.getElementById("feed-price").value.trim();
 
-        statusDiv.style.display = "none";
+    const kg = kgRaw === "" ? "" : Number(kgRaw);
+    const price = priceRaw === "" ? "" : Number(priceRaw);
 
-        if (!resp.ok) {
-          messageDiv.textContent = "Could not process the photo, nothing was saved";
-          messageDiv.style.display = "block";
-          return;
-        }
+    const payload = {
+      day: dayVal,
+      kg_per_day: kg,
+      price_vnd: price
+    };
 
-        const data = await resp.json();
-        resultsDiv.style.display = "block";
-
-        countsP.textContent = `${data.n_measured} measured, ${data.n_left_out} left out`;
-
-        if (data.status === "no_reference") {
-          messageDiv.textContent = "No ruler or card found, no millimetres shown";
-          messageDiv.style.display = "block";
-          scaleInfo.textContent = "Reference: none";
-        } else if (data.status === "no_shrimp") {
-          messageDiv.textContent = "No shrimp found";
-          messageDiv.style.display = "block";
-          scaleInfo.textContent = "";
-        } else {
-          scaleInfo.textContent = `Scale: ${data.scale_px_per_mm.toFixed(2)} px/mm (${data.reference})`;
-        }
-
-        shrimpRows.innerHTML = "";
-        (data.shrimp || []).forEach((s, idx) => {
-          const tr = document.createElement("tr");
-          const tdNum = document.createElement("td");
-          tdNum.textContent = idx + 1;
-          const tdLen = document.createElement("td");
-          tdLen.textContent = s.length_mm !== null && s.length_mm !== undefined
-            ? s.length_mm.toFixed(1)
-            : "-";
-          tr.appendChild(tdNum);
-          tr.appendChild(tdLen);
-          shrimpRows.appendChild(tr);
-        });
-      } catch (err) {
-        statusDiv.style.display = "none";
-        messageDiv.textContent = "Could not process the photo, nothing was saved";
-        messageDiv.style.display = "block";
+    try {
+      const resp = await fetch("/api/feed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      if (!resp.ok) {
+        let errText = "Could not save feed.";
+        try {
+          const errData = await resp.json();
+          if (errData && errData.error) errText = errData.error;
+        } catch (_) {}
+        errEl.innerHTML = `<p class="err" role="alert">${esc(errText)}</p>`;
+        errEl.style.display = "block";
+        return;
       }
-    });
-  </script>
+      savedEl.className = "band green";
+      savedEl.setAttribute("role", "status");
+      savedEl.style.marginBottom = "10px";
+      savedEl.textContent = "Saved.";
+      savedEl.style.display = "block";
+    } catch (_) {
+      errEl.innerHTML = '<p class="err" role="alert">Could not save feed.</p>';
+      errEl.style.display = "block";
+    }
+  });
+
+  document.getElementById("save-setup-btn").addEventListener("click", async () => {
+    const errEl = document.getElementById("setup-form-err");
+    const savedEl = document.getElementById("set-saved-msg");
+    errEl.style.display = "none";
+    errEl.innerHTML = "";
+    savedEl.style.display = "none";
+
+    const nameVal = document.getElementById("setup-name").value;
+    const rulerRaw = document.getElementById("setup-ruler").value.trim();
+    const priceRaw = document.getElementById("setup-price").value.trim();
+    const stallRaw = document.getElementById("setup-stall").value.trim();
+    const harvestRaw = document.getElementById("setup-harvest").value.trim();
+    const minRaw = document.getElementById("setup-min").value.trim();
+
+    const payload = {
+      pond_name: nameVal,
+      ruler_mm: rulerRaw === "" ? "" : Number(rulerRaw),
+      feed_price_vnd: priceRaw === "" ? "" : (isNaN(Number(priceRaw)) ? priceRaw : Math.round(Number(priceRaw))),
+      stall_mm_per_day: stallRaw === "" ? "" : Number(stallRaw),
+      harvest_per_kg: harvestRaw === "" ? "" : Number(harvestRaw),
+      min_measured: minRaw === "" ? "" : (isNaN(Number(minRaw)) ? minRaw : Math.round(Number(minRaw)))
+    };
+
+    try {
+      const resp = await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      if (!resp.ok) {
+        let errText = "Could not save setup.";
+        try {
+          const errData = await resp.json();
+          if (errData && errData.error) errText = errData.error;
+        } catch (_) {}
+        errEl.innerHTML = `<p class="err" role="alert">${esc(errText)}</p>`;
+        errEl.style.display = "block";
+        return;
+      }
+      currentSettings = await resp.json();
+      savedEl.className = "band green";
+      savedEl.setAttribute("role", "status");
+      savedEl.style.marginBottom = "10px";
+      savedEl.textContent = "Saved.";
+      savedEl.style.display = "block";
+    } catch (_) {
+      errEl.innerHTML = '<p class="err" role="alert">Could not save setup.</p>';
+      errEl.style.display = "block";
+    }
+  });
+
+  document.addEventListener("click", e => {
+    const screenBtn = e.target.closest("[data-screen]");
+    if (screenBtn) {
+      switchScreen(screenBtn.dataset.screen);
+      return;
+    }
+
+    const segBtn = e.target.closest("[data-seg]");
+    if (segBtn) {
+      const parent = document.getElementById("screen-setup");
+      parent.querySelectorAll("[data-seg]").forEach(b => b.classList.toggle("on", b === segBtn));
+      parent.querySelectorAll("[data-pane]").forEach(p => p.hidden = (p.dataset.pane !== segBtn.dataset.seg));
+      return;
+    }
+
+    if (e.target.closest("#dash-enter-feed-btn")) {
+      openFeedScreen();
+      return;
+    }
+  });
+
+  loadSettings();
+});
+</script>
 </body>
 </html>
