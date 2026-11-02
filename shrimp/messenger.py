@@ -218,6 +218,8 @@ def create_messenger_router(
     executor: Optional[Any] = None,
 ) -> APIRouter:
     # Build FastAPI router for Messenger webhook verification and events
+    if not config.app_secret or not config.verify_token:
+        raise ValueError("messenger app secret and verify token must not be empty")
     router = APIRouter()
     pool = executor if executor is not None else ThreadPoolExecutor(max_workers=4)
     mid_cache = _MidCache(1000)
@@ -232,7 +234,7 @@ def create_messenger_router(
         if (
             mode == "subscribe"
             and token is not None
-            and hmac.compare_digest(token, config.verify_token)
+            and hmac.compare_digest(token.encode("utf-8"), config.verify_token.encode("utf-8"))
         ):
             return PlainTextResponse(challenge or "", status_code=200)
         return PlainTextResponse("Forbidden", status_code=403)
@@ -253,7 +255,7 @@ def create_messenger_router(
             hashlib.sha256,
         ).hexdigest()
 
-        if not hmac.compare_digest(sig_header, expected):
+        if not hmac.compare_digest(sig_header.encode("utf-8"), expected.encode("utf-8")):
             return PlainTextResponse("Forbidden", status_code=403)
 
         try:
@@ -288,7 +290,10 @@ def create_messenger_router(
                 if not isinstance(sender, dict):
                     continue
                 sender_id = sender.get("id")
-                if not isinstance(sender_id, str) or sender_id not in config.allowed_ids:
+                if not isinstance(sender_id, str):
+                    continue
+                if sender_id not in config.allowed_ids:
+                    logger.info("Ignored a message from sender %s (not on the allow-list)", sender_id)
                     continue
 
                 msg = item.get("message")
@@ -313,7 +318,8 @@ def create_messenger_router(
                     for att in attachments:
                         if isinstance(att, dict) and att.get("type") == "image":
                             payload = att.get("payload")
-                            if isinstance(payload, dict):
+                            # stickers arrive as images with a sticker_id: not a photo
+                            if isinstance(payload, dict) and "sticker_id" not in payload:
                                 url = payload.get("url")
                                 if isinstance(url, str):
                                     image_urls.append(url)

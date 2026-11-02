@@ -25,6 +25,9 @@ HELP_TEXT = (
 )
 
 
+SORRY_TEXT = "Có lỗi khi xử lý, bạn thử lại giúp mình nhé."
+
+
 class IncomingLike(Protocol):
     sender_id: str
     mid: str
@@ -126,6 +129,8 @@ class Conversation:
                 self._handle_sender(incoming)
         except Exception:
             logger.exception("Unexpected error in conversation handle")
+            # the farmer always gets an answer, never silence
+            self._safe_send_text(incoming.sender_id, SORRY_TEXT)
 
     def _handle_sender(self, incoming: IncomingLike) -> None:
         sender_id = incoming.sender_id

@@ -592,3 +592,49 @@ def test_sender_serialisation():
     t3.join()
     assert len(u1_yes_handled) == 1
     assert len(store.samples()) == 1
+
+
+SORRY_TEXT = "Có lỗi khi xử lý, bạn thử lại giúp mình nhé."
+
+
+def test_unexpected_error_on_save_still_answers():
+    # A failure while saving must not leave the farmer without an answer
+    store = Store(":memory:")
+    service = make_test_service(seg=make_ok_segmenter(), store=store, table=FakeTable())
+    transport = FakeTransport()
+    convo = Conversation(
+        service=service,
+        transport=transport,
+        render=fake_render,
+        write_reply=fake_write_reply,
+        write_status=fake_write_status,
+    )
+    convo.handle(FakeIncoming(sender_id="u1", image_urls=["http://example.com/p.jpg"]))
+    transport.sent.clear()
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("database is locked")
+
+    service.save = boom
+    convo.handle(FakeIncoming(sender_id="u1", text="có"))
+    assert transport.sent == [("text", "u1", SORRY_TEXT)]
+
+
+def test_unexpected_error_on_status_still_answers():
+    # A failure while reading the dashboard must not leave the farmer without an answer
+    service = make_test_service()
+    transport = FakeTransport()
+    convo = Conversation(
+        service=service,
+        transport=transport,
+        render=fake_render,
+        write_reply=fake_write_reply,
+        write_status=fake_write_status,
+    )
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("database is locked")
+
+    service.dashboard = boom
+    convo.handle(FakeIncoming(sender_id="u1", text="tình hình"))
+    assert transport.sent == [("text", "u1", SORRY_TEXT)]

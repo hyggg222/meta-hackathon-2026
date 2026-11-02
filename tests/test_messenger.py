@@ -618,3 +618,79 @@ def test_transport_strips_token():
     with pytest.raises(TransportError) as excinfo:
         transport.send_text("recip1", "hello")
     assert "secret_page_token_abc" not in str(excinfo.value)
+
+
+def test_verify_non_ascii_token_is_403_not_500():
+    # A non-ASCII verify token must be rejected, never crash the route
+    client = _make_client()
+    resp = client.get(
+        "/webhook/messenger",
+        params={
+            "hub.mode": "subscribe",
+            "hub.verify_token": "tồm",
+            "hub.challenge": "c",
+        },
+    )
+    assert resp.status_code == 403
+
+
+def test_post_non_ascii_signature_is_403_not_500():
+    # A signature header with non-ASCII characters must be rejected, never crash the route
+    client = _make_client()
+    resp = client.post(
+        "/webhook/messenger",
+        content=b"{}",
+        headers={"X-Hub-Signature-256": b"sha256=\xe0\xe1"},
+    )
+    assert resp.status_code == 403
+
+
+@pytest.mark.parametrize("verify_token,app_secret", [("", "secret"), ("tok", ""), ("", "")])
+def test_empty_secret_or_token_is_refused(verify_token, app_secret):
+    # An empty app secret would make the signature forgeable, so the router refuses to start
+    cfg = MessengerConfig(
+        verify_token=verify_token, app_secret=app_secret, allowed_ids=frozenset({"u"})
+    )
+    with pytest.raises(ValueError):
+        create_messenger_router(cfg, lambda inc: None, executor=InlineExecutor())
+
+
+def _post_message(client, sender, message):
+    # Post one signed webhook event holding a single message
+    body = json.dumps(
+        {"object": "page", "entry": [{"messaging": [{"sender": {"id": sender}, "message": message}]}]}
+    ).encode()
+    return client.post(
+        "/webhook/messenger", content=body, headers={"X-Hub-Signature-256": _sign(body)}
+    )
+
+
+def test_sticker_is_not_a_photo():
+    # Stickers arrive as image attachments with a sticker_id and must not count as photos
+    seen: List[Incoming] = []
+    client = _make_client(handler=seen.append)
+    resp = _post_message(
+        client,
+        "user1",
+        {
+            "mid": "m-sticker",
+            "attachments": [
+                {
+                    "type": "image",
+                    "payload": {"url": "https://x/s.png", "sticker_id": 369239263222822},
+                }
+            ],
+        },
+    )
+    assert resp.status_code == 200
+    assert len(seen) == 1
+    assert seen[0].image_urls == []
+
+
+def test_ignored_sender_is_logged(caplog):
+    # The id of a sender not on the allow-list is logged so the owner can add it
+    client = _make_client(handler=lambda inc: None)
+    with caplog.at_level("INFO", logger="shrimp.messenger"):
+        resp = _post_message(client, "stranger99", {"mid": "m1", "text": "hi"})
+    assert resp.status_code == 200
+    assert any("stranger99" in r.getMessage() for r in caplog.records)
