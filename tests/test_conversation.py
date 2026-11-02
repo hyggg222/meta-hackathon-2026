@@ -681,13 +681,14 @@ def test_help_text_lists_every_function():
     # The guide names each thing the farmer can do, one per numbered line
     lines = [ln for ln in HELP_TEXT.splitlines() if ln.strip()]
     assert lines[0].upper().startswith("HƯỚNG DẪN")
-    numbered = [ln for ln in lines if ln[:2] in ("1.", "2.", "3.", "4.", "5.", "6.", "7.", "8.")]
-    assert len(numbered) == 8
+    numbered = [ln for ln in lines if ln[:2] in ("1.", "2.", "3.", "4.", "5.", "6.", "7.", "8.", "9.")]
+    assert len(numbered) == 9
     for needle in (
         "ảnh",
         '"có"',
         '"chọn 1 3"',
         '"bỏ 1 3"',
+        '"xem loại"',
         "1 3 5",
         '"hủy"',
         '"tình hình"',
@@ -711,6 +712,64 @@ def test_guide_words_show_the_help(word):
     )
     convo.handle(FakeIncoming(sender_id="u1", text=word))
     assert transport.sent == [("text", "u1", HELP_TEXT)]
+
+
+def _convo_with_left_out_view():
+    # Like _convo_with_pending, with a second renderer for the left-out view
+    store = Store(":memory:")
+    service = make_test_service(seg=make_ok_segmenter(), store=store, table=FakeTable())
+    transport = FakeTransport()
+    convo = Conversation(
+        service=service,
+        transport=transport,
+        render=fake_render,
+        write_reply=fake_write_reply,
+        write_status=fake_write_status,
+        render_left_out=lambda photo, tray: b"LEFT_OUT_JPEG",
+    )
+    convo.handle(FakeIncoming(sender_id="u1", image_urls=["http://example.com/p.jpg"]))
+    transport.sent.clear()
+    return convo, transport
+
+
+@pytest.mark.parametrize("text", ["xem loại", "Xem loai", "loại"])
+def test_left_out_view_shows_the_shrimp_that_are_not_counted(text):
+    # "xem loại" sends a second photo that numbers the left-out shrimp, and says how to add one
+    convo, transport = _convo_with_left_out_view()
+    convo.handle(FakeIncoming(sender_id="u1", text="bỏ 2 5"))
+    transport.sent.clear()
+
+    convo.handle(FakeIncoming(sender_id="u1", text=text))
+    assert transport.sent[0] == ("image", "u1", b"LEFT_OUT_JPEG")
+    assert transport.sent[1][0] == "text"
+    assert 'chọn 2 5' in transport.sent[1][2]
+
+
+def test_left_out_view_when_nothing_is_left_out():
+    convo, transport = _convo_with_left_out_view()
+    convo.handle(FakeIncoming(sender_id="u1", text="xem loại"))
+    assert transport.sent == [("text", "u1", "Không có con nào bị loại.")]
+
+
+def test_left_out_view_without_a_pending_result():
+    service = make_test_service()
+    transport = FakeTransport()
+    convo = Conversation(
+        service=service,
+        transport=transport,
+        render=fake_render,
+        write_reply=fake_write_reply,
+        write_status=fake_write_status,
+        render_left_out=lambda photo, tray: b"LEFT_OUT_JPEG",
+    )
+    convo.handle(FakeIncoming(sender_id="u1", text="xem loại"))
+    assert transport.sent == [
+        (
+            "text",
+            "u1",
+            'Bạn gửi ảnh khay tôm trước nhé, mình sẽ đo rồi bạn trả lời "có" để lưu.',
+        )
+    ]
 
 
 SORRY_TEXT = "Có lỗi khi xử lý, bạn thử lại giúp mình nhé."

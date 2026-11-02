@@ -21,6 +21,7 @@ HELP_WORDS = {"huong dan", "help", "menu", "tro giup"}
 ADD_WORDS = {"chon", "them", "add"}
 REMOVE_WORDS = {"bo", "xoa", "remove"}
 ALL_WORDS = {"het", "tat ca", "tatca", "all"}
+LEFT_OUT_WORDS = {"xem loai", "loai", "con bi loai"}
 
 NO_PENDING_TEXT = 'Bạn gửi ảnh khay tôm trước nhé, mình sẽ đo rồi bạn trả lời "có" để lưu.'
 HELP_TEXT = (
@@ -30,9 +31,10 @@ HELP_TEXT = (
     '3. Thêm con vào kết quả: gõ "chọn 1 3" (hoặc "chọn hết").\n'
     '4. Bỏ con khỏi kết quả: gõ "bỏ 1 3" (hoặc "bỏ hết").\n'
     "5. Chỉ tính một số con: gõ số các con đó, ví dụ: 1 3 5.\n"
-    '6. Bỏ kết quả vừa đo: gõ "hủy".\n'
-    '7. Xem tình hình các lần đo: gõ "tình hình".\n'
-    '8. Xem lại hướng dẫn này: gõ "hướng dẫn".'
+    '6. Xem các con đang bị loại để thêm lại: gõ "xem loại".\n'
+    '7. Bỏ kết quả vừa đo: gõ "hủy".\n'
+    '8. Xem tình hình các lần đo: gõ "tình hình".\n'
+    '9. Xem lại hướng dẫn này: gõ "hướng dẫn".'
 )
 
 
@@ -83,7 +85,9 @@ class Conversation:
         dashboard_url: Optional[str] = None,
         ttl_seconds: int = 1800,
         clock: Callable[[], float] = time.time,
+        render_left_out: Optional[Callable[[bytes, TrayResult], bytes]] = None,
     ):
+        self._render_left_out = render_left_out
         self._service = service
         self._transport = transport
         self._render = render
@@ -166,6 +170,29 @@ class Conversation:
         pending.tray = tray
         pending.updated_at = self._clock()
         self._set_pending(sender_id, pending)
+
+    def _send_left_out_view(self, sender_id: str) -> None:
+        # Second photo: only the shrimp that are not counted, numbered, so the farmer can add one
+        pending = self._get_pending(sender_id)
+        if pending is None:
+            self._safe_send_text(sender_id, NO_PENDING_TEXT)
+            return
+        counted = set(pending.tray.included)
+        left_out = [s.index + 1 for s in pending.tray.shrimp if s.index not in counted]
+        if not left_out:
+            self._safe_send_text(sender_id, "Không có con nào bị loại.")
+            return
+        if self._render_left_out is None:
+            self._safe_send_text(sender_id, SORRY_TEXT)
+            return
+        jpeg = self._render_left_out(pending.photo, pending.tray)
+        self._safe_send_image(sender_id, jpeg)
+        example = " ".join(str(n) for n in left_out[:2])
+        self._safe_send_text(
+            sender_id,
+            "Đây là các con đang bị loại (màu cam), kèm độ dài tính bằng cm. "
+            f'Gõ "chọn {example}" để thêm con vào kết quả.',
+        )
 
     def _handle_sender(self, incoming: IncomingLike) -> None:
         sender_id = incoming.sender_id
@@ -291,6 +318,10 @@ class Conversation:
 
         if norm in HELP_WORDS:
             self._safe_send_text(sender_id, HELP_TEXT)
+            return
+
+        if norm in LEFT_OUT_WORDS:
+            self._send_left_out_view(sender_id)
             return
 
         if norm in CANCEL_WORDS:

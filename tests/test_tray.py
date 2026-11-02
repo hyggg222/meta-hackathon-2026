@@ -450,6 +450,43 @@ def test_summarize_merged_shrimp():
     assert res_manual.mean_length_mm == pytest.approx(400.0 / 3.0)
 
 
+def test_shrimp_are_numbered_top_to_bottom_then_left_to_right(fake_photo: bytes):
+    # The number the farmer sees follows the position on the photo, not the order SAM answered in
+    ruler = make_rect_mask(30, 300, 20, 20)
+    bottom = make_capsule_shrimp(50, 138, 400, r=6)
+    top_right = make_capsule_shrimp(300, 388, 100, r=6)
+    top_left = make_capsule_shrimp(50, 138, 105, r=6)  # same row as top_right, further left
+    middle = make_capsule_shrimp(50, 138, 250, r=6)
+    seg = FakeSegmenter({"ruler": [ruler], "shrimp": [bottom, top_right, middle, top_left]})
+
+    analysis = analyze_shrimp(fake_photo, Settings(min_measured=1), seg)
+
+    assert [s.index for s in analysis.shrimp] == [0, 1, 2, 3]
+    first_points = [(round(s.path[0][0]), round(s.path[0][1])) for s in analysis.shrimp]
+    ys = [p[1] for p in first_points]
+    assert ys[0] < ys[2] < ys[3]  # top row, then middle, then bottom
+    assert first_points[0][0] < first_points[1][0]  # in the top row the left one comes first
+
+
+def test_summarize_partial_piece_is_left_out_by_default():
+    # A piece of a shrimp is excluded by default, but counted when the include list names it
+    settings = Settings(min_measured=1, min_length_mm=50.0)
+    shrimp = [
+        ShrimpMeasure(index=0, length_px=200.0, length_mm=100.0, overlapped=False, path=[]),
+        ShrimpMeasure(index=1, length_px=200.0, length_mm=100.0, overlapped=False, path=[]),
+        ShrimpMeasure(index=2, length_px=120.0, length_mm=60.0, overlapped=False, path=[], partial=True),
+    ]
+    analysis = Analysis(reference="ruler", scale_px_per_mm=2.0, shrimp=shrimp)
+
+    res_default = summarize(analysis, None, settings, None)
+    assert res_default.included == [0, 1]
+    assert res_default.n_left_out == 1
+
+    res_manual = summarize(analysis, [0, 1, 2], settings, None)
+    assert res_manual.included == [0, 1, 2]
+    assert res_manual.mean_length_mm == pytest.approx((100.0 + 100.0 + 60.0) / 3.0)
+
+
 def test_crowded_notice_tray():
     # Tray of 10 masks with 6 left out is crowded; 3 left out is not; < 8 masks is not; explicit include does not change notice
     settings = Settings(min_measured=1, min_length_mm=50.0)

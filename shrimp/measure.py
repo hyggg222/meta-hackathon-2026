@@ -129,6 +129,25 @@ def centerline(
     return seg + ha + hb, sm, ha, hb
 
 
+# A whole shrimp is slender: length squared over area was 5.7 to 11.7 on three real photos,
+# while pieces (hidden by a hand or another shrimp, cut by the frame) were 2.5 to 6.3.
+PARTIAL_ELONGATION = 5.5
+# A mask that touches the image border over this share of the long side is cut by the frame.
+PARTIAL_BORDER_FRACTION = 0.03
+
+
+def _is_partial(mask: np.ndarray, length_px: float, h: int, w: int) -> bool:
+    # True for a piece of a shrimp: too squat for a whole shrimp, or cut by the image frame
+    body = largest(mask)
+    area = int(body.sum())
+    if area == 0 or length_px <= 0:
+        return False
+    if (length_px * length_px) / area < PARTIAL_ELONGATION:
+        return True
+    border = int(mask[0, :].sum() + mask[-1, :].sum() + mask[:, 0].sum() + mask[:, -1].sum())
+    return border >= PARTIAL_BORDER_FRACTION * max(h, w)
+
+
 def measure(
     shrimp_masks: List[np.ndarray],
     px_per_mm: Optional[float],
@@ -192,6 +211,7 @@ def measure(
         is_merged = is_branching or is_much_longer
 
         h, w = mask.shape[:2]
+        is_partial = _is_partial(mask, length_px, h, w)
         ends = [(sm[0][0], sm[0][1], ha), (sm[-1][0], sm[-1][1], hb)]
         is_overlapped = False
 
@@ -239,6 +259,7 @@ def measure(
                 path=path,
                 outline=outline,
                 merged=is_merged,
+                partial=is_partial,
             )
         )
 

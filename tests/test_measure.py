@@ -306,3 +306,34 @@ def test_measure_normal_tray_not_merged():
         assert s.merged is False
 
 
+
+
+def test_partial_flag_whole_shrimp_is_not_partial():
+    # A slender band like a whole shrimp (length about ten times the width) is not partial
+    band = make_band_mask((100, 300), (300, 300), thickness=20)
+    res = measure([band], px_per_mm=None)
+    assert res[0].partial is False
+
+
+def test_partial_flag_squat_piece_is_partial():
+    # A short wide piece (length under about five times its width) is a piece of a shrimp
+    blob = np.zeros((600, 600), bool)
+    blob[250:310, 200:290] = True
+    res = measure([blob], px_per_mm=None)
+    assert res[0].partial is True
+
+
+def test_partial_flag_mask_cut_by_the_frame_is_partial():
+    # A slender mask that runs along the image border is cut by the frame
+    band = np.zeros((600, 600), bool)
+    band[590:600, 100:300] = True
+    res = measure([band], px_per_mm=None)
+    assert res[0].partial is True
+
+
+def test_partial_flag_touching_the_frame_for_a_few_pixels_is_not_partial():
+    # Brushing the border over a short stretch does not make a whole shrimp partial
+    band = np.zeros((600, 600), bool)
+    band[270:285, 0:300] = True  # 15 pixels on the border column, under 3 percent of 600
+    res = measure([band], px_per_mm=None)
+    assert res[0].partial is False

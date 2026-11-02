@@ -119,6 +119,8 @@ def template_reply(
             'Trả lời "có" để lưu mẫu này, hoặc gõ số các con cần tính, ví dụ: 1 3 5.'
         )
         parts.append('Gõ "chọn" hoặc "bỏ" kèm số con để thêm hoặc bỏ từng con.')
+        if tray.n_left_out > 0:
+            parts.append('Gõ "xem loại" để xem các con bị loại.')
     elif saved is True:
         parts.append("Đã lưu mẫu.")
     elif saved is False:

@@ -1,11 +1,12 @@
 # Tray analysis orchestrating reference detection, scaling, and shrimp measurement
 import concurrent.futures
+from dataclasses import replace
 from typing import Any, List, Optional, Tuple
 import cv2
 import numpy as np
 
 from shrimp.measure import largest, measure
-from shrimp.models import Analysis, Segmenter, Settings, TrayResult
+from shrimp.models import Analysis, Segmenter, Settings, ShrimpMeasure, TrayResult
 
 
 def rect_sides(mask: np.ndarray) -> Tuple[float, float]:
@@ -27,6 +28,22 @@ def is_valid_ref(mask: np.ndarray) -> bool:
         return False
     long_side, _ = rect_sides(mask)
     return long_side >= 0.05 * max(mask.shape)
+
+
+def _in_reading_order(shrimp: List[ShrimpMeasure], image_height: int) -> List[ShrimpMeasure]:
+    # Number the shrimp as a person reads the photo: rows from the top, left to right in a row.
+    # The number on the reply photo is index + 1, so renumbering here keeps the bot, the
+    # farmer's "chọn 1 3" and the hand-measured table in step.
+    band = max(1.0, image_height / 8.0)
+
+    def centre(s: ShrimpMeasure) -> Tuple[float, float]:
+        pts = s.outline or s.path
+        if not pts:
+            return (0.0, 0.0)
+        return (sum(p[0] for p in pts) / len(pts), sum(p[1] for p in pts) / len(pts))
+
+    ordered = sorted(shrimp, key=lambda s: (int(centre(s)[1] // band), centre(s)[0]))
+    return [replace(s, index=i) for i, s in enumerate(ordered)]
 
 
 def analyze_shrimp(
@@ -81,6 +98,8 @@ def analyze_shrimp(
             filtered_shrimp.append(sm)
 
     shrimp_measures = measure(filtered_shrimp, scale_px_per_mm) if filtered_shrimp else []
+    if shrimp_measures:
+        shrimp_measures = _in_reading_order(shrimp_measures, filtered_shrimp[0].shape[0])
 
     return Analysis(
         reference=reference,
@@ -102,6 +121,7 @@ def summarize(
         for s in analysis.shrimp
         if not s.overlapped
         and not s.merged
+        and not s.partial
         and (s.length_mm is None or s.length_mm >= settings.min_length_mm)
     ]
     if include is None:

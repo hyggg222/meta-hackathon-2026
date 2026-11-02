@@ -1,5 +1,6 @@
 # Entry point factory for building the FastAPI app
 from datetime import date
+from functools import partial
 import logging
 import os
 from pathlib import Path
@@ -131,6 +132,7 @@ def build(
             service,
             transport,
             render=render_reply,
+            render_left_out=partial(render_reply, show="left_out"),
             write_reply=write_reply,
             write_status=write_status,
             dashboard_url=dashboard_url,

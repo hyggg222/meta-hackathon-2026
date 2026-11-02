@@ -185,6 +185,15 @@ def test_template_reply_too_few_crowded_says_the_photo_is_crowded():
     assert check_reply(reply, allowed_numbers_for_tray(t, 5)) is True
 
 
+def test_template_reply_points_to_the_left_out_view_only_when_something_is_left_out():
+    # "xem loại" is offered only when at least one shrimp was left out
+    with_left_out = _make_tray(status="ok", n_measured=8, n_left_out=2)
+    without = _make_tray(status="ok", n_measured=8, n_left_out=0)
+    assert 'Gõ "xem loại" để xem các con bị loại.' in template_reply(with_left_out, 5, None)
+    assert "xem loại" not in template_reply(without, 5, None)
+    assert check_reply(template_reply(with_left_out, 5, None), allowed_numbers_for_tray(with_left_out, 5)) is True
+
+
 def test_template_reply_too_few_without_crowded_is_unchanged():
     t = _make_tray(status="too_few", n_measured=3, n_left_out=2, mean_length_mm=None, size_per_kg=None)
     assert "chồng nhau" not in template_reply(t, min_measured=5, saved=None)

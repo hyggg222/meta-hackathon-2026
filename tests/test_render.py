@@ -3,7 +3,7 @@ import numpy as np
 import pytest
 
 from shrimp.models import ShrimpMeasure, TrayResult
-from shrimp.render import render_reply
+from shrimp.render import place_labels, render_reply
 
 
 def make_plain_jpeg(width: int = 800, height: int = 600, color: int = 128) -> bytes:
@@ -112,16 +112,17 @@ def test_body_line_present_counted_absent_left_out():
             length_px=100.0,
             length_mm=80.0,
             overlapped=False,
-            path=[(100.0, 150.0), (200.0, 150.0)],
-            outline=[(100.0, 100.0), (200.0, 100.0), (200.0, 200.0), (100.0, 200.0)],
+            # long body line: the label sits in the middle (x=300), the left part stays visible
+            path=[(100.0, 150.0), (500.0, 150.0)],
+            outline=[(100.0, 100.0), (500.0, 100.0), (500.0, 200.0), (100.0, 200.0)],
         ),
         ShrimpMeasure(
             index=1,
             length_px=100.0,
             length_mm=80.0,
             overlapped=False,
-            path=[(400.0, 150.0), (500.0, 150.0)],
-            outline=[(400.0, 100.0), (500.0, 100.0), (500.0, 200.0), (400.0, 200.0)],
+            path=[(400.0, 350.0), (500.0, 350.0)],
+            outline=[(400.0, 300.0), (500.0, 300.0), (500.0, 400.0), (400.0, 400.0)],
         ),
     ]
     tray = make_tray(shrimp=shrimp, included=[0])
@@ -140,7 +141,7 @@ def test_body_line_present_counted_absent_left_out():
     assert counted_red > 0
 
     # Along left-out shrimp path, strongly red pixels are absent
-    left_line_patch = dec[149:152, 420:435]
+    left_line_patch = dec[349:352, 420:435]
     left_red = np.sum(
         (left_line_patch[:, :, 2] > 170)
         & (left_line_patch[:, :, 1] < 60)
@@ -149,11 +150,9 @@ def test_body_line_present_counted_absent_left_out():
     assert left_red == 0
 
 
-def test_badge_drawn_for_shrimp():
-    photo = make_plain_jpeg(width=800, height=600, color=128)
-    plain_dec = cv2.imdecode(np.frombuffer(photo, np.uint8), cv2.IMREAD_COLOR)
-
-    shrimp = [
+def _two_shrimp():
+    # Two counted shrimp side by side; body lines 100 px long, middle at (150, 150) and (450, 150)
+    return [
         ShrimpMeasure(
             index=0,
             length_px=100.0,
@@ -171,17 +170,93 @@ def test_badge_drawn_for_shrimp():
             outline=[(400.0, 100.0), (500.0, 100.0), (500.0, 200.0), (400.0, 200.0)],
         ),
     ]
-    tray = make_tray(shrimp=shrimp, included=[0, 1])
-    out = render_reply(photo, tray)
-    dec = cv2.imdecode(np.frombuffer(out, np.uint8), cv2.IMREAD_COLOR)
-    assert dec is not None
 
-    # Patch on the left half of the badge at shrimp 1 first point (400, 150): dark, not grey-mid,
-    # away from the white digit in the middle
-    badge_patch = dec[147:154, 381:388]
-    plain_patch = plain_dec[147:154, 381:388]
-    assert abs(plain_patch.mean() - 128) < 6
-    assert badge_patch.mean() < 85
+
+def _decode(jpeg: bytes) -> np.ndarray:
+    dec = cv2.imdecode(np.frombuffer(jpeg, np.uint8), cv2.IMREAD_COLOR)
+    assert dec is not None
+    return dec
+
+
+def _darkness_change(photo: bytes, out: bytes, x: int, y: int, half_w: int = 30, half_h: int = 10) -> float:
+    # How much darker the output is than the plain photo in a box around (x, y)
+    before = _decode(photo)[y - half_h : y + half_h, x - half_w : x + half_w].mean()
+    after = _decode(out)[y - half_h : y + half_h, x - half_w : x + half_w].mean()
+    return float(before - after)
+
+
+def _pixel_change(photo: bytes, out: bytes, x: int, y: int, half_w: int = 30, half_h: int = 10) -> float:
+    # Mean absolute change of the pixels in a box around (x, y), whatever the colour of the label
+    before = _decode(photo)[y - half_h : y + half_h, x - half_w : x + half_w].astype(float)
+    after = _decode(out)[y - half_h : y + half_h, x - half_w : x + half_w].astype(float)
+    return float(np.abs(after - before).mean())
+
+
+def test_label_sits_at_the_middle_of_the_body_line():
+    # One pill per counted shrimp, at the middle of its body line, not at its start
+    photo = make_plain_jpeg(width=800, height=600, color=128)
+    tray = make_tray(shrimp=_two_shrimp(), included=[0, 1])
+    out = render_reply(photo, tray)
+    assert _darkness_change(photo, out, 150, 150) > 25
+    assert _darkness_change(photo, out, 450, 150) > 25
+
+
+def test_left_out_shrimp_has_no_label_in_the_main_view():
+    # Left-out shrimp are only faintly outlined: no number pill, nothing at the middle of the line
+    photo = make_plain_jpeg(width=800, height=600, color=128)
+    tray = make_tray(shrimp=_two_shrimp(), included=[0])
+    out = render_reply(photo, tray)
+    assert _darkness_change(photo, out, 150, 150) > 25
+    assert abs(_darkness_change(photo, out, 450, 150)) < 6
+
+
+def test_left_out_view_numbers_the_left_out_shrimp_only():
+    # show="left_out": the left-out shrimp get a pill, the counted ones are only faintly outlined
+    photo = make_plain_jpeg(width=800, height=600, color=128)
+    tray = make_tray(shrimp=_two_shrimp(), included=[0])
+    out = render_reply(photo, tray, show="left_out")
+    assert _pixel_change(photo, out, 150, 150) < 6
+    assert _pixel_change(photo, out, 450, 150) > 20
+
+
+def test_unknown_view_is_refused():
+    photo = make_plain_jpeg()
+    with pytest.raises(ValueError):
+        render_reply(photo, make_tray(shrimp=_two_shrimp()), show="everything")
+
+
+def _rects_overlap(a, b) -> bool:
+    return not (a[2] <= b[0] or b[2] <= a[0] or a[3] <= b[1] or b[3] <= a[1])
+
+
+def _rect(center, size):
+    return (center[0] - size[0] / 2, center[1] - size[1] / 2, center[0] + size[0] / 2, center[1] + size[1] / 2)
+
+
+def test_place_labels_keeps_labels_apart_and_inside_the_image():
+    # Two shrimp with the same body line: the second label moves along the line, none overlap
+    path = [(100.0, 100.0), (300.0, 100.0)]
+    sizes = [(80, 30), (80, 30)]
+    centers = place_labels([path, path], sizes, width=400, height=300)
+    assert centers[0] == (200, 100)  # the first label takes the middle
+    r0, r1 = _rect(centers[0], sizes[0]), _rect(centers[1], sizes[1])
+    assert not _rects_overlap(r0, r1)
+    for r in (r0, r1):
+        assert r[0] >= 0 and r[1] >= 0 and r[2] <= 400 and r[3] <= 300
+
+
+def test_place_labels_pulls_a_label_back_from_the_image_edge():
+    # A body line at the very edge still gets a label that is fully inside the image
+    path = [(0.0, 100.0), (10.0, 100.0)]
+    centers = place_labels([path], [(80, 30)], width=400, height=300)
+    r = _rect(centers[0], (80, 30))
+    assert r[0] >= 0 and r[2] <= 400
+
+
+def test_place_labels_without_a_path_returns_nothing_for_that_shrimp():
+    centers = place_labels([[], [(50.0, 50.0), (150.0, 50.0)]], [(60, 20), (60, 20)], width=300, height=200)
+    assert centers[0] is None
+    assert centers[1] == (100, 50)
 
 
 def test_undecodable_photo_raises_value_error():

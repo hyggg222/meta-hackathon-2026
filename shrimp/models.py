@@ -42,6 +42,7 @@ class ShrimpMeasure:
     path: List[Tuple[float, float]]
     outline: List[Tuple[float, float]] = field(default_factory=list)
     merged: bool = False
+    partial: bool = False
 
 
 @dataclass(frozen=True)
