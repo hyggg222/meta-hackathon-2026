@@ -374,3 +374,27 @@ def test_no_text_contains_forbidden_words():
         lower = text.lower()
         for forbidden in ["harvest", "sell", "alarm", "stall"]:
             assert forbidden not in lower, f"Forbidden '{forbidden}' found in: {text}"
+
+
+def test_template_reply_crowded():
+    # Crowded notice adds Vietnamese warning before instruction and passes check_reply
+    tray_crowded = _make_tray(status="ok", notices=["crowded"])
+    reply = template_reply(tray_crowded, min_measured=5)
+    crowded_sentence = (
+        "Ảnh có nhiều tôm chồng nhau hoặc dính nhau, nhiều con bị loại. "
+        "Xếp tôm trải ra, không chồng lên nhau, rồi chụp lại."
+    )
+    assert crowded_sentence in reply
+
+    instruction = 'Trả lời "có" để lưu mẫu này'
+    idx_crowded = reply.index(crowded_sentence)
+    idx_instruction = reply.index(instruction)
+    assert idx_crowded < idx_instruction
+
+    allowed = allowed_numbers_for_tray(tray_crowded, min_measured=5)
+    assert check_reply(reply, allowed) is True
+
+    tray_normal = _make_tray(status="ok", notices=[])
+    reply_normal = template_reply(tray_normal, min_measured=5)
+    assert crowded_sentence not in reply_normal
+

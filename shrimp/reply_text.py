@@ -101,6 +101,12 @@ def template_reply(
             "Kích cỡ nằm ngoài bảng (60 đến 140 mm), không có số con/kg."
         )
 
+    if "crowded" in tray.notices:
+        parts.append(
+            "Ảnh có nhiều tôm chồng nhau hoặc dính nhau, nhiều con bị loại. "
+            "Xếp tôm trải ra, không chồng lên nhau, rồi chụp lại."
+        )
+
     if saved is None:
         parts.append(
             'Trả lời "có" để lưu mẫu này, hoặc gõ số các con cần tính, ví dụ: 1 3 5.'

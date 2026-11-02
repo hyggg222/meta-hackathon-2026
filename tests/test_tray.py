@@ -425,3 +425,85 @@ def test_summarize_sd_length():
     assert res_two.sd_length_mm == pytest.approx(7.0710678, rel=1e-4)
     assert res_two.sd_length_mm != res.sd_length_mm
 
+
+def test_summarize_merged_shrimp():
+    # Merged shrimp is excluded by default, but counted when include list names it
+    settings = Settings(min_measured=1, min_length_mm=50.0)
+    shrimp = [
+        ShrimpMeasure(index=0, length_px=200.0, length_mm=100.0, overlapped=False, path=[], merged=False),
+        ShrimpMeasure(index=1, length_px=200.0, length_mm=100.0, overlapped=False, path=[], merged=False),
+        ShrimpMeasure(index=2, length_px=400.0, length_mm=200.0, overlapped=False, path=[], merged=True),
+    ]
+    analysis = Analysis(reference="ruler", scale_px_per_mm=2.0, shrimp=shrimp)
+
+    res_default = summarize(analysis, None, settings, None)
+    assert res_default.included == [0, 1]
+    assert res_default.n_measured == 2
+    assert res_default.n_left_out == 1
+    assert 2 not in res_default.included
+
+    res_manual = summarize(analysis, [0, 1, 2], settings, None)
+    assert res_manual.included == [0, 1, 2]
+    assert res_manual.n_measured == 3
+    assert res_manual.n_left_out == 0
+    assert 2 in res_manual.included
+    assert res_manual.mean_length_mm == pytest.approx(400.0 / 3.0)
+
+
+def test_crowded_notice_tray():
+    # Tray of 10 masks with 6 left out is crowded; 3 left out is not; < 8 masks is not; explicit include does not change notice
+    settings = Settings(min_measured=1, min_length_mm=50.0)
+
+    # 10 masks where 6 touch each other (overlapped)
+    shrimp_10_crowded = [
+        ShrimpMeasure(
+            index=i,
+            length_px=200.0,
+            length_mm=100.0,
+            overlapped=(i < 6),
+            path=[],
+            merged=False,
+        )
+        for i in range(10)
+    ]
+    analysis_10_crowded = Analysis(reference="ruler", scale_px_per_mm=2.0, shrimp=shrimp_10_crowded)
+    res_crowded = summarize(analysis_10_crowded, None, settings, None)
+    assert "crowded" in res_crowded.notices
+
+    # Explicit include does not change the crowded notice
+    res_crowded_manual = summarize(analysis_10_crowded, list(range(10)), settings, None)
+    assert "crowded" in res_crowded_manual.notices
+
+    # 10 masks where only 3 are left out
+    shrimp_10_uncrowded = [
+        ShrimpMeasure(
+            index=i,
+            length_px=200.0,
+            length_mm=100.0,
+            overlapped=(i < 3),
+            path=[],
+            merged=False,
+        )
+        for i in range(10)
+    ]
+    analysis_10_uncrowded = Analysis(reference="ruler", scale_px_per_mm=2.0, shrimp=shrimp_10_uncrowded)
+    res_uncrowded = summarize(analysis_10_uncrowded, None, settings, None)
+    assert "crowded" not in res_uncrowded.notices
+
+    # Fewer than 8 masks never crowded (e.g. 7 masks with 5 overlapped)
+    shrimp_7 = [
+        ShrimpMeasure(
+            index=i,
+            length_px=200.0,
+            length_mm=100.0,
+            overlapped=(i < 5),
+            path=[],
+            merged=False,
+        )
+        for i in range(7)
+    ]
+    analysis_7 = Analysis(reference="ruler", scale_px_per_mm=2.0, shrimp=shrimp_7)
+    res_7 = summarize(analysis_7, None, settings, None)
+    assert "crowded" not in res_7.notices
+
+

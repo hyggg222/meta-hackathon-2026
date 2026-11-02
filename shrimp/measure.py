@@ -43,10 +43,39 @@ def outline_of(mask: np.ndarray) -> List[Tuple[float, float]]:
     return [(float(x), float(y)) for x, y in approx.reshape(-1, 2)]
 
 
-def centerline(mask: np.ndarray, smooth: int = 7) -> Tuple[float, np.ndarray, float, float]:
-    # Extract centerline length, smoothed coordinates, and tip half-widths
+def longest_side_branch(
+    g_or_mask: Any,
+    main_path: Optional[List[int]] = None,
+) -> Any:
+    # Find length of longest side branch from main path to skeleton endpoint
+    if main_path is not None:
+        if not main_path:
+            return 0.0
+        main_set = set(main_path)
+        endpoints = [
+            n
+            for n in g_or_mask.nodes
+            if g_or_mask.degree(n) == 1 and n not in main_set
+        ]
+        if not endpoints:
+            return 0.0
+        dists, _ = nx.multi_source_dijkstra(g_or_mask, main_set)
+        return float(
+            max((dists[ep] for ep in endpoints if ep in dists), default=0.0)
+        )
+
+    _, _, _, _, branch_len, main_len = centerline(g_or_mask, return_branch=True)
+    return branch_len, main_len
+
+
+def centerline(
+    mask: np.ndarray, smooth: int = 7, return_branch: bool = False
+) -> Any:
+    # Extract centerline length, smoothed coordinates, tip half-widths, and optional branch info
     m = largest(mask)
     if not np.any(m):
+        if return_branch:
+            return 0.0, np.empty((0, 2), float), 0.0, 0.0, 0.0, 0.0
         return 0.0, np.empty((0, 2), float), 0.0, 0.0
     m = cv2.morphologyEx(m, cv2.MORPH_CLOSE, np.ones((3, 3), np.uint8))
     dt = cv2.distanceTransform(m, cv2.DIST_L2, 5)
@@ -60,6 +89,8 @@ def centerline(mask: np.ndarray, smooth: int = 7) -> Tuple[float, np.ndarray, fl
     sk = skeletonize(m_skel > 0)
     ys, xs = np.nonzero(sk)
     if len(xs) == 0:
+        if return_branch:
+            return 0.0, np.empty((0, 2), float), 0.0, 0.0, 0.0, 0.0
         return 0.0, np.empty((0, 2), float), 0.0, 0.0
     idx = {(y, x): i for i, (y, x) in enumerate(zip(ys, xs))}
     g = nx.Graph()
@@ -75,7 +106,10 @@ def centerline(mask: np.ndarray, smooth: int = 7) -> Tuple[float, np.ndarray, fl
     a = max(d1, key=d1.get)
     d2, paths = nx.single_source_dijkstra(g, a)
     b = max(d2, key=d2.get)
-    pts = np.array([(xs[i], ys[i]) for i in paths[b]], float)
+    main_path = paths[b]
+    main_len = float(d2[b])
+    branch_len = longest_side_branch(g, main_path)
+    pts = np.array([(xs[i], ys[i]) for i in main_path], float)
     if len(pts) > smooth:
         k_smooth = np.ones(smooth) / smooth
         pad = smooth // 2
@@ -90,6 +124,8 @@ def centerline(mask: np.ndarray, smooth: int = 7) -> Tuple[float, np.ndarray, fl
     seg = float(np.hypot(*np.diff(sm, axis=0).T).sum()) if len(sm) > 1 else 0.0
     ha = float(dt[int(pts[0][1]), int(pts[0][0])])
     hb = float(dt[int(pts[-1][1]), int(pts[-1][0])])
+    if return_branch:
+        return seg + ha + hb, sm, ha, hb, branch_len, main_len
     return seg + ha + hb, sm, ha, hb
 
 
@@ -105,7 +141,9 @@ def measure(
 
     parsed = []
     for idx, mask in enumerate(shrimp_masks):
-        length_px, sm, ha, hb = centerline(mask)
+        length_px, sm, ha, hb, branch_len, main_len = centerline(
+            mask, return_branch=True
+        )
         length_mm = (
             float(length_px / px_per_mm)
             if (px_per_mm is not None and px_per_mm > 0)
@@ -113,13 +151,18 @@ def measure(
         )
         path = [(float(x), float(y)) for x, y in sm]
         outline = outline_of(mask)
-        parsed.append((idx, length_px, length_mm, path, sm, ha, hb, mask, outline))
+        branch_ratio = float(branch_len / main_len) if main_len > 0 else 0.0
+        parsed.append(
+            (idx, length_px, length_mm, path, sm, ha, hb, mask, outline, branch_ratio)
+        )
 
     results: List[ShrimpMeasure] = []
     n_masks = len(parsed)
+    lengths = [p[1] for p in parsed]
+    max_len = max(lengths) if lengths else 0.0
 
     for i in range(n_masks):
-        idx, length_px, length_mm, path, sm, ha, hb, mask, outline = parsed[i]
+        idx, length_px, length_mm, path, sm, ha, hb, mask, outline, branch_ratio = parsed[i]
         if len(sm) == 0:
             results.append(
                 ShrimpMeasure(
@@ -129,9 +172,24 @@ def measure(
                     overlapped=False,
                     path=path,
                     outline=outline,
+                    merged=False,
                 )
             )
             continue
+
+        is_branching = branch_ratio >= 0.35
+        other_lens = [
+            lengths[j]
+            for j in range(n_masks)
+            if j != i and lengths[j] >= 0.40 * max_len
+        ]
+        if len(other_lens) >= 3:
+            med_len = float(np.median(other_lens))
+            is_much_longer = length_px >= 1.6 * med_len
+        else:
+            is_much_longer = False
+
+        is_merged = is_branching or is_much_longer
 
         h, w = mask.shape[:2]
         ends = [(sm[0][0], sm[0][1], ha), (sm[-1][0], sm[-1][1], hb)]
@@ -180,6 +238,7 @@ def measure(
                 overlapped=is_overlapped,
                 path=path,
                 outline=outline,
+                merged=is_merged,
             )
         )
 
