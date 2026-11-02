@@ -574,6 +574,7 @@ def test_samples_csv_route_with_samples_and_post_unaffected():
     shrimp[100:110, 50:150] = True
     seg = FakeSegmenter({"ruler": [ruler], "shrimp": [shrimp]})
     service.segmenter = seg
+    store.save_settings(Settings(min_measured=1))
     post_resp = client.post("/api/samples", files={"photo": ("tray.jpg", b"fake_bytes", "image/jpeg")})
     assert post_resp.status_code == 200
     assert post_resp.json()["status"] == "ok"

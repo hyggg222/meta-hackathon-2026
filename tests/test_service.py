@@ -559,7 +559,7 @@ def test_samples_csv_edge_cases():
     csv_text = service.samples_csv()
     assert "None" not in csv_text
     lines = csv_text.split("\r\n")
-    assert lines[1] == "01/11/2026,0,5,,,,,"
+    assert lines[1] == "01/11/2026,0,5,,,,"
     assert lines[2] == "04/11/2026,6,1,15.0,,,"
 
 

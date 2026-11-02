@@ -1,7 +1,9 @@
 # Service orchestration for shrimp measurement analysis, feeds, and settings
 from collections import OrderedDict
+import csv
 from datetime import date
 import hashlib
+import io
 import math
 from pathlib import Path
 import threading
@@ -159,3 +161,54 @@ class Service:
             self.table,
             prices=self.prices,
         )
+
+    def samples_csv(self) -> str:
+        # Export all saved samples as CSV text with Vietnamese headers
+        output = io.StringIO()
+        writer = csv.writer(output, lineterminator="\r\n")
+        writer.writerow(
+            [
+                "Ngày",
+                "Số con đo",
+                "Số con bị loại",
+                "Dài trung bình (cm)",
+                "Độ lệch chiều dài (mm)",
+                "Số con trên kg",
+                "Dữ liệu mẫu",
+            ]
+        )
+        samples = sorted(self.store.samples(), key=lambda s: (s.day, s.id))
+        for s in samples:
+            mean_cm = (
+                f"{s.mean_length_mm / 10.0:.1f}"
+                if s.mean_length_mm is not None
+                else ""
+            )
+            sd_mm = (
+                f"{s.sd_length_mm:.1f}"
+                if s.sd_length_mm is not None
+                else ""
+            )
+            size_per_kg = (
+                self.table.per_kg(s.mean_length_mm)
+                if self.table is not None and s.mean_length_mm is not None
+                else None
+            )
+            size_str = (
+                str(round(size_per_kg))
+                if size_per_kg is not None
+                else ""
+            )
+            demo_str = "có" if s.demo else ""
+            writer.writerow(
+                [
+                    s.day.strftime("%d/%m/%Y"),
+                    str(s.n_measured),
+                    str(s.n_left_out),
+                    mean_cm,
+                    sd_mm,
+                    size_str,
+                    demo_str,
+                ]
+            )
+        return output.getvalue()

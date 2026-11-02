@@ -4,7 +4,7 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
 from fastapi import Body, FastAPI, File, Form, UploadFile
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 
 from shrimp.models import AnalysisNotFound, SegmentationError
 from shrimp.service import Service
@@ -29,6 +29,18 @@ def _to_json_dict(obj: Any) -> Any:
 def create_app(service: Service) -> FastAPI:
     # Build and configure FastAPI application with service endpoints
     app = FastAPI(title="Shrimp Measurement")
+
+    @app.get("/api/samples.csv")
+    def get_samples_csv():
+        # Export saved samples as downloadable CSV spreadsheet
+        csv_text = service.samples_csv()
+        body = b"\xef\xbb\xbf" + csv_text.encode("utf-8")
+        return Response(
+            content=body,
+            status_code=200,
+            media_type="text/csv",
+            headers={"Content-Disposition": 'attachment; filename="nhat-ky-tom.csv"'},
+        )
 
     @app.post("/api/samples")
     def post_sample(
