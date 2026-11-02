@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 import numpy as np
 
 from shrimp.app import create_app
-from shrimp.models import SegmentationError
+from shrimp.models import SegmentationError, Settings
 from tests.conftest import FakeSegmenter
 
 
@@ -15,7 +15,7 @@ def test_analyze_route_ok():
     shrimp = np.zeros((300, 300), bool)
     shrimp[100:110, 50:150] = True
     seg = FakeSegmenter({"ruler": [ruler], "shrimp": [shrimp]})
-    app = create_app(seg)
+    app = create_app(seg, settings=Settings(min_measured=1))
     client = TestClient(app)
 
     resp = client.post("/api/analyze", files={"photo": ("tray.jpg", b"fake_bytes", "image/jpeg")})
@@ -69,7 +69,7 @@ def test_analyze_route_sync():
     shrimp = np.zeros((300, 300), bool)
     shrimp[100:110, 50:150] = True
     seg = FakeSegmenter({"ruler": [ruler], "shrimp": [shrimp]})
-    app = create_app(seg)
+    app = create_app(seg, settings=Settings(min_measured=1))
     route = next(r for r in app.routes if getattr(r, "path", None) == "/api/analyze")
     assert not inspect.iscoroutinefunction(route.endpoint)
 

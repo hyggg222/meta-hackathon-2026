@@ -94,8 +94,8 @@ def analyze_tray(
         )
 
     shrimp_measures = measure(filtered_shrimp, scale_px_per_mm)
-    n_measured = len(shrimp_measures)
-    n_left_out = 0
+    n_measured = sum(1 for s in shrimp_measures if not s.overlapped)
+    n_left_out = sum(1 for s in shrimp_measures if s.overlapped)
 
     if scale_px_per_mm is None:
         return TrayResult(
@@ -107,18 +107,38 @@ def analyze_tray(
             n_left_out=n_left_out,
             mean_length_mm=None,
             size_per_kg=None,
+            notices=[],
         )
 
-    lengths = [s.length_mm for s in shrimp_measures if s.length_mm is not None]
-    mean_len = float(np.mean(lengths)) if lengths else None
+    measured_lengths = [
+        s.length_mm for s in shrimp_measures if not s.overlapped and s.length_mm is not None
+    ]
+    mean_len = float(np.mean(measured_lengths)) if measured_lengths else None
+
+    if n_measured < settings.min_measured:
+        status = "too_few"
+        size_per_kg = None
+        notices: List[str] = []
+    else:
+        status = "ok"
+        size_per_kg = None
+        notices = []
+        if table is not None and mean_len is not None:
+            size_per_kg = table.per_kg(mean_len)
+            if getattr(table, "temporary", False) and size_per_kg is not None:
+                notices.append("temporary_table")
+                notices.append("rough_estimate")
+            elif size_per_kg is None:
+                notices.append("outside_table_range")
 
     return TrayResult(
-        status="ok",
+        status=status,
         reference=reference,
         scale_px_per_mm=scale_px_per_mm,
         shrimp=shrimp_measures,
         n_measured=n_measured,
         n_left_out=n_left_out,
         mean_length_mm=mean_len,
-        size_per_kg=None,
+        size_per_kg=size_per_kg,
+        notices=notices,
     )
