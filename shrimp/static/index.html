@@ -51,7 +51,31 @@ table.t{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
 .legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:14px;margin-top:6px}
 .dot{display:inline-block;width:14px;height:14px;border-radius:50%;border:3px solid var(--ink);vertical-align:-2px;margin-right:4px}
 .dot.real{background:var(--green)}.dot.demo{background:#fff}
-.dash{display:inline-block;width:3px;height:14px;background:var(--red);vertical-align:-2px;margin-right:6px}
+/* Dashboard option C (Ledger) */
+.dash{--line:#d6d4cc;--amber:#8a5a00}
+.dash .strip{display:grid;grid-template-columns:repeat(3,1fr);border:2px solid var(--ink);border-radius:10px;overflow:hidden}
+.dash .strip div{padding:10px 10px 12px}
+.dash .strip>div+div{border-left:2px solid var(--ink)}
+.dash .strip .k{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.dash .strip .v{font-size:26px;font-weight:800;line-height:1.15}
+.dash .strip .v small{font-size:13px;font-weight:700}
+.dash .flag{display:flex;gap:10px;align-items:flex-start;margin:12px 0;padding:10px 12px;background:var(--ink);color:#fff;border-radius:10px}
+.dash .flag .dot{flex:none;width:14px;height:14px;border-radius:50%;margin-top:5px}
+.dash .flag p{margin:0;font-size:15px}
+.dash .flag b{font-size:16px}
+.dash h4{margin:16px 0 6px;font-size:15px}
+.dash .g{font-weight:800}
+.dash table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.dash th{font-size:13px;text-align:right;color:var(--muted);font-weight:700;padding:0 0 6px;white-space:nowrap}
+.dash td{padding:9px 0;border-top:1px solid var(--line);text-align:right;white-space:nowrap}
+.dash th:first-child,.dash td:first-child{text-align:left}
+.dash th:last-child,.dash td:last-child{text-align:right}
+.dash tr.latest td{font-weight:800}
+.dash .costrow{display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding:12px;border:2px solid var(--ink);border-radius:10px}
+.dash .costrow .big{font-size:24px;font-weight:800}
+.dash .legend{display:flex;gap:14px;font-size:13px;color:var(--muted);margin-top:6px;flex-wrap:wrap}
+.dash .legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+.dash .cap{font-size:13px;color:var(--muted)}
 svg{display:block;width:100%;height:auto}
 .stickybar{position:sticky;bottom:0;margin:16px -16px -20px;padding:10px 16px;background:var(--ink);color:#fff}
 .stickybar .btn{background:#fff;color:var(--ink);border-color:#fff}
@@ -194,7 +218,7 @@ details.fold>.in{padding:0 14px 14px}
         <div class="inwrap"><input id="setup-price" type="text" inputmode="decimal"><span class="u">VND per kg</span></div>
       </div>
       <div class="fld">
-        <label for="setup-stall">Stall flag under (mm a day)</label>
+        <label for="setup-stall">Growth looks slow under (mm a day)</label>
         <div class="inwrap"><input id="setup-stall" type="text" inputmode="decimal"><span class="u">mm per day</span></div>
         <p class="hint">Assumption, not verified with a farmer.</p>
       </div>
@@ -213,9 +237,9 @@ details.fold>.in{padding:0 14px 14px}
     </section>
   </section>
 
-  <!-- Dashboard screen (dashA) -->
-  <section id="screen-dash" hidden>
-    <div id="dash-content" class="stack"></div>
+  <!-- Dashboard screen (dashC) -->
+  <section id="screen-dash" class="dash" hidden>
+    <div id="dash-content"></div>
   </section>
 
   <div style="display:none" aria-hidden="true">
@@ -258,9 +282,10 @@ function vnd(n) {
   return (n !== null && n !== undefined && !isNaN(n)) ? Number(n).toLocaleString("en-US") : "0";
 }
 
-// Format number with explicit plus or minus sign
-function sgn(n) {
-  return (n >= 0 ? "+" : "−") + Math.abs(n).toFixed(1);
+// Format growth in mm per day (two decimals, en dash when null)
+function growthText(val) {
+  if (val === null || val === undefined || isNaN(val)) return "&ndash;";
+  return Number(val).toFixed(2);
 }
 
 // Format shrimp count per kg as a whole number
@@ -317,15 +342,6 @@ function parseNumber(text, opts) {
   return null;
 }
 
-// Format growth rate description in mm per day
-function formatGrowth(growth, capitalize) {
-  if (growth === null || growth === undefined || isNaN(growth)) return "-";
-  const absVal = Math.abs(growth).toFixed(3);
-  if (growth < 0) {
-    return (capitalize ? "Shrank by " : "shrank by ") + absVal + " mm a day";
-  }
-  return (capitalize ? "Grew " : "grew ") + absVal + " mm a day";
-}
 
 // Set error message under form field
 function setFieldError(inputEl, msg) {
@@ -813,9 +829,9 @@ async function loadSettings() {
   } catch (_) {}
 }
 
-// Render trend chart SVG with sample markers and stall dates
+// Render trend chart SVG with sample markers and slow growth segment
 function renderDashboardChart(chartData, rowData) {
-  const W = 360, H = 230, pl = 44, pr = 14, pt = 26, pb = 34;
+  const W = 360, H = 200, pl = 40, pr = 14, pt = 18, pb = 30;
   const vals = chartData.map(pt => pt.mean_length_mm);
   let lo = Math.floor(Math.min(...vals) - 1);
   let hi = Math.ceil(Math.max(...vals) + 1);
@@ -830,90 +846,103 @@ function renderDashboardChart(chartData, rowData) {
   let g = "";
   for (let k = 0; k <= 3; k++) {
     const v = lo + (hi - lo) * k / 3;
-    g += `<line x1="${pl}" x2="${W - pr}" y1="${y(v)}" y2="${y(v)}" stroke="#8a8a8a" stroke-width="1.5"/><text x="${pl - 6}" y="${y(v) + 5}" text-anchor="end" font-size="14" font-weight="700" fill="#101010">${Math.round(v)}</text>`;
+    g += `<line x1="${pl}" x2="${W - pr}" y1="${y(v)}" y2="${y(v)}" stroke="#d6d4cc" stroke-width="1"/><text x="${pl - 8}" y="${y(v) + 4}" text-anchor="end" font-size="12" fill="#4a4a4a">${Math.round(v)}</text>`;
   }
-  g += '<text x="4" y="14" font-size="13" font-weight="700" fill="#454545">mm</text>';
-
-  const stalls = chartData.filter(r => r.stall);
-  stalls.forEach(r => {
-    const X = x(Date.parse(r.day + "T00:00:00Z"));
-    g += `<line x1="${X}" x2="${X}" y1="${pt - 4}" y2="${H - pb}" stroke="#b3200c" stroke-width="3" stroke-dasharray="6 4"/><text x="${X}" y="${pt - 9}" text-anchor="middle" font-size="13" font-weight="800" fill="#b3200c">stall</text>`;
-  });
 
   if (chartData.length > 1) {
     const pts = chartData.map(r => `${x(Date.parse(r.day + "T00:00:00Z"))},${y(r.mean_length_mm)}`).join(" ");
-    g += `<polyline fill="none" stroke="#101010" stroke-width="4" stroke-linejoin="round" points="${pts}"/>`;
+    g += `<polyline points="${pts}" fill="none" stroke="#101010" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+  }
+
+  let hasSlow = false;
+  for (let i = 1; i < chartData.length; i++) {
+    if (chartData[i].stall) {
+      hasSlow = true;
+      const xPrev = x(Date.parse(chartData[i - 1].day + "T00:00:00Z"));
+      const yPrev = y(chartData[i - 1].mean_length_mm);
+      const xCurr = x(Date.parse(chartData[i].day + "T00:00:00Z"));
+      const yCurr = y(chartData[i].mean_length_mm);
+      g += `<line x1="${xPrev}" x2="${xCurr}" y1="${yPrev}" y2="${yCurr}" stroke="#8a5a00" stroke-width="6" stroke-linecap="round"/>`;
+      g += `<text x="${xCurr}" y="${yCurr - 10}" text-anchor="end" font-size="13" font-weight="800" fill="#8a5a00">slow</text>`;
+    }
   }
 
   const validRows = (rowData || []).filter(r => r.mean_length_mm !== null && r.mean_length_mm !== undefined);
-  const days = [];
-  chartData.forEach(r => {
-    if (!days.includes(r.day)) days.push(r.day);
-  });
-  let labeledDays;
-  if (days.length <= 5) {
-    labeledDays = new Set(days);
-  } else {
-    // label thinning
-    const step = (days.length - 1) / 4;
-    labeledDays = new Set([
-      days[0],
-      days[Math.round(step)],
-      days[Math.round(step * 2)],
-      days[Math.round(step * 3)],
-      days[days.length - 1]
-    ]);
-  }
-  const seen = {};
   chartData.forEach((r, i) => {
     const X = x(Date.parse(r.day + "T00:00:00Z"));
     const Y = y(r.mean_length_mm);
     const isDemo = validRows[i] ? !!validRows[i].demo : false;
-    g += `<circle cx="${X}" cy="${Y}" r="8" fill="${isDemo ? '#fff' : '#0a5c36'}" stroke="#101010" stroke-width="3.5"/>`;
-    if (!seen[r.day]) {
-      seen[r.day] = 1;
-      if (labeledDays.has(r.day)) {
-        if (days.length > 1 && r.day === days[0]) {
-          g += `<text x="${X}" y="${H - 12}" text-anchor="start" font-size="13" font-weight="700" fill="#101010">${lab(r.day)}</text>`;
-        } else if (days.length > 1 && r.day === days[days.length - 1]) {
-          g += `<text x="${X}" y="${H - 12}" text-anchor="end" font-size="13" font-weight="700" fill="#101010">${lab(r.day)}</text>`;
-        } else {
-          g += `<text x="${X}" y="${H - 12}" text-anchor="middle" font-size="13" font-weight="700" fill="#101010">${lab(r.day)}</text>`;
-        }
-      }
+    g += `<circle cx="${X}" cy="${Y}" r="5.5" fill="${isDemo ? '#fff' : '#0a5c36'}" stroke="#101010" stroke-width="2.5"/>`;
+  });
+
+  // label gap
+  const distinctDays = [];
+  chartData.forEach(r => {
+    if (!distinctDays.some(d => d.day === r.day)) {
+      distinctDays.push({
+        day: r.day,
+        x: x(Date.parse(r.day + "T00:00:00Z"))
+      });
     }
   });
 
-  const legend = `<div class="legend"><span><i class="dot real"></i>real sample</span><span><i class="dot demo"></i>demo data</span>${stalls.length ? '<span><i class="dash"></i>stall date</span>' : ''}</div>`;
-  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Line chart of average length in millimetres per sample date">${g}</svg>${legend}`;
+  if (distinctDays.length === 1) {
+    const d0 = distinctDays[0];
+    g += `<text x="${d0.x}" y="${H - 8}" text-anchor="start" font-size="12" fill="#4a4a4a">${lab(d0.day)}</text>`;
+  } else if (distinctDays.length >= 2) {
+    const first = distinctDays[0];
+    const last = distinctDays[distinctDays.length - 1];
+    g += `<text x="${first.x}" y="${H - 8}" text-anchor="start" font-size="12" fill="#4a4a4a">${lab(first.day)}</text>`;
+
+    let lastDrawnX = first.x;
+    for (let i = 1; i < distinctDays.length - 1; i++) {
+      const mid = distinctDays[i];
+      if (mid.x - lastDrawnX >= 56 && last.x - mid.x >= 56) {
+        g += `<text x="${mid.x}" y="${H - 8}" text-anchor="middle" font-size="12" fill="#4a4a4a">${lab(mid.day)}</text>`;
+        lastDrawnX = mid.x;
+      }
+    }
+
+    g += `<text x="${last.x}" y="${H - 8}" text-anchor="end" font-size="12" fill="#4a4a4a">${lab(last.day)}</text>`;
+  }
+
+  let legend = '<div class="legend"><span><i style="background:#0a5c36;border:2px solid #101010"></i>real sample</span><span><i style="background:#fff;border:2px solid #101010"></i>demo data</span>';
+  if (hasSlow) {
+    legend += '<span><i style="background:#8a5a00"></i>growth under your line</span>';
+  }
+  legend += '</div>';
+
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Average length per sample">${g}</svg>${legend}`;
 }
 
 // Render samples history table card with reverse chronological order
 function renderDashboardSamplesTable(rows, notices) {
   const reversed = (rows || []).slice().reverse();
-  const trs = reversed.map(r => {
+  const trs = reversed.map((r, i) => {
     const dStr = lab(r.day);
+    const demoBadge = r.demo ? ' <span class="chip demo" style="font-size:11px;padding:0 5px;vertical-align:1px">demo</span>' : '';
     const n = r.n_measured;
-    const avg = (r.mean_length_mm !== null && r.mean_length_mm !== undefined) ? f1(r.mean_length_mm) : "-";
-    const perKg = perKgText(r.size_per_kg);
-    const dataBadge = r.demo ? '<span class="chip demo">demo data</span>' : 'real';
-    return `<tr><td>${dStr}</td><td class="r">${n}</td><td class="r">${avg}</td><td class="r">${perKg}</td><td>${dataBadge}</td></tr>`;
+    const avg = (r.mean_length_mm !== null && r.mean_length_mm !== undefined) ? f1(r.mean_length_mm) : "&ndash;";
+    const perKg = perKgText(r.size_per_kg, "&ndash;");
+    const growth = growthText(r.growth_mm_per_day);
+    const isLatest = (i === 0) ? ' class="latest"' : '';
+    return `<tr${isLatest}><td>${dStr}${demoBadge}</td><td>${n}</td><td>${avg}</td><td>${perKg}</td><td>${growth}</td></tr>`;
   }).join("");
 
   const note = (notices && notices.includes("temporary_table"))
-    ? '<p class="small">Size per kg: temporary table, not the CP table.</p>'
+    ? '<p class="cap" style="margin-top:8px">Size per kg: temporary table, not the CP table.</p>'
     : '';
 
-  return `<div class="card"><b>Samples</b><table class="t"><thead><tr><th>Date</th><th class="r">N measured</th><th class="r">Avg mm</th><th class="r">Per kg</th><th>Data</th></tr></thead><tbody>${trs}</tbody></table>${note}</div>`;
+  return `<h4>Samples</h4><table><thead><tr><th>Date</th><th>N</th><th>mm</th><th>per kg</th><th>mm/day</th></tr></thead><tbody>${trs}</tbody></table>${note}`;
 }
 
-// Fetch dashboard data and render cards in option A layout
+// Fetch dashboard data and render option C ledger layout
 async function loadDashboard() {
   const target = document.getElementById("dash-content");
   try {
     const resp = await fetch("/api/dashboard");
     if (!resp.ok) {
-      target.innerHTML = '<div class="band red" role="alert">Could not load dashboard</div>';
+      target.innerHTML = '<div class="flag"><p>Could not load dashboard</p></div>';
       return;
     }
     const d = await resp.json();
@@ -926,75 +955,68 @@ async function loadDashboard() {
     const lastRow = (d.rows && d.rows.length > 0) ? d.rows[d.rows.length - 1] : null;
     const lastDay = lastRow ? lastRow.day : "";
     const isDemo = lastRow ? !!lastRow.demo : false;
-    const demoChip = isDemo ? '<span class="chip demo">demo data</span>' : '';
-    const avgLen = (d.latest_length_mm !== null && d.latest_length_mm !== undefined) ? f1(d.latest_length_mm) : "-";
-
     const notices = d.notices || [];
-    let sizeDisplay = "";
-    if (d.latest_size_per_kg !== null && d.latest_size_per_kg !== undefined) {
-      sizeDisplay = `<span class="big">${perKgText(d.latest_size_per_kg)}</span><span class="unit"> per kg</span>`;
-    } else if (notices.includes("outside_table_range")) {
-      sizeDisplay = '<span class="big" style="font-size:26px">outside table range</span>';
-    } else {
-      sizeDisplay = '<span class="big">-</span><span class="unit"> per kg</span>';
-    }
 
-    const tagHtml = notices.includes("temporary_table") ? `<p style="margin:10px 0 0">${sizeTag()}</p>` : "";
+    const sizeVal = (d.latest_size_per_kg !== null && d.latest_size_per_kg !== undefined) ? perKgText(d.latest_size_per_kg) : "&ndash;";
+    const lenVal = (d.latest_length_mm !== null && d.latest_length_mm !== undefined) ? f1(d.latest_length_mm) : "&ndash;";
+    const growthVal = growthText(d.growth_mm_per_day);
 
-    let changeLineHtml = "";
-    if (d.n_previous !== null && d.n_previous !== undefined && d.rows && d.rows.length >= 2) {
-      const prevRow = d.rows[d.rows.length - 2];
-      const prevDay = prevRow.day;
-      const chgMm = (d.change_length_mm !== null && d.change_length_mm !== undefined) ? sgn(d.change_length_mm) + " mm" : "-";
-      const fallback = notices.includes("outside_table_range") ? "outside table range" : "-";
-      const prevSize = perKgText(prevRow.size_per_kg, fallback);
-      const currSize = perKgText(d.latest_size_per_kg, fallback);
-      changeLineHtml = `<p style="margin:10px 0 0">Since ${lab(prevDay)}: <b>${chgMm}</b>, size ${prevSize} to ${currSize} per kg <span class="small">(${d.n_latest} measured now, ${d.n_previous} before)</span></p>`;
-    }
+    const stripHtml = `<div class="strip num"><div><div class="k">Size</div><div class="v">${sizeVal} <small>per kg</small></div></div><div><div class="k">Length</div><div class="v">${lenVal} <small>mm</small></div></div><div><div class="k">Growth</div><div class="v">${growthVal} <small>mm/day</small></div></div></div>`;
 
-    const latestCard = `<div class="card"><div class="cap" style="margin:0 0 8px">Latest sample, ${lab(lastDay)}, ${d.n_latest} shrimp measured ${demoChip}</div><div class="nums"><div><span class="big">${avgLen}</span><span class="unit"> mm</span><div class="cap">average length</div></div><div>${sizeDisplay}<div class="cap">size</div></div></div>${tagHtml}${changeLineHtml}</div>`;
+    const capParts = [`${lab(lastDay)}, ${d.n_latest} shrimp measured`];
+    if (isDemo) capParts.push('<span class="chip demo">demo data</span>');
+    if (notices.includes("temporary_table")) capParts.push('temporary size table');
+    const capHtml = `<p class="cap" style="margin:6px 0 0">${capParts.join(" &middot; ")}</p>`;
 
     let flagHtml = "";
+    const prevRow = (d.rows && d.rows.length >= 2) ? d.rows[d.rows.length - 2] : null;
+    const prevDay = prevRow ? lab(prevRow.day) : "";
+
     if (d.stall === true) {
-      const prevDay = (d.rows && d.rows.length >= 2) ? d.rows[d.rows.length - 2].day : "";
-      flagHtml += `<div class="band red" role="status">Stall flag<p>Average length ${formatGrowth(d.growth_mm_per_day, false)} since ${lab(prevDay)}. Flag shows under ${d.stall_threshold_mm_per_day}. Based on ${d.n_latest} and ${d.n_previous} shrimp.</p></div>`;
+      flagHtml += `<div class="flag"><span class="dot" style="background:var(--yellow)"></span><p><b>Growth looks slow.</b> Under your ${d.stall_threshold_mm_per_day} mm a day since ${prevDay}. A hint only, you decide.</p></div>`;
     } else if (d.stall === false) {
-      const prevDay = (d.rows && d.rows.length >= 2) ? d.rows[d.rows.length - 2].day : "";
-      flagHtml += `<div class="card" role="status"><b>No stall flag.</b> ${formatGrowth(d.growth_mm_per_day, true)} since ${lab(prevDay)}.</div>`;
+      flagHtml += `<div class="flag"><span class="dot" style="background:var(--green)"></span><p>Growth is not slow: ${growthVal} mm a day since ${prevDay}.</p></div>`;
     } else {
       if (d.n_previous === null || d.n_previous === undefined) {
-        flagHtml += '<div class="card" role="status"><b>Only one sample.</b> Take another photo in a few days to see growth.</div>';
+        flagHtml += '<div class="flag"><span class="dot" style="background:#8a8a8a"></span><p><b>Only one sample.</b> Take another photo in a few days to see growth.</p></div>';
       } else if (notices.includes("same_day")) {
-        flagHtml += `<div class="card" role="status"><b>Same day.</b> Two samples on ${lab(lastDay)}. Growth cannot be told.</div>`;
+        flagHtml += `<div class="flag"><span class="dot" style="background:#8a8a8a"></span><p><b>Same day.</b> Two samples on ${lab(lastDay)}. Growth cannot be told.</p></div>`;
       } else if (notices.includes("not_enough_shrimp")) {
         const counts = (d.n_previous !== null && d.n_previous !== undefined)
           ? `${d.n_latest} measured in the latest sample, ${d.n_previous} in the one before`
           : `${d.n_latest} measured in the latest sample`;
-        flagHtml += `<div class="card" role="status"><b>Not enough shrimp.</b> ${counts}; ${d.min_measured} are needed in each to tell a stall.</div>`;
+        flagHtml += `<div class="flag"><span class="dot" style="background:#8a8a8a"></span><p><b>Not enough shrimp.</b> ${counts}; ${d.min_measured} are needed in each to tell.</p></div>`;
       }
     }
 
     if (d.at_harvest) {
-      flagHtml += `<div class="band blue" role="status">At harvest size<p>${perKgText(d.latest_size_per_kg)} per kg is at or under your ${d.harvest_threshold_per_kg} per kg. For your information. You decide.</p></div>`;
-    }
-
-    let costHtml = "";
-    if (d.stall_day_cost_vnd !== null && d.stall_day_cost_vnd !== undefined) {
-      costHtml = `<div class="card"><b>Cost of a stall day</b><div class="big">${vnd(d.stall_day_cost_vnd)} <span class="unit">VND</span></div></div>`;
-    } else {
-      costHtml = '<div class="card"><b>Cost of a stall day</b><div class="big" style="font-size:30px;margin-top:4px">Enter feed kg</div><button class="btn sm dark" id="dash-enter-feed-btn" type="button" style="margin-top:10px">Enter feed</button></div>';
+      flagHtml += `<div class="flag"><span class="dot" style="background:var(--blue)"></span><p>Size is at or under your ${d.harvest_threshold_per_kg} per kg line. For your information, you decide.</p></div>`;
     }
 
     let chartHtml = "";
     if (d.chart && d.chart.length > 0) {
-      chartHtml = `<div class="card"><b>Average length per sample</b>${renderDashboardChart(d.chart, d.rows)}</div>`;
+      chartHtml = `<h4>Average length per sample</h4>${renderDashboardChart(d.chart, d.rows)}`;
+    }
+
+    let costHtml = "";
+    const feedKg = d.feed_kg || (d.feed && d.feed.kg);
+    const feedPrice = d.feed_price_vnd || (d.feed && d.feed.price_vnd);
+    let feedCap = "";
+    if (feedKg && feedPrice) {
+      feedCap = `<div class="cap">feed ${feedKg} kg &times; ${vnd(feedPrice)} VND</div>`;
+    }
+
+    if (d.stall_day_cost_vnd !== null && d.stall_day_cost_vnd !== undefined) {
+      costHtml = `<div class="costrow"><div><b>A day without growth</b>${feedCap}</div><div class="big num" style="font-size:22px">${vnd(d.stall_day_cost_vnd)} <small style="font-size:13px">VND</small></div></div>`;
+    } else {
+      costHtml = `<div class="costrow"><div><b>A day without growth</b>${feedCap}</div><button class="btn sm dark" id="dash-enter-feed-btn" type="button" style="width:auto;min-height:44px;padding:0 14px;margin:0;font-size:17px">Enter feed</button></div>`;
     }
 
     const samplesHtml = renderDashboardSamplesTable(d.rows, notices);
 
-    target.innerHTML = latestCard + flagHtml + costHtml + chartHtml + samplesHtml;
+    target.innerHTML = stripHtml + capHtml + flagHtml + chartHtml + costHtml + samplesHtml;
   } catch (_) {
-    target.innerHTML = '<div class="band red" role="alert">Could not load dashboard</div>';
+    target.innerHTML = '<div class="flag"><p>Could not load dashboard</p></div>';
   }
 }
 
