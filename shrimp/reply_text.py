@@ -46,8 +46,15 @@ def template_reply(
 ) -> str:
     # Build Vietnamese reply text for tray analysis result
     if tray.status == "too_few":
+        crowded = ""
+        if "crowded" in tray.notices:
+            crowded = (
+                "Ảnh có nhiều tôm chồng nhau hoặc dính nhau, nhiều con bị loại. "
+                "Xếp tôm trải ra, không chồng lên nhau, rồi chụp lại. "
+            )
         return (
             f"Chỉ có {tray.n_measured} con được tính, cần ít nhất {min_measured} con. "
+            f"{crowded}"
             "Chưa lưu. Xếp lại tôm không chạm nhau rồi chụp lại, "
             "hoặc gõ thêm số các con cần tính."
         )

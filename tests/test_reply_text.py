@@ -167,6 +167,29 @@ def test_template_reply_too_few():
         assert "Xếp lại tôm không chạm nhau rồi chụp lại, hoặc gõ thêm số các con cần tính." in reply
 
 
+def test_template_reply_too_few_crowded_says_the_photo_is_crowded():
+    # A pile of overlapping shrimp leaves too few: the farmer needs to hear that the photo is the problem
+    t = _make_tray(
+        status="too_few",
+        n_measured=4,
+        n_left_out=28,
+        mean_length_mm=None,
+        size_per_kg=None,
+        notices=["crowded"],
+        num_shrimp=32,
+    )
+    reply = template_reply(t, min_measured=5, saved=None)
+    assert "Chỉ có 4 con được tính, cần ít nhất 5 con." in reply
+    assert "Ảnh có nhiều tôm chồng nhau hoặc dính nhau, nhiều con bị loại." in reply
+    assert "Xếp tôm trải ra, không chồng lên nhau, rồi chụp lại." in reply
+    assert check_reply(reply, allowed_numbers_for_tray(t, 5)) is True
+
+
+def test_template_reply_too_few_without_crowded_is_unchanged():
+    t = _make_tray(status="too_few", n_measured=3, n_left_out=2, mean_length_mm=None, size_per_kg=None)
+    assert "chồng nhau" not in template_reply(t, min_measured=5, saved=None)
+
+
 def test_template_reply_no_reference():
     # Test no_reference status
     t_ref = _make_tray(status="no_reference", n_measured=8, n_left_out=2, mean_length_mm=None, size_per_kg=None)
