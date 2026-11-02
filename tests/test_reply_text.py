@@ -59,6 +59,13 @@ def _make_dashboard(
     at_harvest: bool = False,
     harvest_threshold_per_kg: float = 50.0,
     stall_day_cost_vnd: Optional[int] = None,
+    value_per_kg_vnd: Optional[int] = None,
+    next_class_per_kg: Optional[int] = None,
+    next_class_price_vnd: Optional[int] = None,
+    next_class_gain_pct: Optional[float] = None,
+    days_to_next_class: Optional[int] = None,
+    breakeven_mm_per_day: Optional[float] = None,
+    price_source: Optional[str] = None,
 ) -> Dashboard:
     # Helper to construct Dashboard for tests
     rows: List[SampleRow] = []
@@ -105,6 +112,13 @@ def _make_dashboard(
         stall_unclear=False,
         days_needed=None,
         shrimp_needed=None,
+        value_per_kg_vnd=value_per_kg_vnd,
+        next_class_per_kg=next_class_per_kg,
+        next_class_price_vnd=next_class_price_vnd,
+        next_class_gain_pct=next_class_gain_pct,
+        days_to_next_class=days_to_next_class,
+        breakeven_mm_per_day=breakeven_mm_per_day,
+        price_source=price_source,
     )
 
 
@@ -374,3 +388,42 @@ def test_no_text_contains_forbidden_words():
         lower = text.lower()
         for forbidden in ["harvest", "sell", "alarm", "stall"]:
             assert forbidden not in lower, f"Forbidden '{forbidden}' found in: {text}"
+
+
+def test_dashboard_reply_pricing_lines():
+    # dashboard_reply formats size price, next class gain/days, and feed break-even
+    d = _make_dashboard(
+        latest_length_mm=125.0,
+        latest_size_per_kg=36.0,
+        growth_mm_per_day=0.5,
+        stall=False,
+        value_per_kg_vnd=141200,
+        next_class_per_kg=30,
+        next_class_price_vnd=155000,
+        next_class_gain_pct=9.8,
+        days_to_next_class=23,
+        breakeven_mm_per_day=0.27,
+        price_source="Tepbac national median",
+    )
+    reply = dashboard_reply(d)
+
+    # Dotted thousands and formatted text
+    assert "Ở cỡ 36 con/kg, giá khoảng 141.200 đ/kg (bảng giá mặc định, bạn có thể khác)." in reply
+    assert "Bậc cỡ 30 con/kg thường được giá hơn khoảng 9.8% (còn khoảng 23 ngày nếu tôm lớn như vừa đo, rất thô)." in reply
+    assert "Thức ăn chỉ hòa vốn nếu tôm lớn trên khoảng 0.27 mm mỗi ngày (chưa tính điện, công, rủi ro)." in reply
+
+    # Forbidden words check
+    for word in ["nên", "thu hoạch", "bán"]:
+        assert word not in reply.lower()
+
+    # Passes check_reply with allowed numbers
+    allowed = allowed_numbers_for_dashboard(d)
+    assert check_reply(reply, allowed) is True
+
+    # Without days_to_next_class
+    d_no_days = replace(d, days_to_next_class=None)
+    reply_no_days = dashboard_reply(d_no_days)
+    assert "Bậc cỡ 30 con/kg thường được giá hơn khoảng 9.8%." in reply_no_days
+    assert "còn khoảng" not in reply_no_days
+    assert check_reply(reply_no_days, allowed_numbers_for_dashboard(d_no_days)) is True
+

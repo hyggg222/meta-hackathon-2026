@@ -481,3 +481,34 @@ def test_page_says_unclear_when_samples_are_too_noisy():
     assert "days_needed" in html
     # the page never decides: no growth-versus-threshold comparison in the script
     assert not re.search(r"[<>]=?\s*d\.stall_threshold", html)
+
+
+def test_page_dashboard_pricing_card_and_ration_setup():
+    # The dashboard contains pricing card text and setup form has ration field with parseNumber(
+    service = make_test_service()
+    app = create_app(service)
+    client = TestClient(app)
+
+    html = client.get("/").text
+
+    assert "usually pays about" in html
+    assert "Feed alone breaks even above" in html
+    assert "default price table" in html
+
+    # Setup form ration field
+    assert 'id="setup-ration"' in html
+    assert "Feed per day (percent of shrimp weight)" in html
+    assert "About 1.5 at 25 g. Used only for the break-even line." in html
+    assert "ration_pct" in html
+
+    # parseNumber used for ration
+    load_match = re.search(r"async\s+function\s+loadSettings\s*\(\)\s*\{([\s\S]*?)\}", html)
+    assert load_match is not None
+    assert "ration_pct" in load_match.group(1)
+
+    save_match = re.search(r"async\s+function\s+saveSetupHandler\s*\(\)\s*\{([\s\S]*?)\}", html)
+    assert save_match is not None
+    save_code = save_match.group(1)
+    assert "ration_pct" in save_code
+    assert re.search(r"parseNumber\(\s*rationInput\.value", save_code) is not None
+

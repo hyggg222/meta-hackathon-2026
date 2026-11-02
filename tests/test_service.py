@@ -489,3 +489,31 @@ def test_service_min_length_validation():
             service.save_settings(s)
         assert "min_length_mm" in str(excinfo.value)
         assert service.settings() == current_base
+
+
+def test_service_ration_pct_validation():
+    # Save settings validates ration_pct threshold and corrupt value falls back
+    store = Store(":memory:")
+    service = Service(FakeSegmenter(), store, FakeTable())
+    base = service.settings()
+    assert base.ration_pct == 1.5
+
+    for ok_val in (0.1, 1.5, 20.0, 2):
+        s = Settings(**{**base.__dict__, "ration_pct": ok_val})
+        assert service.save_settings(s).ration_pct == float(ok_val)
+
+    current_base = service.settings()
+    for bad in (0, -1, 20.1, 100, 1e9, float("nan"), float("inf"), "x", True, False, None, 10**400):
+        s = Settings(**{**current_base.__dict__, "ration_pct": bad})
+        with pytest.raises(ValueError) as excinfo:
+            service.save_settings(s)
+        assert "ration_pct" in str(excinfo.value)
+        assert service.settings() == current_base
+
+    # Corrupt stored value falls back to default 1.5
+    with store._lock, store._conn:
+        store._conn.execute(
+            "INSERT OR REPLACE INTO settings (key, value) VALUES ('ration_pct', '\"corrupt\"')"
+        )
+    assert service.settings().ration_pct == 1.5
+
