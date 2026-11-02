@@ -241,3 +241,46 @@ def test_notice_order():
     table = FakeTable({81.0: 75.0}, temporary=True)
     d = build_dashboard([s1, s2], [], Settings(), table)
     assert d.notices == ["same_day", "no_feed", "temporary_table", "rough_estimate"]
+
+
+def test_stall_float_guard():
+    # Stall calculation uses float guard rather than rounding
+    s1 = SampleRecord(1, date(2026, 11, 1), 8, 0, 90.0, False, None)
+    s2 = SampleRecord(2, date(2026, 11, 2), 8, 0, 90.32996, False, None)
+    d1 = build_dashboard([s1, s2], [], Settings(), FakeTable())
+    assert d1.stall is True
+
+    s3 = SampleRecord(3, date(2026, 11, 1), 8, 0, 90.0, False, None)
+    s4 = SampleRecord(4, date(2026, 11, 4), 8, 0, 90.99, False, None)
+    d2 = build_dashboard([s3, s4], [], Settings(), FakeTable())
+    assert d2.stall is False
+
+    s5 = SampleRecord(5, date(2026, 11, 1), 8, 0, 90.0, False, None)
+    s6 = SampleRecord(6, date(2026, 11, 4), 8, 0, 91.0, False, None)
+    d3 = build_dashboard([s5, s6], [], Settings(), FakeTable())
+    assert d3.stall is False
+
+
+def test_chart_marks_real_predecessor():
+    # Chart marks pair with real predecessor not previous sample with mean
+    s_a = SampleRecord(1, date(2026, 11, 1), 8, 0, 80.0, False, None)
+    s_b = SampleRecord(2, date(2026, 11, 4), 8, 0, None, False, None)
+    s_c = SampleRecord(3, date(2026, 11, 7), 8, 0, 80.5, False, None)
+    d = build_dashboard([s_a, s_b, s_c], [], Settings(), FakeTable())
+    assert len(d.chart) == 2
+    assert d.chart[0].stall is False
+    assert d.chart[1].stall is False
+    assert d.chart[1].stall == (d.stall is True)
+
+
+def test_feed_entries_same_day_later_wins():
+    # Later feed entry in input list wins on same latest day
+    s1 = SampleRecord(1, date(2026, 11, 4), 8, 0, 90.0, False, None)
+    f1 = FeedEntry(date(2026, 11, 3), 100.0, 40000)
+    f2 = FeedEntry(date(2026, 11, 3), 120.0, 50000)
+    d1 = build_dashboard([s1], [f1, f2], Settings(), FakeTable())
+    assert d1.stall_day_cost_vnd == 6000000
+
+    d2 = build_dashboard([s1], [f2, f1], Settings(), FakeTable())
+    assert d2.stall_day_cost_vnd == 4000000
+
