@@ -72,7 +72,11 @@ def measure(
     results: List[ShrimpMeasure] = []
     for idx, mask in enumerate(shrimp_masks):
         length_px, sm = centerline(mask)
-        length_mm = float(length_px / px_per_mm) if px_per_mm is not None else None
+        length_mm = (
+            float(length_px / px_per_mm)
+            if (px_per_mm is not None and px_per_mm > 0)
+            else None
+        )
         path = [(float(x), float(y)) for x, y in sm]
         results.append(
             ShrimpMeasure(
