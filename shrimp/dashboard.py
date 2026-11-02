@@ -9,6 +9,7 @@ from shrimp.models import (
     SampleRow,
     Settings,
 )
+from shrimp.pricing import breakeven_growth_mm_per_day, days_to_next_class
 
 Z_CONFIDENT: float = 1.645
 TREND_SAMPLES: int = 4
@@ -173,6 +174,7 @@ def build_dashboard(
     feeds: Iterable[FeedEntry],
     settings: Settings,
     table: Any,
+    prices: Optional[Any] = None,
 ) -> Dashboard:
     # Build dashboard model from samples, feeds, settings, and size table
     sorted_samples = sorted(samples, key=lambda s: (s.day, s.id))
@@ -202,6 +204,13 @@ def build_dashboard(
             shrimp_needed=None,
             trend_samples=None,
             trend_span_days=None,
+            value_per_kg_vnd=None,
+            next_class_per_kg=None,
+            next_class_price_vnd=None,
+            next_class_gain_pct=None,
+            days_to_next_class=None,
+            breakeven_mm_per_day=None,
+            price_source=None,
         )
 
     rows: List[SampleRow] = []
@@ -327,6 +336,24 @@ def build_dashboard(
     if latest.mean_length_mm is not None and latest_size_per_kg is None:
         notices.append("outside_table_range")
 
+    (
+        val_vnd,
+        nc_size,
+        nc_price,
+        nc_gain,
+        days_next,
+        breakeven,
+        price_source,
+    ) = _calc_pricing(
+        latest_length_mm,
+        latest_size_per_kg,
+        growth_mm_per_day,
+        stall,
+        settings,
+        table,
+        prices,
+    )
+
     return Dashboard(
         empty=False,
         latest_length_mm=latest_length_mm,
@@ -352,4 +379,76 @@ def build_dashboard(
         shrimp_needed=shrimp_needed,
         trend_samples=trend_samples,
         trend_span_days=trend_span_days,
+        value_per_kg_vnd=val_vnd,
+        next_class_per_kg=nc_size,
+        next_class_price_vnd=nc_price,
+        next_class_gain_pct=nc_gain,
+        days_to_next_class=days_next,
+        breakeven_mm_per_day=breakeven,
+        price_source=price_source,
     )
+
+
+def _calc_pricing(
+    latest_length_mm: Optional[float],
+    latest_size_per_kg: Optional[float],
+    growth_mm_per_day: Optional[float],
+    stall: Optional[bool],
+    settings: Settings,
+    table: Any,
+    prices: Optional[Any],
+) -> Tuple[
+    Optional[int],
+    Optional[int],
+    Optional[int],
+    Optional[float],
+    Optional[int],
+    Optional[float],
+    Optional[str],
+]:
+    # Calculate valuation, next class and break-even growth from price table
+    if prices is None or latest_size_per_kg is None:
+        return None, None, None, None, None, None, None
+
+    price = prices.price_per_kg(latest_size_per_kg)
+    val_vnd = int(round(price)) if price is not None else None
+
+    nc = prices.next_class(latest_size_per_kg)
+    nc_size: Optional[int] = None
+    nc_price: Optional[int] = None
+    nc_gain: Optional[float] = None
+    if nc is not None:
+        nc_size = int(round(nc[0]))
+        nc_price = int(round(nc[1]))
+        if price is not None and price > 0:
+            nc_gain = round(((nc[1] - price) / price) * 100.0, 1)
+
+    days_next: Optional[int] = None
+    if (
+        growth_mm_per_day is not None
+        and growth_mm_per_day > 0
+        and stall is not True
+        and latest_length_mm is not None
+    ):
+        days_next = days_to_next_class(
+            latest_length_mm,
+            latest_size_per_kg,
+            growth_mm_per_day,
+            table,
+            prices=prices,
+        )
+
+    breakeven: Optional[float] = None
+    if latest_length_mm is not None and val_vnd is not None:
+        breakeven = breakeven_growth_mm_per_day(
+            latest_length_mm,
+            latest_size_per_kg,
+            settings.feed_price_vnd,
+            val_vnd,
+            settings.ration_pct,
+            table,
+        )
+
+    source = getattr(prices, "source", None)
+
+    return val_vnd, nc_size, nc_price, nc_gain, days_next, breakeven, source

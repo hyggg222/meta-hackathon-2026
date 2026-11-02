@@ -45,6 +45,13 @@ def test_empty_input():
     assert d.shrimp_needed is None
     assert d.trend_samples is None
     assert d.trend_span_days is None
+    assert d.value_per_kg_vnd is None
+    assert d.next_class_per_kg is None
+    assert d.next_class_price_vnd is None
+    assert d.next_class_gain_pct is None
+    assert d.days_to_next_class is None
+    assert d.breakeven_mm_per_day is None
+    assert d.price_source is None
 
 
 def test_single_sample_no_change_and_no_flag():
@@ -520,6 +527,65 @@ def test_empty_dashboard_new_fields():
     assert d.shrimp_needed is None
     assert d.trend_samples is None
     assert d.trend_span_days is None
+    assert d.value_per_kg_vnd is None
+    assert d.next_class_per_kg is None
+    assert d.next_class_price_vnd is None
+    assert d.next_class_gain_pct is None
+    assert d.days_to_next_class is None
+    assert d.breakeven_mm_per_day is None
+    assert d.price_source is None
+
+
+class FakePriceTable:
+    # Fake price table for dashboard tests
+    def __init__(self, source="Tepbac national median"):
+        self.source = source
+
+    def price_per_kg(self, size_per_kg):
+        if size_per_kg == 36.0:
+            return 141200.0
+        return None
+
+    def next_class(self, size_per_kg):
+        if size_per_kg == 36.0:
+            return (30, 155000.0)
+        return None
+
+
+def test_dashboard_pricing_fields():
+    # Dashboard pricing fields are filled when price table is supplied
+    s1 = SampleRecord(1, date(2026, 11, 1), 8, 0, 124.0, False, None)
+    s2 = SampleRecord(2, date(2026, 11, 3), 8, 0, 125.0, False, None)
+    table = FakeTable({124.0: 38.0, 125.0: 36.0, 126.0: 34.0})
+    settings = Settings(feed_price_vnd=45000, stall_mm_per_day=0.33, ration_pct=1.5)
+
+    # prices=None leaves all pricing fields None
+    d_none = build_dashboard([s1, s2], [], settings, table, prices=None)
+    assert d_none.value_per_kg_vnd is None
+    assert d_none.next_class_per_kg is None
+    assert d_none.next_class_price_vnd is None
+    assert d_none.next_class_gain_pct is None
+    assert d_none.days_to_next_class is None
+    assert d_none.breakeven_mm_per_day is None
+    assert d_none.price_source is None
+
+    # prices provided populates fields
+    prices = FakePriceTable()
+    d = build_dashboard([s1, s2], [], settings, table, prices=prices)
+    assert d.value_per_kg_vnd == 141200
+    assert d.next_class_per_kg == 30
+    assert d.next_class_price_vnd == 155000
+    assert d.next_class_gain_pct == 9.8
+    assert d.days_to_next_class is not None
+    assert d.breakeven_mm_per_day is not None
+    assert d.price_source == "Tepbac national median"
+
+    # days_to_next_class is None when stall is True
+    settings_stall = Settings(feed_price_vnd=45000, stall_mm_per_day=1.0, ration_pct=1.5)
+    d_stall = build_dashboard([s1, s2], [], settings_stall, table, prices=prices)
+    assert d_stall.stall is True
+    assert d_stall.days_to_next_class is None
+
 
 
 def test_trend_constants():

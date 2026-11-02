@@ -149,6 +149,13 @@ def _make_sample_dashboard(
         shrimp_needed=None,
         trend_samples=None,
         trend_span_days=None,
+        value_per_kg_vnd=None,
+        next_class_per_kg=None,
+        next_class_price_vnd=None,
+        next_class_gain_pct=None,
+        days_to_next_class=None,
+        breakeven_mm_per_day=None,
+        price_source=None,
     )
 
 

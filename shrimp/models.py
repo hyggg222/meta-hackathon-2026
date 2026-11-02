@@ -29,6 +29,7 @@ class Settings:
     harvest_per_kg: float = 50.0
     min_measured: int = 5
     min_length_mm: float = 50.0
+    ration_pct: float = 1.5
 
 
 @dataclass
@@ -134,3 +135,10 @@ class Dashboard:
     shrimp_needed: Optional[int]
     trend_samples: Optional[int]
     trend_span_days: Optional[int]
+    value_per_kg_vnd: Optional[int]
+    next_class_per_kg: Optional[int]
+    next_class_price_vnd: Optional[int]
+    next_class_gain_pct: Optional[float]
+    days_to_next_class: Optional[int]
+    breakeven_mm_per_day: Optional[float]
+    price_source: Optional[str]

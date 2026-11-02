@@ -14,6 +14,7 @@ from shrimp.reply_text import dashboard_reply, template_reply
 from shrimp.sam import make_sam_segmenter
 from shrimp.service import Service
 from shrimp.sizing import SizeTable
+from shrimp.pricing import PriceTable
 from shrimp.spark import SparkWriter
 from shrimp.store import Store
 
@@ -88,9 +89,14 @@ def build(
         table_path = Path(__file__).resolve().parent / "size_table.json"
     table = SizeTable.load(table_path)
 
+    price_path = repo_root / "shrimp" / "price_table.json"
+    if not price_path.exists():
+        price_path = Path(__file__).resolve().parent / "price_table.json"
+    price_table = PriceTable.load(price_path)
+
     photos_dir = repo_root / "data" / "photos"
     photos_dir.mkdir(parents=True, exist_ok=True)
-    service = Service(segmenter, store, table, photos_dir=photos_dir)
+    service = Service(segmenter, store, table, photos_dir=photos_dir, prices=price_table)
     store.seed_demo(date.today())
     app = create_app(service)
 
