@@ -1,5 +1,6 @@
 # Data models and exceptions for shrimp measurement
 from dataclasses import dataclass, field
+from datetime import date
 from typing import Callable, List, Optional, Tuple
 import numpy as np
 
@@ -46,3 +47,60 @@ class TrayResult:
     mean_length_mm: Optional[float]
     size_per_kg: Optional[float] = None
     notices: List[str] = field(default_factory=list)
+
+
+@dataclass
+class SampleRecord:
+    # Stored tray sample record
+    id: int
+    day: date
+    n_measured: int
+    n_left_out: int
+    mean_length_mm: Optional[float]
+    demo: bool
+    photo_path: Optional[str]
+
+
+@dataclass
+class FeedEntry:
+    # Daily feed input record
+    day: date
+    kg_per_day: float
+    price_vnd: int
+
+
+@dataclass
+class ChartPoint:
+    # Point on sample length trend chart
+    day: date
+    mean_length_mm: float
+    stall: bool
+
+
+@dataclass
+class SampleRow:
+    # Row in dashboard sample history table
+    day: date
+    n_measured: int
+    mean_length_mm: Optional[float]
+    size_per_kg: Optional[float]
+    demo: bool
+
+
+@dataclass
+class Dashboard:
+    # Complete dashboard view model
+    empty: bool
+    latest_length_mm: Optional[float]
+    latest_size_per_kg: Optional[float]
+    n_latest: Optional[int]
+    change_length_mm: Optional[float]
+    change_size_per_kg: Optional[float]
+    n_previous: Optional[int]
+    days_between: Optional[int]
+    stall: Optional[bool]
+    at_harvest: bool
+    stall_day_cost_vnd: Optional[int]
+    chart: List[ChartPoint]
+    rows: List[SampleRow]
+    notices: List[str]
