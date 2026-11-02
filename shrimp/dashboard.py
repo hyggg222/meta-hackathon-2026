@@ -13,40 +13,51 @@ from shrimp.models import (
 Z_CONFIDENT: float = 1.645
 
 
-def _calc_stall(
-    prev: SampleRecord, cur: SampleRecord, settings: Settings
-) -> Optional[bool]:
-    # Calculate stall status between two consecutive samples
+def _verdict(prev: SampleRecord, cur: SampleRecord, settings: Settings):
+    # Slow-growth verdict between two consecutive samples:
+    # (stall, growth_se_mm_per_day, unclear, days_needed, shrimp_needed)
     days = (cur.day - prev.day).days
     if days <= 0:
-        return None
+        return None, None, False, None, None
     if (
         cur.n_measured < settings.min_measured
         or prev.n_measured < settings.min_measured
     ):
-        return None
+        return None, None, False, None, None
     if cur.mean_length_mm is None or prev.mean_length_mm is None:
-        return None
+        return None, None, False, None, None
     growth_per_day = (cur.mean_length_mm - prev.mean_length_mm) / days
+    thr = settings.stall_mm_per_day
     if (
         cur.sd_length_mm is not None
         and prev.sd_length_mm is not None
-        and cur.n_measured >= max(2, settings.min_measured)
-        and prev.n_measured >= max(2, settings.min_measured)
+        and cur.n_measured >= 2
+        and prev.n_measured >= 2
     ):
+        # both samples carry a spread: say slow or not slow only when growth is clear of the noise
         sigma_diff = math.sqrt(
             (cur.sd_length_mm ** 2) / cur.n_measured
             + (prev.sd_length_mm ** 2) / prev.n_measured
         )
         se = sigma_diff / days
-        thr = settings.stall_mm_per_day
         if growth_per_day + Z_CONFIDENT * se < thr - 1e-9:
-            return True
+            return True, se, False, None, None
         if growth_per_day - Z_CONFIDENT * se >= thr - 1e-9:
-            return False
-        return None
+            return False, se, False, None, None
+        days_needed = math.ceil(Z_CONFIDENT * sigma_diff / thr)
+        shrimp_needed = math.ceil(
+            cur.n_measured * (Z_CONFIDENT * sigma_diff / (days * thr)) ** 2
+        )
+        return None, se, True, days_needed, shrimp_needed
     # Float guard avoids rounding up actual stalls while tolerating float imprecision
-    return growth_per_day < settings.stall_mm_per_day - 1e-9
+    return growth_per_day < thr - 1e-9, None, False, None, None
+
+
+def _calc_stall(
+    prev: SampleRecord, cur: SampleRecord, settings: Settings
+) -> Optional[bool]:
+    # Stall status between two consecutive samples (used for each chart point)
+    return _verdict(prev, cur, settings)[0]
 
 
 def build_dashboard(
@@ -152,37 +163,13 @@ def build_dashboard(
         ):
             stall_notice = "not_enough_shrimp"
 
-        if (
-            latest.sd_length_mm is not None
-            and previous.sd_length_mm is not None
-            and latest.n_measured >= max(2, settings.min_measured)
-            and previous.n_measured >= max(2, settings.min_measured)
-            and days_between > 0
-            and growth_mm_per_day is not None
-        ):
-            thr = settings.stall_mm_per_day
-            sigma_diff = math.sqrt(
-                (latest.sd_length_mm ** 2) / latest.n_measured
-                + (previous.sd_length_mm ** 2) / previous.n_measured
-            )
-            growth_se_mm_per_day = sigma_diff / days_between
-            z_se = Z_CONFIDENT * growth_se_mm_per_day
-            if growth_mm_per_day + z_se < thr - 1e-9:
-                stall = True
-                stall_unclear = False
-            elif growth_mm_per_day - z_se >= thr - 1e-9:
-                stall = False
-                stall_unclear = False
-            else:
-                stall = None
-                stall_unclear = True
-                days_needed = math.ceil(Z_CONFIDENT * sigma_diff / thr)
-                shrimp_needed = math.ceil(
-                    latest.n_measured
-                    * (Z_CONFIDENT * sigma_diff / (days_between * thr)) ** 2
-                )
-        else:
-            stall = _calc_stall(previous, latest, settings)
+        (
+            stall,
+            growth_se_mm_per_day,
+            stall_unclear,
+            days_needed,
+            shrimp_needed,
+        ) = _verdict(previous, latest, settings)
 
     chart: List[ChartPoint] = []
     for i, s in enumerate(sorted_samples):
