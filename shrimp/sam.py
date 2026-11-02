@@ -53,16 +53,43 @@ def masks_from_records(
         h = bottom - top
         w = right - left
 
+        rec_w = rec.get("width")
+        rec_h = rec.get("height")
+        has_dims = (
+            isinstance(rec_w, int)
+            and not isinstance(rec_w, bool)
+            and isinstance(rec_h, int)
+            and not isinstance(rec_h, bool)
+            and rec_w > 0
+            and rec_h > 0
+        )
+
         raw_bytes = base64.b64decode(rec.get("b64", ""))
-        if len(raw_bytes) != h * w:
+        if has_dims:
+            if len(raw_bytes) != rec_w * rec_h:
+                raise SegmentationError(
+                    f"Raster length {len(raw_bytes)} does not match mask dimensions {rec_h}*{rec_w}={rec_h * rec_w}"
+                )
+        elif rec_w is not None or rec_h is not None:
             raise SegmentationError(
-                f"Raster length {len(raw_bytes)} does not match bounds size {h}*{w}={h * w}"
+                f"Invalid mask dimensions: width={rec_w}, height={rec_h}"
             )
+        else:
+            if len(raw_bytes) != h * w:
+                raise SegmentationError(
+                    f"Raster length {len(raw_bytes)} does not match bounds size {h}*{w}={h * w}"
+                )
 
         if h <= 0 or w <= 0:
             continue
 
-        ras = np.frombuffer(raw_bytes, dtype=np.uint8).reshape((h, w))
+        if has_dims:
+            ras = np.frombuffer(raw_bytes, dtype=np.uint8).reshape((rec_h, rec_w))
+            if (rec_w, rec_h) != (w, h):
+                ras = cv2.resize(ras, (w, h), interpolation=cv2.INTER_NEAREST)
+        else:
+            ras = np.frombuffer(raw_bytes, dtype=np.uint8).reshape((h, w))
+
         mask = np.zeros((height, width), dtype=bool)
         mask[top:bottom, left:right] = ras > 0
         masks.append(mask)
