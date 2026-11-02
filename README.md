@@ -2,3 +2,7 @@
 
 Build period: 27 Oct - 4 Nov 2026. All project code in this repository is written during the hackathon.
 Project description coming soon.
+
+## Run
+
+    .venv/bin/uvicorn --factory shrimp.main:build --host 0.0.0.0 --port 8000
