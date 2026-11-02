@@ -4,12 +4,7 @@ from typing import List, Tuple
 import cv2
 import numpy as np
 
-from shrimp.measure import measure
-
-try:
-    from shrimp.measure import OverlapRule
-except ImportError:
-    OverlapRule = None
+from shrimp.measure import OverlapRule, measure
 
 
 def make_synth_mask(arc: float, r_curve: float, r0: float, r1: float, noise: int = 0) -> Tuple[np.ndarray, float]:
@@ -178,7 +173,6 @@ def test_overlap_middle_touch_not_flagged():
 
 def test_overlap_custom_rule():
     # OverlapRule parameters are respected
-    assert OverlapRule is not None, "OverlapRule must be defined"
     s1 = make_straight_shrimp(50, 150, 100, r=6)
     s2 = make_straight_shrimp(167, 267, 100, r=6)
     res_default = measure([s1, s2], px_per_mm=1.0)

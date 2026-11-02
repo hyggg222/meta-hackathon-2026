@@ -159,7 +159,8 @@ def make_sam_segmenter(
         except Exception as exc:
             raise SegmentationError(f"SAM API connection failed: {exc}") from exc
 
-        with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_kwargs = {"dir": cache_dir} if cache_dir is not None else {}
+        with tempfile.TemporaryDirectory(**tmp_kwargs) as tmp_dir:
             raw_path = os.path.join(tmp_dir, "stream.raw.txt")
             tmp_json_path = os.path.join(tmp_dir, "decoded.json")
 
