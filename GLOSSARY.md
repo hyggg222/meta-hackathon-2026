@@ -24,16 +24,19 @@ _Avoid_: bad shrimp, rejected
 _Avoid_: valid / invalid
 
 ## Sizing and money
-**Size**: shrimp per kg, looked up from the length table. Fewer per kg means bigger shrimp.
+**Size**: shrimp per kg, looked up in the length table at the sample's average length. Fewer per kg means bigger shrimp.
 _Avoid_: weight
 
-**Length table**: the hatchery's table (CP) that maps average length to shrimp per kg. Lives in a data file.
+**Length table**: rows of average length (mm) and shrimp per kg, read from a replaceable data file, with straight-line interpolation between rows. It covers 60 to 140 mm; outside that range there is no size. Until the hatchery's (CP) table arrives it is a temporary public table, labelled as such on screen.
 _Avoid_: conversion formula
 
-**Stall flag**: shows when the average length grew less than a set threshold between two samples. The farmer decides what to do.
+**Stall flag**: shows when the average length grew less than the threshold (0.33 mm per day) between the last two samples. It needs both samples to have enough measured shrimp (5 by default) and at least one day between them; otherwise it says it cannot tell. The farmer decides what to do.
 _Avoid_: alarm, harvest alert
 
-**Cost of a stall day**: feed kg per day times feed price, in VND, for a day without growth.
+**Harvest size flag**: shows when the size is at or below the harvest size (50 per kg by default). Information only, never advice to harvest.
+_Avoid_: harvest alert, harvest advice
+
+**Cost of a stall day**: feed kg per day times feed price, in VND, for a day without growth. It uses the latest feed entry on or before the latest sample's day.
 _Avoid_: loss, damage
 
 **Demo data**: seeded samples, made for the demo and not measured from a pond. Always labelled on screen and in the video.

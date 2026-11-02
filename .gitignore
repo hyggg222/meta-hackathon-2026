@@ -2,7 +2,8 @@ pics/
 vids/
 records/
 docs-private/
-docs/research/
+docs/research/meta-hackathon-problem-selection/
 .env
+node_modules/
 __pycache__/
 *.pyc

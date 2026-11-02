@@ -21,5 +21,5 @@ Solo build with three days. Rules (length table, stall flag, cost of a stall day
 ## Consequences
 - Two runtimes (Python 3.8 and Node), but only one long-running process.
 - The measurement and rules modules have no model client, so they are tested without network or camera.
-- A subprocess call per photo adds some startup time; the target is under 10 seconds from photo to result (spec criterion 8), so measure it in slice 0.
+- A subprocess call per photo adds some startup time; the target is under 10 seconds from photo to result (spec criterion 7), so measure it in slice 0.
 - No HTTPS means the page works only on the local network; a public demo link is out of scope.

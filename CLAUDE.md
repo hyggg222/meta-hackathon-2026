@@ -25,4 +25,4 @@ The project replaced an earlier idea (a Werewolf game master). Its docs were rem
 - At least one real commit per day. Work in worktree branches, merge locally after checks pass; Charlie pushes main each evening. Never push, never add AI attribution to commits.
 - Test first. Run the project's checks before saying done.
 - Secrets live in `.env`; never print or commit them. Keep raw photos and video of people out of the repo.
-- Evidence for the demo: an error table on at least 5 hand-measured trays, about 50 shrimp, with n stated (spec criterion 9). Say plainly what is demo data.
+- Evidence for the demo: an error table on at least 5 hand-measured trays, about 50 shrimp, with n stated (spec criterion 36). Say plainly what is demo data.
