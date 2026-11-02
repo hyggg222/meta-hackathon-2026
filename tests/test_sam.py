@@ -370,3 +370,101 @@ def test_sam_cache_temp_dir_in_cache_dir(tmp_path):
     assert len(subproc_calls) == 1
     output_path = subproc_calls[0][3]
     assert os.path.abspath(output_path).startswith(os.path.abspath(str(cache_dir)))
+
+
+def test_masks_resize_smaller_raster():
+    # Resize smaller raster to bounding box dimensions
+    ras = np.zeros((10, 20), dtype=np.uint8)
+    ras[:5, :] = 255
+    b64 = base64.b64encode(ras.tobytes()).decode("ascii")
+    records = [{
+        "id": 1,
+        "bounds": {"top": 5, "bottom": 25, "left": 10, "right": 50},
+        "width": 20,
+        "height": 10,
+        "b64": b64,
+    }]
+    masks = masks_from_records(records, 40, 60)
+    assert len(masks) == 1
+    mask = masks[0]
+    assert mask.shape == (40, 60)
+    assert np.all(mask[5:15, 10:50])
+    assert not np.any(mask[15:25, 10:50])
+    assert mask.sum() == 400
+
+
+def test_masks_matching_dimensions_no_resize():
+    # Matching width and height produces same mask without resizing
+    ras = np.array([
+        [1, 0, 1, 0, 1],
+        [0, 1, 0, 1, 0],
+        [1, 1, 0, 0, 1],
+        [0, 0, 1, 1, 0],
+    ], dtype=np.uint8)
+    b64 = base64.b64encode(ras.tobytes()).decode("ascii")
+    bounds = {"top": 10, "bottom": 14, "left": 20, "right": 25}
+    rec_plain = [{"id": 1, "bounds": bounds, "b64": b64}]
+    rec_dims = [{
+        "id": 1,
+        "bounds": bounds,
+        "width": 5,
+        "height": 4,
+        "b64": b64,
+    }]
+    mask_plain = masks_from_records(rec_plain, 50, 50)
+    mask_dims = masks_from_records(rec_dims, 50, 50)
+    assert np.array_equal(mask_dims[0], mask_plain[0])
+
+
+def test_masks_dimension_length_mismatch():
+    # Raster length mismatch against width and height raises SegmentationError
+    b64 = base64.b64encode(b"\x00" * 199).decode("ascii")
+    rec = [{
+        "id": 1,
+        "bounds": {"top": 5, "bottom": 25, "left": 10, "right": 50},
+        "width": 20,
+        "height": 10,
+        "b64": b64,
+    }]
+    with pytest.raises(SegmentationError):
+        masks_from_records(rec, 40, 60)
+
+
+def test_sam_cache_with_dimensions(tmp_path):
+    # Cache records with width and height are read back into matching masks
+    img = np.zeros((20, 20, 3), dtype=np.uint8)
+    ok, enc = cv2.imencode(".png", img)
+    assert ok
+    photo = enc.tobytes()
+    photo_hash = hashlib.sha256(photo).hexdigest()
+    prompt = "shrimp"
+    cache_file = tmp_path / f"{photo_hash}_{prompt}.json"
+
+    ras = np.ones((2, 2), dtype=np.uint8)
+    b64 = base64.b64encode(ras.tobytes()).decode("ascii")
+    records = [{
+        "id": 1,
+        "bounds": {"top": 2, "bottom": 6, "left": 2, "right": 6},
+        "width": 2,
+        "height": 2,
+        "b64": b64,
+    }]
+    with open(cache_file, "w", encoding="utf-8") as f:
+        json.dump(records, f)
+
+    script = str(tmp_path / "decode.js")
+    with open(script, "w", encoding="utf-8") as f:
+        f.write("// stub")
+
+    segmenter = make_sam_segmenter(
+        api_key="k",
+        decode_script=script,
+        cache_dir=str(tmp_path),
+    )
+    with unittest.mock.patch("shrimp.sam.requests.post") as mock_post:
+        masks = segmenter(photo, prompt)
+        assert len(masks) == 1
+        assert masks[0].shape == (20, 20)
+        assert np.array_equal(masks[0], masks_from_records(records, 20, 20)[0])
+        assert mock_post.call_count == 0
+
