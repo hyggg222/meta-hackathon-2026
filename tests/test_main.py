@@ -415,6 +415,16 @@ def test_signed_post_image_message(
     assert verify_token not in caplog.text
 
 
+def test_app_info_logs_are_visible(tmp_path: Any) -> None:
+    # The app's own INFO lines (for example an ignored sender id) must reach the console
+    logging.getLogger("shrimp").handlers.clear()
+    logging.getLogger("shrimp").setLevel(logging.WARNING)
+    build(root=tmp_path, env={"META_API_KEY": "k"}, segmenter=FakeSegmenter())
+    shrimp_logger = logging.getLogger("shrimp")
+    assert shrimp_logger.isEnabledFor(logging.INFO)
+    assert shrimp_logger.handlers
+
+
 class FakeSparkWriter:
     # Stand-in for SparkWriter so no test calls the network
     instances: List["FakeSparkWriter"] = []

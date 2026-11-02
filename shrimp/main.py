@@ -46,6 +46,16 @@ def read_setting(
     return None
 
 
+def _show_app_logs() -> None:
+    # uvicorn only configures its own loggers: give the app's INFO lines a console handler
+    app_logger = logging.getLogger("shrimp")
+    app_logger.setLevel(logging.INFO)
+    if not app_logger.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter("%(levelname)s:     %(name)s: %(message)s"))
+        app_logger.addHandler(handler)
+
+
 def build(
     root: Optional[Path] = None,
     env: Optional[Mapping[str, str]] = None,
@@ -53,6 +63,7 @@ def build(
     executor: Optional[Any] = None,
 ) -> FastAPI:
     # Build FastAPI app with service and optional Messenger bot router
+    _show_app_logs()
     repo_root = root if root is not None else Path(__file__).resolve().parent.parent
     api_key = read_setting("META_API_KEY", root=repo_root, env=env)
 
