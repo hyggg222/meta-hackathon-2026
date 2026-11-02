@@ -202,6 +202,53 @@ Planned 2 Nov 2026. No prefactoring: the code is new, and the spike in `spike/` 
 
 Every criterion 1 to 36 appears above. Order for the schedule: S0 to S3 today, S4 to S7 on 2 and 3 Nov, S8 on 3 Nov, freeze that evening.
 
+### Chat slices (added 2 Nov, ADR-0003; S0 to S7 are built, the page is the dashboard from S7)
+The farmer sends the tray photo to a Messenger bot. Replies are in Vietnamese. Criteria 37 to 39 above (choosing shrimp) now apply to the chat: the farmer's text is the way to choose.
+
+**S9. Minimum length** (criteria 40, 41)
+- Delivers: shrimp shorter than the minimum length (50 mm by default, a setting) are left out of the default choice; the setting is saved and returned by the settings routes.
+- Touches: `Settings`, `service.save_settings`, `tray.summarize`, settings routes.
+- Blocked by: none.
+
+**S10. Reply photo** (criterion 42)
+- Delivers: a function that draws the counted shrimp (outline, body line, number and length) and the left-out shrimp (grey, number) on the photo and returns a JPEG of at most 1280 px.
+- Touches: a new module over `TrayResult`. Blocked by: none.
+
+**S11. Reply text and guard** (criteria 43, 44)
+- Delivers: Vietnamese texts for every tray status and for the dashboard summary, built only from the structured result; a guard that rejects any text with a number that is not in the result or with words that tell the farmer to harvest or sell, falling back to the template.
+- Touches: a new pure module. Blocked by: none.
+
+**S12. Messenger webhook and transport** (criteria 45, 46)
+- Delivers: the verify handshake, signature check, allow-list, duplicate and echo filtering, immediate 200 with background handling, and a Graph API client that downloads photos and sends text and images.
+- Touches: a new router module. Blocked by: none.
+
+**S13. Conversation** (criteria 47 to 49)
+- Delivers: photo in, reply photo and text out; "yes" saves; numbers re-choose the shrimp and resend the reply photo; "cancel", "status" and help; expired and failed cases answered politely.
+- Touches: a new module over `Service` (analyze, summary, save, dashboard). Blocked by: interfaces fixed in the briefs (S10, S11, S12 can run in parallel).
+
+**S14. Page is the dashboard** (criterion 50)
+- Delivers: the page opens on the dashboard, the Photo screen is gone, Setup has the minimum length field, the empty state tells the farmer to send the photo to the bot.
+- Touches: `static/index.html`. Blocked by: S9 for the settings key (the page text works before it).
+
+**S15. Wiring, deploy and Spark** (criteria 51, 52)
+- Delivers: the router and conversation wired in `main.py` from environment settings; a run behind a tunnel with a real Page; then EC2 behind CloudFront; Muse Spark writes the reply text through the guard.
+- Blocked by: S9 to S14. The agent wires and tests; the user creates the Page, the Meta app and the AWS resources.
+
+New criteria:
+40. Given a tray with a 30 mm fragment and four 90 mm shrimp, When analysed with the default settings, Then the fragment is left out of the default choice and the mean is 90 mm.
+41. Given the farmer includes the 30 mm fragment by number, When summarised, Then it counts (the farmer's choice wins).
+42. Given any tray result, When the reply photo is drawn, Then counted shrimp and left-out shrimp look different, numbers match the shrimp numbers in the text, and the file is a JPEG of at most 1280 px on the long side.
+43. Given a reply text containing a number that is not in the structured result, or words that tell the farmer to harvest or sell, When checked, Then the template text is sent instead.
+44. Given growth under the threshold, When the status is asked, Then the reply says growth looks slow as a hint and that the farmer decides.
+45. Given a webhook call with a wrong signature or from a sender not on the allow-list, When received, Then nothing is processed.
+46. Given the same message id twice, When received, Then it is handled once; the webhook answers 200 before the photo work finishes.
+47. Given a tray photo, When the farmer sends it, Then the bot replies with the reply photo and a text that asks to save, and nothing is saved yet.
+48. Given a pending result, When the farmer replies yes, Then the sample is saved only if enough shrimp count; replies with numbers recompute from exactly those shrimp and resend the reply photo.
+49. Given no pending result or an expired one, When the farmer replies yes or numbers, Then the bot says to send a photo first.
+50. Given the page is opened, When it loads, Then the dashboard shows and there is no Photo screen.
+51. Given a signed test webhook call with a photo URL, When handled end to end with a fake transport, Then the reply photo and text are sent.
+52. Given Muse Spark is unavailable or answers badly, When a reply is written, Then the template text is sent and the farmer sees no error.
+
 ## Risks and open questions
 - **Anti-project risk:** the research flags "simple image analyzers". The stall flag, the cost, the dashboard and the error table must carry the story (ADR-0001). Spark explaining results through the rules is the cheapest agent step and is the last thing to cut.
 - **Weak evidence:** persona is n=1; the error table is 5 trays; no real shrimp ground truth exists yet; the spike used drawn references on clean backgrounds.
