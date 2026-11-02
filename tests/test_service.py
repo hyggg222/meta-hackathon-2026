@@ -5,7 +5,7 @@ from typing import Optional
 import numpy as np
 import pytest
 
-from shrimp.models import SegmentationError, Settings, ShrimpMeasure, TrayResult
+from shrimp.models import AnalysisNotFound, SegmentationError, Settings, ShrimpMeasure, TrayResult
 from shrimp.service import Service, _is_positive_finite
 from shrimp.store import Store
 from tests.conftest import FakeSegmenter
@@ -372,3 +372,101 @@ def test_add_sample_store_failure_cleans_photo(monkeypatch, tmp_path):
     assert "database save failed" in str(excinfo.value)
     assert photos_dir.exists()
     assert list(photos_dir.glob("*.img")) == []
+
+
+def test_service_analyze_saves_nothing():
+    # Service analyze returns analysis_id and tray but saves nothing to store
+    ruler = np.zeros((300, 300), bool)
+    ruler[20:50, 20:200] = True
+    shrimp = [np.zeros((300, 300), bool) for _ in range(5)]
+    for i, s in enumerate(shrimp):
+        s[100 + i * 20 : 110 + i * 20, 50:150] = True
+
+    seg = FakeSegmenter({"ruler": [ruler], "shrimp": shrimp})
+    store = Store(":memory:")
+    service = Service(seg, store, FakeTable())
+
+    analysis_id, tray = service.analyze(b"dummy_bytes")
+    assert isinstance(analysis_id, str)
+    assert len(analysis_id) == 16
+    assert tray.status == "ok"
+    assert tray.n_measured == 5
+    assert len(store.samples()) == 0
+
+
+def test_service_summary_unknown_id():
+    # summary for unknown or expired analysis_id raises AnalysisNotFound
+    store = Store(":memory:")
+    service = Service(FakeSegmenter(), store, FakeTable())
+    with pytest.raises(AnalysisNotFound):
+        service.summary("0" * 16, None)
+
+
+def test_service_save_ok_persists_sample_and_photo(tmp_path):
+    # save with ok selection writes sample matching chosen shrimp and photo
+    ruler = np.zeros((300, 300), bool)
+    ruler[20:50, 20:200] = True
+    shrimp = [np.zeros((300, 300), bool) for _ in range(6)]
+    for i, s in enumerate(shrimp):
+        s[100 + i * 20 : 110 + i * 20, 50:150] = True
+
+    photos_dir = tmp_path / "photos"
+    store = Store(":memory:")
+    seg = FakeSegmenter({"ruler": [ruler], "shrimp": shrimp})
+    service = Service(seg, store, FakeTable(), photos_dir=photos_dir)
+
+    photo = b"sample_photo_content_save"
+    analysis_id, _ = service.analyze(photo)
+    day = date(2026, 11, 2)
+    res = service.save(analysis_id, include=[0, 1, 2, 3, 4], day=day)
+
+    assert res.status == "ok"
+    assert res.n_measured == 5
+    assert res.included == [0, 1, 2, 3, 4]
+    samples = store.samples()
+    assert len(samples) == 1
+    assert samples[0].n_measured == 5
+    assert samples[0].mean_length_mm == res.mean_length_mm
+    sha = hashlib.sha256(photo).hexdigest()[:8]
+    expected_path = photos_dir / f"{day.isoformat()}-{sha}.img"
+    assert expected_path.exists()
+    assert expected_path.read_bytes() == photo
+
+
+def test_service_save_too_few_writes_nothing(tmp_path):
+    # save with too_few selection writes no sample and no photo file
+    ruler = np.zeros((300, 300), bool)
+    ruler[20:50, 20:200] = True
+    shrimp = [np.zeros((300, 300), bool) for _ in range(6)]
+    for i, s in enumerate(shrimp):
+        s[100 + i * 20 : 110 + i * 20, 50:150] = True
+
+    photos_dir = tmp_path / "photos"
+    store = Store(":memory:")
+    seg = FakeSegmenter({"ruler": [ruler], "shrimp": shrimp})
+    service = Service(seg, store, FakeTable(), photos_dir=photos_dir)
+
+    analysis_id, _ = service.analyze(b"photo_too_few")
+    res = service.save(analysis_id, include=[0, 1], day=date(2026, 11, 2))
+
+    assert res.status == "too_few"
+    assert len(store.samples()) == 0
+    assert not photos_dir.exists() or not list(photos_dir.iterdir())
+
+
+def test_service_lru_drops_ninth_analysis():
+    # 9 analyses in a row drop the first one making its id unknown
+    store = Store(":memory:")
+    service = Service(FakeSegmenter(), store, FakeTable())
+
+    ids = []
+    for i in range(9):
+        aid, _ = service.analyze(f"photo_{i}".encode("utf-8"))
+        ids.append(aid)
+
+    with pytest.raises(AnalysisNotFound):
+        service.summary(ids[0], None)
+
+    for aid in ids[1:]:
+        res = service.summary(aid, None)
+        assert res is not None

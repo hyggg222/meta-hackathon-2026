@@ -6,7 +6,7 @@ from typing import Any, Dict, Optional
 from fastapi import Body, FastAPI, File, Form, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse
 
-from shrimp.models import SegmentationError
+from shrimp.models import AnalysisNotFound, SegmentationError
 from shrimp.service import Service
 
 MAX_UPLOAD_BYTES = 15 * 1024 * 1024
@@ -53,6 +53,74 @@ def create_app(service: Service) -> FastAPI:
             return JSONResponse(content=_to_json_dict(tray))
         except SegmentationError as exc:
             return JSONResponse(status_code=502, content={"error": str(exc)})
+
+    @app.post("/api/analyses")
+    def post_analysis(photo: UploadFile = File(...)):
+        # Process uploaded tray photo and return analysis id and tray
+        content = photo.file.read(MAX_UPLOAD_BYTES + 1)
+        if len(content) > MAX_UPLOAD_BYTES:
+            return JSONResponse(status_code=413, content={"error": "photo too large"})
+
+        try:
+            analysis_id, tray = service.analyze(content)
+            return JSONResponse(
+                content={
+                    "analysis_id": analysis_id,
+                    "tray": _to_json_dict(tray),
+                }
+            )
+        except SegmentationError as exc:
+            return JSONResponse(status_code=502, content={"error": str(exc)})
+
+    @app.post("/api/analyses/{analysis_id}/summary")
+    def post_summary(
+        analysis_id: str,
+        payload: Optional[Dict[str, Any]] = Body(None),
+    ):
+        # Return TrayResult for selected shrimp indices
+        if payload is not None and not isinstance(payload, dict):
+            return JSONResponse(status_code=422, content={"error": "invalid payload"})
+        include = payload.get("include") if payload is not None else None
+        try:
+            tray = service.summary(analysis_id, include)
+            return JSONResponse(content=_to_json_dict(tray))
+        except AnalysisNotFound:
+            return JSONResponse(
+                status_code=404,
+                content={"error": "analysis expired, send the photo again"},
+            )
+        except (ValueError, TypeError) as exc:
+            return JSONResponse(status_code=422, content={"error": str(exc)})
+
+    @app.post("/api/analyses/{analysis_id}/save")
+    def post_save(
+        analysis_id: str,
+        payload: Optional[Dict[str, Any]] = Body(None),
+    ):
+        # Save sample for selected shrimp indices and optional date
+        if payload is not None and not isinstance(payload, dict):
+            return JSONResponse(status_code=422, content={"error": "invalid payload"})
+        include = payload.get("include") if payload is not None else None
+        day_val = payload.get("day") if payload is not None else None
+
+        if day_val is not None and day_val != "":
+            try:
+                sample_day = date.fromisoformat(day_val)
+            except (ValueError, TypeError):
+                return JSONResponse(status_code=422, content={"error": "invalid day"})
+        else:
+            sample_day = date.today()
+
+        try:
+            tray = service.save(analysis_id, include, sample_day)
+            return JSONResponse(content=_to_json_dict(tray))
+        except AnalysisNotFound:
+            return JSONResponse(
+                status_code=404,
+                content={"error": "analysis expired, send the photo again"},
+            )
+        except (ValueError, TypeError) as exc:
+            return JSONResponse(status_code=422, content={"error": str(exc)})
 
     @app.get("/api/dashboard")
     def get_dashboard():

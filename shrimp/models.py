@@ -10,6 +10,11 @@ class SegmentationError(Exception):
     pass
 
 
+class AnalysisNotFound(Exception):
+    # Raised when analysis ID is unknown or expired
+    pass
+
+
 Segmenter = Callable[[bytes, str], List[np.ndarray]]
 
 
@@ -36,6 +41,14 @@ class ShrimpMeasure:
     outline: List[Tuple[float, float]] = field(default_factory=list)
 
 
+@dataclass(frozen=True)
+class Analysis:
+    # Intermediate analysis data needed for summary
+    reference: str
+    scale_px_per_mm: Optional[float]
+    shrimp: List[ShrimpMeasure]
+
+
 @dataclass
 class TrayResult:
     # Full analysis result for one tray photo
@@ -48,6 +61,7 @@ class TrayResult:
     mean_length_mm: Optional[float]
     size_per_kg: Optional[float] = None
     notices: List[str] = field(default_factory=list)
+    included: List[int] = field(default_factory=list)
 
 
 @dataclass

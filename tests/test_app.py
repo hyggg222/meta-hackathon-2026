@@ -363,3 +363,120 @@ def test_feed_route_huge_numbers():
         assert resp_price.status_code == 422
         assert "error" in resp_price.json()
         assert len(store.feeds()) == 0
+
+
+def test_analyses_routes_200():
+    # Analysis endpoints return 200 with analysis_id and tray including chosen shrimp
+    ruler = np.zeros((300, 300), bool)
+    ruler[20:50, 20:200] = True
+    shrimp = [np.zeros((300, 300), bool) for _ in range(3)]
+    for i, s in enumerate(shrimp):
+        s[100 + i * 20 : 110 + i * 20, 50:150] = True
+    seg = FakeSegmenter({"ruler": [ruler], "shrimp": shrimp})
+    store = Store(":memory:")
+    store.save_settings(Settings(min_measured=1))
+    service = make_test_service(seg=seg, store=store)
+    app = create_app(service)
+    client = TestClient(app)
+
+    # 1. POST /api/analyses
+    resp = client.post("/api/analyses", files={"photo": ("tray.jpg", b"fake_bytes", "image/jpeg")})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "analysis_id" in data
+    assert len(data["analysis_id"]) == 16
+    assert data["tray"]["status"] == "ok"
+    assert data["tray"]["included"] == [0, 1, 2]
+    analysis_id = data["analysis_id"]
+
+    # 2. POST /api/analyses/{id}/summary
+    resp_sum = client.post(f"/api/analyses/{analysis_id}/summary", json={"include": [0, 2]})
+    assert resp_sum.status_code == 200
+    data_sum = resp_sum.json()
+    assert data_sum["n_measured"] == 2
+    assert data_sum["included"] == [0, 2]
+    assert len(store.samples()) == 0
+
+    # 3. POST /api/analyses/{id}/save
+    resp_save = client.post(f"/api/analyses/{analysis_id}/save", json={"include": [1], "day": "2026-11-05"})
+    assert resp_save.status_code == 200
+    data_save = resp_save.json()
+    assert data_save["n_measured"] == 1
+    assert data_save["included"] == [1]
+    samples = store.samples()
+    assert len(samples) == 1
+    assert samples[0].day == date(2026, 11, 5)
+
+
+def test_analyses_routes_404_unknown_id():
+    # Unknown analysis id returns 404 with expired message
+    service = make_test_service()
+    app = create_app(service)
+    client = TestClient(app)
+
+    for path in ("/api/analyses/deadbeef00000000/summary", "/api/analyses/deadbeef00000000/save"):
+        resp = client.post(path, json={"include": [0]})
+        assert resp.status_code == 404
+        assert resp.json() == {"error": "analysis expired, send the photo again"}
+
+
+def test_analyses_routes_422_bad_include_and_bad_day():
+    # Invalid include entries or malformed day return 422
+    ruler = np.zeros((300, 300), bool)
+    ruler[20:50, 20:200] = True
+    shrimp = [np.zeros((300, 300), bool) for _ in range(2)]
+    seg = FakeSegmenter({"ruler": [ruler], "shrimp": shrimp})
+    service = make_test_service(seg=seg)
+    app = create_app(service)
+    client = TestClient(app)
+
+    post_resp = client.post("/api/analyses", files={"photo": ("tray.jpg", b"fake_bytes", "image/jpeg")})
+    aid = post_resp.json()["analysis_id"]
+
+    for bad_include in ([999], [-1], [True], ["0"], [0, 0]):
+        resp = client.post(f"/api/analyses/{aid}/summary", json={"include": bad_include})
+        assert resp.status_code == 422
+        assert "error" in resp.json()
+
+        resp_save = client.post(f"/api/analyses/{aid}/save", json={"include": bad_include})
+        assert resp_save.status_code == 422
+        assert "error" in resp_save.json()
+
+    resp_day = client.post(f"/api/analyses/{aid}/save", json={"include": [0], "day": "bad-date"})
+    assert resp_day.status_code == 422
+    assert "error" in resp_day.json()
+
+
+def test_analyses_route_upload_too_large():
+    # Large photo upload to /api/analyses returns 413
+    service = make_test_service()
+    app = create_app(service)
+    client = TestClient(app)
+    too_large_bytes = b"x" * (15 * 1024 * 1024 + 1)
+    resp = client.post(
+        "/api/analyses",
+        files={"photo": ("tray.jpg", too_large_bytes, "image/jpeg")},
+    )
+    assert resp.status_code == 413
+    assert resp.json() == {"error": "photo too large"}
+
+
+def test_analyses_route_segmentation_error():
+    # SegmentationError on /api/analyses returns 502
+    seg = FakeSegmenter(exc=SegmentationError("SAM API failed"))
+    service = make_test_service(seg=seg)
+    app = create_app(service)
+    client = TestClient(app)
+
+    resp = client.post("/api/analyses", files={"photo": ("tray.jpg", b"fake_bytes", "image/jpeg")})
+    assert resp.status_code == 502
+    assert resp.json() == {"error": "SAM API failed"}
+
+
+def test_analyses_routes_sync():
+    # Analysis routes are plain def functions
+    service = make_test_service()
+    app = create_app(service)
+    for p in ("/api/analyses", "/api/analyses/{analysis_id}/summary", "/api/analyses/{analysis_id}/save"):
+        route = next(r for r in app.routes if getattr(r, "path", None) == p)
+        assert not inspect.iscoroutinefunction(route.endpoint)
