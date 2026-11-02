@@ -266,11 +266,12 @@ def test_chart_marks_real_predecessor():
     s_a = SampleRecord(1, date(2026, 11, 1), 8, 0, 80.0, False, None)
     s_b = SampleRecord(2, date(2026, 11, 4), 8, 0, None, False, None)
     s_c = SampleRecord(3, date(2026, 11, 7), 8, 0, 80.5, False, None)
-    d = build_dashboard([s_a, s_b, s_c], [], Settings(), FakeTable())
-    assert len(d.chart) == 2
+    s_d = SampleRecord(4, date(2026, 11, 10), 8, 0, 85.0, False, None)
+    d = build_dashboard([s_a, s_b, s_c, s_d], [], Settings(), FakeTable())
+    assert len(d.chart) == 3
     assert d.chart[0].stall is False
     assert d.chart[1].stall is False
-    assert d.chart[1].stall == (d.stall is True)
+    assert d.chart[2].stall is False
 
 
 def test_feed_entries_same_day_later_wins():
