@@ -213,19 +213,18 @@ def build_dashboard(
             price_source=None,
         )
 
+    # a real sample is never compared with demo samples (nor the other way round)
     rows: List[SampleRow] = []
     for i, s in enumerate(sorted_samples):
         size = table.per_kg(s.mean_length_mm) if s.mean_length_mm is not None else None
         growth: Optional[float] = None
-        if i > 0:
-            prev = sorted_samples[i - 1]
+        change: Optional[float] = None
+        prev = next((p for p in reversed(sorted_samples[:i]) if p.demo == s.demo), None)
+        if prev is not None and s.mean_length_mm is not None and prev.mean_length_mm is not None:
+            change = s.mean_length_mm - prev.mean_length_mm
             days = (s.day - prev.day).days
-            if (
-                days > 0
-                and s.mean_length_mm is not None
-                and prev.mean_length_mm is not None
-            ):
-                growth = (s.mean_length_mm - prev.mean_length_mm) / days
+            if days > 0:
+                growth = change / days
         rows.append(
             SampleRow(
                 day=s.day,
@@ -234,10 +233,12 @@ def build_dashboard(
                 size_per_kg=size,
                 demo=s.demo,
                 growth_mm_per_day=growth,
+                change_length_mm=change,
             )
         )
 
     latest = sorted_samples[-1]
+    comparable = [s for s in sorted_samples if s.demo == latest.demo]
     latest_length_mm = latest.mean_length_mm
     latest_size_per_kg = (
         table.per_kg(latest.mean_length_mm)
@@ -246,7 +247,7 @@ def build_dashboard(
     )
     n_latest = latest.n_measured
 
-    previous = sorted_samples[-2] if len(sorted_samples) > 1 else None
+    previous = comparable[-2] if len(comparable) > 1 else None
     n_previous: Optional[int] = None
     days_between: Optional[int] = None
     change_length_mm: Optional[float] = None
@@ -292,7 +293,7 @@ def build_dashboard(
             shrimp_needed,
             trend_samples,
             trend_span_days,
-        ) = _verdict(sorted_samples, settings)
+        ) = _verdict(comparable, settings)
 
     chart: List[ChartPoint] = []
     for i, s in enumerate(sorted_samples):
@@ -300,7 +301,8 @@ def build_dashboard(
             continue
         pt_stall = False
         if i > 0:
-            pt_stall = _calc_stall(sorted_samples[: i + 1], settings) is True
+            same_kind = [p for p in sorted_samples[: i + 1] if p.demo == s.demo]
+            pt_stall = _calc_stall(same_kind, settings) is True
         chart.append(
             ChartPoint(
                 day=s.day,

@@ -320,3 +320,16 @@ def test_page_dashboard_wording_vietnamese():
     assert "Hai lần đo cùng ngày" in html
     assert "Chưa đủ số con để so" in html
     assert "Cần ít nhất" in html
+
+
+def test_page_change_pill_comes_from_the_server_and_out_of_range_is_explained():
+    # The change in length of each row is the server's number, and a size outside the table says why
+    service = make_test_service()
+    app = create_app(service)
+    client = TestClient(app)
+
+    html = client.get("/").text
+
+    assert "change_length_mm" in html
+    assert "r.mean_length_mm - prevRow.mean_length_mm" not in html
+    assert "Bảng cỡ chỉ tính từ 60 đến 140 mm" in html

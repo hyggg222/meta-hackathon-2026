@@ -92,6 +92,45 @@ def test_two_samples_changes_and_counts():
     assert d.stall is False
 
 
+def test_real_sample_is_never_compared_with_demo_samples():
+    # The demo history stays on screen, but a real sample has nothing to be compared with yet
+    demo1 = SampleRecord(1, date(2026, 10, 28), 8, 2, 91.0, True, None)
+    demo2 = SampleRecord(2, date(2026, 10, 31), 8, 2, 91.5, True, None)
+    real = SampleRecord(3, date(2026, 11, 2), 5, 0, 162.0, False, None)
+    table = FakeTable({91.0: 94.0, 91.5: 93.0, 162.0: None})
+    d = build_dashboard([demo1, demo2, real], [], Settings(), table)
+
+    assert d.latest_length_mm == 162.0
+    assert d.n_previous is None
+    assert d.days_between is None
+    assert d.change_length_mm is None
+    assert d.growth_mm_per_day is None
+    assert d.stall is None
+    assert d.stall_unclear is False
+    # every sample is still listed, demo ones flagged
+    assert [r.demo for r in d.rows] == [True, True, False]
+    # the demo rows compare with each other, the real row with nothing
+    assert d.rows[0].change_length_mm is None
+    assert d.rows[1].change_length_mm == pytest.approx(0.5)
+    assert d.rows[2].change_length_mm is None
+    assert d.rows[2].growth_mm_per_day is None
+
+
+def test_two_real_samples_after_demo_history_compare_with_each_other():
+    demo = SampleRecord(1, date(2026, 10, 31), 8, 2, 91.5, True, None)
+    real1 = SampleRecord(2, date(2026, 11, 1), 8, 0, 100.0, False, None)
+    real2 = SampleRecord(3, date(2026, 11, 4), 8, 0, 103.0, False, None)
+    table = FakeTable({91.5: 93.0, 100.0: 71.0, 103.0: 66.0})
+    d = build_dashboard([demo, real1, real2], [], Settings(), table)
+
+    assert d.n_previous == 8
+    assert d.days_between == 3
+    assert d.change_length_mm == pytest.approx(3.0)
+    assert d.growth_mm_per_day == pytest.approx(1.0)
+    assert d.rows[2].change_length_mm == pytest.approx(3.0)
+    assert d.rows[1].change_length_mm is None
+
+
 def test_stall_below_threshold():
     # Growth below stall threshold flags a stall
     s1 = SampleRecord(1, date(2026, 11, 1), 6, 0, 90.0, False, None)

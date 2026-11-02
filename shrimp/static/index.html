@@ -675,7 +675,10 @@ async function loadDashboard() {
       sizeNumberHtml = `<div style="margin:14px 0 10px;line-height:1;display:flex;align-items:baseline;gap:8px"><span style="font-size:68px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums">${perKgText(d.latest_size_per_kg)}</span><span style="font-size:20px;font-weight:600;color:var(--ink)">con/kg</span></div>`;
     }
 
-    const latestCardHtml = `<div class="card"><div style="display:flex;justify-content:space-between;align-items:flex-start"><div><div style="font-size:15px;font-weight:600;color:var(--ink)">Lần đo mới nhất</div><div style="font-size:14px;color:var(--muted);margin-top:2px">${dayMonth} - ${d.n_latest || 0} con</div></div>${demoChipHtml}</div>${sizeNumberHtml}<div style="font-size:17px;color:var(--ink)">Tôm dài trung bình <b>${f1cm(d.latest_length_mm)} cm</b></div></div>`;
+    const outsideNoteHtml = isOutsideTable
+      ? '<div style="font-size:13px;color:var(--muted);margin-top:6px">Bảng cỡ chỉ tính từ 60 đến 140 mm nên chưa có số con/kg.</div>'
+      : '';
+    const latestCardHtml = `<div class="card"><div style="display:flex;justify-content:space-between;align-items:flex-start"><div><div style="font-size:15px;font-weight:600;color:var(--ink)">Lần đo mới nhất</div><div style="font-size:14px;color:var(--muted);margin-top:2px">${dayMonth} - ${d.n_latest || 0} con</div></div>${demoChipHtml}</div>${sizeNumberHtml}<div style="font-size:17px;color:var(--ink)">Tôm dài trung bình <b>${f1cm(d.latest_length_mm)} cm</b></div>${outsideNoteHtml}</div>`;
 
     // 2. Card "status"
     let circleBg = "var(--amber)";
@@ -744,25 +747,16 @@ async function loadDashboard() {
         ? `${perKgText(r.size_per_kg)} con/kg`
         : "ngoài bảng cỡ";
 
+      // the change since the sample before it is the server's number (real and demo samples never mix)
       let rightHtml = "";
-      if (i === reversed.length - 1) {
+      if (r.change_length_mm === null || r.change_length_mm === undefined) {
         rightHtml = '<span style="color:var(--muted);font-size:14px">lần đầu</span>';
       } else {
-        const prevRow = reversed[i + 1];
-        if (r.mean_length_mm !== null && prevRow.mean_length_mm !== null) {
-          const diff = r.mean_length_mm - prevRow.mean_length_mm;
-          let diffStr = "";
-          if (diff >= 0) {
-            diffStr = "+" + diff.toFixed(1).replace(".", ",") + " mm";
-          } else {
-            diffStr = "−" + Math.abs(diff).toFixed(1).replace(".", ",") + " mm";
-          }
-          const isWarmRed = (i === 0 && d.stall === true);
-          const pillColor = isWarmRed ? 'var(--warm-red)' : 'var(--primary-teal)';
-          rightHtml = `<span class="pill" style="border-color:${pillColor};color:${pillColor}">${diffStr}</span>`;
-        } else {
-          rightHtml = '<span style="color:var(--muted);font-size:14px">-</span>';
-        }
+        const diff = r.change_length_mm;
+        const diffStr = (diff >= 0 ? "+" : "−") + Math.abs(diff).toFixed(1).replace(".", ",") + " mm";
+        const isWarmRed = (i === 0 && d.stall === true);
+        const pillColor = isWarmRed ? 'var(--warm-red)' : 'var(--primary-teal)';
+        rightHtml = `<span class="pill" style="border-color:${pillColor};color:${pillColor}">${diffStr}</span>`;
       }
 
       const borderTopStyle = (i > 0) ? 'border-top:1px solid var(--border);' : '';

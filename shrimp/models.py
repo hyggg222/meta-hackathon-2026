@@ -107,6 +107,8 @@ class SampleRow:
     size_per_kg: Optional[float]
     demo: bool
     growth_mm_per_day: Optional[float]
+    # average length minus that of the sample before it of the same kind (real or demo)
+    change_length_mm: Optional[float] = None
 
 
 @dataclass
