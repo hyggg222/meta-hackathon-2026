@@ -14,7 +14,10 @@ def _is_positive_finite(val: Any) -> bool:
     # Check value is a positive finite number and not a boolean
     if isinstance(val, bool) or not isinstance(val, (int, float)):
         return False
-    return math.isfinite(val) and val > 0
+    try:
+        return math.isfinite(val) and val > 0
+    except OverflowError:
+        return False
 
 
 class Service:
@@ -39,11 +42,31 @@ class Service:
 
     def save_settings(self, s: Settings) -> Settings:
         # Validate settings thresholds and save to store
-        for f in ("ruler_mm", "card_mm", "stall_mm_per_day", "harvest_per_kg", "feed_price_vnd"):
+        if not isinstance(s.pond_name, str) or len(s.pond_name) > 100:
+            raise ValueError("invalid pond_name")
+        limits = {
+            "ruler_mm": 10000,
+            "card_mm": 10000,
+            "stall_mm_per_day": 1000,
+            "harvest_per_kg": 100000,
+        }
+        for f, max_val in limits.items():
             val = getattr(s, f)
-            if not _is_positive_finite(val):
+            if not _is_positive_finite(val) or val > max_val:
                 raise ValueError(f"invalid {f}")
-        if isinstance(s.min_measured, bool) or not isinstance(s.min_measured, int) or s.min_measured < 1:
+        if (
+            isinstance(s.feed_price_vnd, bool)
+            or not isinstance(s.feed_price_vnd, int)
+            or s.feed_price_vnd < 1
+            or s.feed_price_vnd > 1_000_000_000
+        ):
+            raise ValueError("invalid feed_price_vnd")
+        if (
+            isinstance(s.min_measured, bool)
+            or not isinstance(s.min_measured, int)
+            or s.min_measured < 1
+            or s.min_measured > 100
+        ):
             raise ValueError("invalid min_measured")
         self.store.save_settings(s)
         return self.settings()
@@ -52,21 +75,25 @@ class Service:
         # Analyze tray photo and persist sample if ok
         tray = analyze_tray(photo, self.settings(), self.table, self.segmenter)
         if tray.status == "ok":
-            photo_path: Optional[str] = None
+            img_path: Optional[Path] = None
             if self.photos_dir is not None:
                 sha = hashlib.sha256(photo).hexdigest()[:8]
                 img_path = self.photos_dir / f"{day.isoformat()}-{sha}.img"
                 img_path.parent.mkdir(parents=True, exist_ok=True)
                 img_path.write_bytes(photo)
-                photo_path = str(img_path)
-            self.store.save_sample(day, tray, photo_path=photo_path)
+            try:
+                self.store.save_sample(day, tray, photo_path=str(img_path) if img_path is not None else None)
+            except Exception:
+                if img_path is not None:
+                    img_path.unlink(missing_ok=True)
+                raise
         return tray
 
     def add_feed(self, day: date, kg_per_day: float, price_vnd: float) -> None:
         # Validate daily feed parameters and persist entry
-        if not _is_positive_finite(kg_per_day):
+        if not _is_positive_finite(kg_per_day) or kg_per_day > 1_000_000:
             raise ValueError("invalid kg_per_day")
-        if not _is_positive_finite(price_vnd):
+        if not _is_positive_finite(price_vnd) or price_vnd > 1_000_000_000:
             raise ValueError("invalid price_vnd")
         self.store.add_feed(FeedEntry(day=day, kg_per_day=float(kg_per_day), price_vnd=int(round(price_vnd))))
 

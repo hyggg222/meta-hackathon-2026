@@ -1,12 +1,12 @@
 # FastAPI application routes for shrimp analysis and dashboard
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
 from fastapi import Body, FastAPI, File, Form, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse
 
-from shrimp.models import SegmentationError, Settings
+from shrimp.models import SegmentationError
 from shrimp.service import Service
 
 MAX_UPLOAD_BYTES = 15 * 1024 * 1024
@@ -91,7 +91,7 @@ def create_app(service: Service) -> FastAPI:
         if not isinstance(payload, dict):
             return JSONResponse(status_code=422, content={"error": "invalid payload"})
         try:
-            s = Settings(**payload)
+            s = replace(service.settings(), **payload)
             saved = service.save_settings(s)
             return JSONResponse(content=_to_json_dict(saved))
         except (ValueError, TypeError) as exc:
