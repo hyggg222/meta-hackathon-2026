@@ -69,3 +69,38 @@ def test_page_safety():
     assert not re.search(r"innerHTML\s*\+=", html), "Found innerHTML += in page"
     assert "http://" not in html
     assert "https://" not in html
+
+
+def test_page_body_background():
+    # The body rule does not use the gray --page variable
+    service = make_test_service()
+    app = create_app(service)
+    client = TestClient(app)
+
+    resp = client.get("/")
+    assert resp.status_code == 200
+    html = resp.text
+
+    match = re.search(r"body\s*\{([^}]+)\}", html)
+    assert match is not None, "body rule not found in style"
+    body_style = match.group(1)
+    assert not re.search(r"background[^;]*--page", body_style), (
+        "body background must not reference --page"
+    )
+
+
+def test_page_hash_navigation():
+    # The served HTML mentions hashchange and the three fragment names photo, feed, dashboard
+    service = make_test_service()
+    app = create_app(service)
+    client = TestClient(app)
+
+    resp = client.get("/")
+    assert resp.status_code == 200
+    html = resp.text
+
+    assert "hashchange" in html
+    assert "photo" in html
+    assert "feed" in html
+    assert "dashboard" in html
+
