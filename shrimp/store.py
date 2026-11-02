@@ -52,7 +52,8 @@ class Store:
                 n_left_out INTEGER NOT NULL,
                 mean_length_mm REAL,
                 demo INTEGER NOT NULL,
-                photo_path TEXT
+                photo_path TEXT,
+                sd_length_mm REAL
             )
             """
         )
@@ -73,6 +74,10 @@ class Store:
             )
             """
         )
+        cur.execute("PRAGMA table_info(samples)")
+        columns = [row[1] for row in cur.fetchall()]
+        if "sd_length_mm" not in columns:
+            cur.execute("ALTER TABLE samples ADD COLUMN sd_length_mm REAL")
         self._conn.commit()
 
     # Save a sample measurement and return its id.
@@ -84,12 +89,13 @@ class Store:
         demo: bool = False,
     ) -> int:
         day_str = _iso_day(day)
+        sd_len = getattr(tray, "sd_length_mm", None)
         with self._lock, self._conn:
             cur = self._conn.cursor()
             cur.execute(
                 """
-                INSERT INTO samples (day, n_measured, n_left_out, mean_length_mm, demo, photo_path)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO samples (day, n_measured, n_left_out, mean_length_mm, demo, photo_path, sd_length_mm)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     day_str,
@@ -98,6 +104,7 @@ class Store:
                     tray.mean_length_mm,
                     1 if demo else 0,
                     photo_path,
+                    sd_len,
                 ),
             )
             return int(cur.lastrowid)
@@ -108,7 +115,7 @@ class Store:
             cur = self._conn.cursor()
             cur.execute(
                 """
-                SELECT id, day, n_measured, n_left_out, mean_length_mm, demo, photo_path
+                SELECT id, day, n_measured, n_left_out, mean_length_mm, demo, photo_path, sd_length_mm
                 FROM samples
                 ORDER BY day ASC, id ASC
                 """
@@ -124,6 +131,7 @@ class Store:
                         mean_length_mm=row[4],
                         demo=bool(row[5]),
                         photo_path=row[6],
+                        sd_length_mm=row[7],
                     )
                 )
             return records
@@ -212,10 +220,10 @@ class Store:
                 sample_day = (today + timedelta(days=offset)).isoformat()
                 cur.execute(
                     """
-                    INSERT INTO samples (day, n_measured, n_left_out, mean_length_mm, demo, photo_path)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    INSERT INTO samples (day, n_measured, n_left_out, mean_length_mm, demo, photo_path, sd_length_mm)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
                     """,
-                    (sample_day, n_meas, n_left, mean_len, 1, None),
+                    (sample_day, n_meas, n_left, mean_len, 1, None, None),
                 )
 
             feed_offset, feed_kg, feed_price = DEMO_HISTORY["feed"]
