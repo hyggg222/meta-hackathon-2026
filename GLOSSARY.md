@@ -48,3 +48,13 @@ _Avoid_: fake data, mock data
 ## The old method
 **Cast net sample**: the farmer's current way: catch about 1 kg with a net, weigh it, count by hand. Takes about 15 minutes and two people, hurts the shrimp, and depends on luck.
 _Avoid_: net test
+
+## The chat
+**Bot**: the Messenger account the farmer sends the tray photo to. It replies with the measured photo and a few lines, and saves the sample only after the farmer says yes.
+_Avoid_: assistant, agent (the bot never decides for the farmer)
+
+**Reply photo**: the tray photo sent back by the bot, with each counted shrimp outlined, its body line and number drawn on it, and shrimp that do not count marked as left out.
+_Avoid_: overlay (that was the web page's word)
+
+**Minimum length**: shrimp shorter than this (50 mm by default, editable in Setup) are treated as fragments and left out of the average.
+_Avoid_: noise filter
