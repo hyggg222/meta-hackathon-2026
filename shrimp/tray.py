@@ -97,13 +97,15 @@ def summarize(
 ) -> TrayResult:
     # Build TrayResult from Analysis and optional included shrimp indices
     total = len(analysis.shrimp)
+    default_chosen = [
+        s.index
+        for s in analysis.shrimp
+        if not s.overlapped
+        and not s.merged
+        and (s.length_mm is None or s.length_mm >= settings.min_length_mm)
+    ]
     if include is None:
-        chosen = [
-            s.index
-            for s in analysis.shrimp
-            if not s.overlapped
-            and (s.length_mm is None or s.length_mm >= settings.min_length_mm)
-        ]
+        chosen = default_chosen
     else:
         if not isinstance(include, list):
             raise ValueError("include must be a list of ints or None")
@@ -148,7 +150,10 @@ def summarize(
         else None
     )
 
+    is_crowded = total >= 8 and (total - len(default_chosen)) * 2 >= total
+
     if analysis.scale_px_per_mm is None:
+        notices = ["crowded"] if is_crowded else []
         return TrayResult(
             status="no_reference",
             reference="none",
@@ -158,7 +163,7 @@ def summarize(
             n_left_out=n_left_out,
             mean_length_mm=None,
             size_per_kg=None,
-            notices=[],
+            notices=notices,
             included=chosen,
             sd_length_mm=sd_len,
         )
@@ -178,6 +183,9 @@ def summarize(
                 notices.append("rough_estimate")
             elif size_per_kg is None:
                 notices.append("outside_table_range")
+
+    if is_crowded:
+        notices.append("crowded")
 
     return TrayResult(
         status=status,
