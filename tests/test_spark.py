@@ -143,6 +143,10 @@ def _make_sample_dashboard(
         stall_threshold_mm_per_day=0.33,
         harvest_threshold_per_kg=50.0,
         min_measured=5,
+        growth_se_mm_per_day=None,
+        stall_unclear=False,
+        days_needed=None,
+        shrimp_needed=None,
     )
 
 

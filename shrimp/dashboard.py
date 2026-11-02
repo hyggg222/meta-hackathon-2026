@@ -1,3 +1,4 @@
+import math
 from typing import Any, Iterable, List, Optional
 
 from shrimp.models import (
@@ -8,6 +9,8 @@ from shrimp.models import (
     SampleRow,
     Settings,
 )
+
+Z_CONFIDENT: float = 1.645
 
 
 def _calc_stall(
@@ -25,6 +28,23 @@ def _calc_stall(
     if cur.mean_length_mm is None or prev.mean_length_mm is None:
         return None
     growth_per_day = (cur.mean_length_mm - prev.mean_length_mm) / days
+    if (
+        cur.sd_length_mm is not None
+        and prev.sd_length_mm is not None
+        and cur.n_measured >= max(2, settings.min_measured)
+        and prev.n_measured >= max(2, settings.min_measured)
+    ):
+        sigma_diff = math.sqrt(
+            (cur.sd_length_mm ** 2) / cur.n_measured
+            + (prev.sd_length_mm ** 2) / prev.n_measured
+        )
+        se = sigma_diff / days
+        thr = settings.stall_mm_per_day
+        if growth_per_day + Z_CONFIDENT * se < thr - 1e-9:
+            return True
+        if growth_per_day - Z_CONFIDENT * se >= thr - 1e-9:
+            return False
+        return None
     # Float guard avoids rounding up actual stalls while tolerating float imprecision
     return growth_per_day < settings.stall_mm_per_day - 1e-9
 
@@ -57,6 +77,10 @@ def build_dashboard(
             stall_threshold_mm_per_day=settings.stall_mm_per_day,
             harvest_threshold_per_kg=settings.harvest_per_kg,
             min_measured=settings.min_measured,
+            growth_se_mm_per_day=None,
+            stall_unclear=False,
+            days_needed=None,
+            shrimp_needed=None,
         )
 
     rows: List[SampleRow] = []
@@ -100,6 +124,10 @@ def build_dashboard(
     stall_notice: Optional[str] = None
     stall: Optional[bool] = None
     growth_mm_per_day: Optional[float] = None
+    growth_se_mm_per_day: Optional[float] = None
+    stall_unclear: bool = False
+    days_needed: Optional[int] = None
+    shrimp_needed: Optional[int] = None
 
     if previous is not None:
         n_previous = previous.n_measured
@@ -124,7 +152,37 @@ def build_dashboard(
         ):
             stall_notice = "not_enough_shrimp"
 
-        stall = _calc_stall(previous, latest, settings)
+        if (
+            latest.sd_length_mm is not None
+            and previous.sd_length_mm is not None
+            and latest.n_measured >= max(2, settings.min_measured)
+            and previous.n_measured >= max(2, settings.min_measured)
+            and days_between > 0
+            and growth_mm_per_day is not None
+        ):
+            thr = settings.stall_mm_per_day
+            sigma_diff = math.sqrt(
+                (latest.sd_length_mm ** 2) / latest.n_measured
+                + (previous.sd_length_mm ** 2) / previous.n_measured
+            )
+            growth_se_mm_per_day = sigma_diff / days_between
+            z_se = Z_CONFIDENT * growth_se_mm_per_day
+            if growth_mm_per_day + z_se < thr - 1e-9:
+                stall = True
+                stall_unclear = False
+            elif growth_mm_per_day - z_se >= thr - 1e-9:
+                stall = False
+                stall_unclear = False
+            else:
+                stall = None
+                stall_unclear = True
+                days_needed = math.ceil(Z_CONFIDENT * sigma_diff / thr)
+                shrimp_needed = math.ceil(
+                    latest.n_measured
+                    * (Z_CONFIDENT * sigma_diff / (days_between * thr)) ** 2
+                )
+        else:
+            stall = _calc_stall(previous, latest, settings)
 
     chart: List[ChartPoint] = []
     for i, s in enumerate(sorted_samples):
@@ -187,4 +245,8 @@ def build_dashboard(
         stall_threshold_mm_per_day=settings.stall_mm_per_day,
         harvest_threshold_per_kg=settings.harvest_per_kg,
         min_measured=settings.min_measured,
+        growth_se_mm_per_day=growth_se_mm_per_day,
+        stall_unclear=stall_unclear,
+        days_needed=days_needed,
+        shrimp_needed=shrimp_needed,
     )

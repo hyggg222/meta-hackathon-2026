@@ -5,7 +5,7 @@ import cv2
 import numpy as np
 import pytest
 
-from shrimp.models import SegmentationError, Settings
+from shrimp.models import Analysis, SegmentationError, Settings, ShrimpMeasure
 from shrimp.sizing import SizeTable
 from shrimp.tray import analyze_shrimp, analyze_tray, summarize
 from tests.conftest import FakeSegmenter
@@ -403,3 +403,25 @@ def test_tray_no_reference_length(fake_photo: bytes):
     assert res.n_measured == 5
     assert res.n_left_out == 0
     assert res.included == [0, 1, 2, 3, 4]
+
+
+def test_summarize_sd_length():
+    # Chosen lengths give sample standard deviation with ddof=1, None for < 2 shrimp
+    settings = Settings(min_measured=1, min_length_mm=50.0)
+    shrimp = [
+        ShrimpMeasure(index=0, length_px=160.0, length_mm=80.0, overlapped=False, path=[]),
+        ShrimpMeasure(index=1, length_px=180.0, length_mm=90.0, overlapped=False, path=[]),
+        ShrimpMeasure(index=2, length_px=200.0, length_mm=100.0, overlapped=False, path=[]),
+    ]
+    analysis = Analysis(reference="ruler", scale_px_per_mm=2.0, shrimp=shrimp)
+
+    res = summarize(analysis, [0, 1, 2], settings, None)
+    assert res.sd_length_mm == pytest.approx(10.0)
+
+    res_one = summarize(analysis, [0], settings, None)
+    assert res_one.sd_length_mm is None
+
+    res_two = summarize(analysis, [0, 1], settings, None)
+    assert res_two.sd_length_mm == pytest.approx(7.0710678, rel=1e-4)
+    assert res_two.sd_length_mm != res.sd_length_mm
+

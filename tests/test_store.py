@@ -398,3 +398,70 @@ def test_corrupt_min_length_falls_back():
         store._conn.commit()
         assert store.load_settings(defaults).min_length_mm == 50.0
 
+
+# Verify round trip of sd_length_mm.
+def test_sample_sd_length_round_trip():
+    store = Store(":memory:")
+    today = date(2026, 11, 2)
+    tray = SimpleNamespace(n_measured=8, n_left_out=2, mean_length_mm=85.0, sd_length_mm=6.5)
+    sid = store.save_sample(today, tray)
+    samples = store.samples()
+    assert len(samples) == 1
+    assert samples[0].id == sid
+    assert samples[0].sd_length_mm == pytest.approx(6.5)
+
+
+# Verify old database without sd_length_mm opens, reads None, and new sample saves.
+def test_old_database_migration_and_save(tmp_path):
+    db_file = tmp_path / "old_shrimp.db"
+    conn = sqlite3.connect(str(db_file))
+    cur = conn.cursor()
+    cur.execute(
+        """
+        CREATE TABLE samples (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            day TEXT NOT NULL,
+            n_measured INTEGER NOT NULL,
+            n_left_out INTEGER NOT NULL,
+            mean_length_mm REAL,
+            demo INTEGER NOT NULL,
+            photo_path TEXT
+        )
+        """
+    )
+    cur.execute(
+        """
+        INSERT INTO samples (day, n_measured, n_left_out, mean_length_mm, demo, photo_path)
+        VALUES ('2026-11-01', 8, 2, 85.0, 0, NULL)
+        """
+    )
+    conn.commit()
+    conn.close()
+
+    store = Store(db_file)
+    samples = store.samples()
+    assert len(samples) == 1
+    assert samples[0].sd_length_mm is None
+
+    new_tray = SimpleNamespace(n_measured=10, n_left_out=0, mean_length_mm=90.0, sd_length_mm=8.2)
+    new_sid = store.save_sample(date(2026, 11, 2), new_tray)
+
+    samples_after = store.samples()
+    assert len(samples_after) == 2
+    assert samples_after[0].sd_length_mm is None
+    assert samples_after[1].id == new_sid
+    assert samples_after[1].sd_length_mm == pytest.approx(8.2)
+    store.close()
+
+
+# Verify demo samples have sd_length_mm as None.
+def test_seed_demo_sd_length_is_none():
+    store = Store(":memory:")
+    today = date(2026, 11, 2)
+    store.seed_demo(today)
+    samples = store.samples()
+    assert len(samples) == 5
+    for s in samples:
+        assert s.sd_length_mm is None
+
+

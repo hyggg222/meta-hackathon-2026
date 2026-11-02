@@ -33,6 +33,10 @@ def test_empty_input():
     assert d.chart == []
     assert d.rows == []
     assert d.notices == []
+    assert d.growth_se_mm_per_day is None
+    assert d.stall_unclear is False
+    assert d.days_needed is None
+    assert d.shrimp_needed is None
 
 
 def test_single_sample_no_change_and_no_flag():
@@ -391,6 +395,122 @@ def test_sample_row_growth_matches_dashboard():
     d = build_dashboard([s1, s2, s3], [], Settings(), FakeTable())
     assert d.rows[-1].growth_mm_per_day == d.growth_mm_per_day
     assert d.growth_mm_per_day == pytest.approx(1.0)
+
+
+def test_z_confident_constant():
+    # Z_CONFIDENT constant is 1.645
+    from shrimp.dashboard import Z_CONFIDENT
+
+    assert Z_CONFIDENT == 1.645
+
+
+def test_dashboard_spread_unclear_slow_growth():
+    # Days 3 apart, means 90.0 and 91.0, sd 10.0 and n 10 each: stall unclear
+    settings = Settings(stall_mm_per_day=0.33, min_measured=5)
+    s1 = SampleRecord(1, date(2026, 11, 1), 10, 0, 90.0, False, None, sd_length_mm=10.0)
+    s2 = SampleRecord(2, date(2026, 11, 4), 10, 0, 91.0, False, None, sd_length_mm=10.0)
+    d = build_dashboard([s1, s2], [], settings, FakeTable())
+    assert d.stall is None
+    assert d.stall_unclear is True
+    assert d.growth_se_mm_per_day == pytest.approx(1.4907, abs=1e-3)
+    assert d.days_needed == 23
+    assert d.shrimp_needed == 553
+
+
+def test_dashboard_spread_confident_stall():
+    # Days 10 apart, means 90.0 and 90.0, sd 1.0, n 20 each: confident stall
+    settings = Settings(stall_mm_per_day=0.33, min_measured=5)
+    s1 = SampleRecord(1, date(2026, 11, 1), 20, 0, 90.0, False, None, sd_length_mm=1.0)
+    s2 = SampleRecord(2, date(2026, 11, 11), 20, 0, 90.0, False, None, sd_length_mm=1.0)
+    d = build_dashboard([s1, s2], [], settings, FakeTable())
+    assert d.stall is True
+    assert d.stall_unclear is False
+    assert d.growth_se_mm_per_day is not None
+    assert d.days_needed is None
+    assert d.shrimp_needed is None
+
+
+def test_dashboard_spread_confident_not_stall():
+    # Days 10 apart, means 90.0 and 100.0, sd 1.0, n 20 each: confident not stall
+    settings = Settings(stall_mm_per_day=0.33, min_measured=5)
+    s1 = SampleRecord(1, date(2026, 11, 1), 20, 0, 90.0, False, None, sd_length_mm=1.0)
+    s2 = SampleRecord(2, date(2026, 11, 11), 20, 0, 100.0, False, None, sd_length_mm=1.0)
+    d = build_dashboard([s1, s2], [], settings, FakeTable())
+    assert d.stall is False
+    assert d.stall_unclear is False
+    assert d.growth_se_mm_per_day is not None
+    assert d.days_needed is None
+    assert d.shrimp_needed is None
+
+
+def test_dashboard_old_rule_without_sd_length():
+    # The same numbers without sd_length_mm behave exactly as before
+    settings = Settings(stall_mm_per_day=0.33, min_measured=5)
+    # Means 90.0 and 91.0 over 3 days is not a stall (0.333 is not below 0.33)
+    s1 = SampleRecord(1, date(2026, 11, 1), 10, 0, 90.0, False, None, sd_length_mm=None)
+    s2 = SampleRecord(2, date(2026, 11, 4), 10, 0, 91.0, False, None, sd_length_mm=None)
+    d1 = build_dashboard([s1, s2], [], settings, FakeTable())
+    assert d1.stall is False
+    assert d1.stall_unclear is False
+    assert d1.growth_se_mm_per_day is None
+    assert d1.days_needed is None
+    assert d1.shrimp_needed is None
+
+    # Means 90.0 and 90.5 over 3 days is a stall
+    s3 = SampleRecord(3, date(2026, 11, 1), 10, 0, 90.0, False, None, sd_length_mm=None)
+    s4 = SampleRecord(4, date(2026, 11, 4), 10, 0, 90.5, False, None, sd_length_mm=None)
+    d2 = build_dashboard([s3, s4], [], settings, FakeTable())
+    assert d2.stall is True
+    assert d2.stall_unclear is False
+    assert d2.growth_se_mm_per_day is None
+    assert d2.days_needed is None
+    assert d2.shrimp_needed is None
+
+
+def test_dashboard_spread_cannot_tell_cases():
+    # Same day, N below min_measured and a missing mean give stall None, stall_unclear False even with sd
+    settings = Settings(stall_mm_per_day=0.33, min_measured=5)
+
+    # Same day
+    s1 = SampleRecord(1, date(2026, 11, 1), 10, 0, 90.0, False, None, sd_length_mm=10.0)
+    s2 = SampleRecord(2, date(2026, 11, 1), 10, 0, 91.0, False, None, sd_length_mm=10.0)
+    d_same_day = build_dashboard([s1, s2], [], settings, FakeTable())
+    assert d_same_day.stall is None
+    assert d_same_day.stall_unclear is False
+    assert d_same_day.growth_se_mm_per_day is None
+    assert d_same_day.days_needed is None
+    assert d_same_day.shrimp_needed is None
+
+    # N below min_measured
+    s3 = SampleRecord(3, date(2026, 11, 1), 4, 0, 90.0, False, None, sd_length_mm=10.0)
+    s4 = SampleRecord(4, date(2026, 11, 4), 10, 0, 91.0, False, None, sd_length_mm=10.0)
+    d_low_n = build_dashboard([s3, s4], [], settings, FakeTable())
+    assert d_low_n.stall is None
+    assert d_low_n.stall_unclear is False
+    assert d_low_n.growth_se_mm_per_day is None
+    assert d_low_n.days_needed is None
+    assert d_low_n.shrimp_needed is None
+
+    # Missing mean
+    s5 = SampleRecord(5, date(2026, 11, 1), 10, 0, None, False, None, sd_length_mm=10.0)
+    s6 = SampleRecord(6, date(2026, 11, 4), 10, 0, 91.0, False, None, sd_length_mm=10.0)
+    d_missing_mean = build_dashboard([s5, s6], [], settings, FakeTable())
+    assert d_missing_mean.stall is None
+    assert d_missing_mean.stall_unclear is False
+    assert d_missing_mean.growth_se_mm_per_day is None
+    assert d_missing_mean.days_needed is None
+    assert d_missing_mean.shrimp_needed is None
+
+
+def test_empty_dashboard_new_fields():
+    # The empty dashboard has the four new fields (None, False, None, None)
+    d = build_dashboard([], [], Settings(), FakeTable())
+    assert d.empty is True
+    assert d.growth_se_mm_per_day is None
+    assert d.stall_unclear is False
+    assert d.days_needed is None
+    assert d.shrimp_needed is None
+
 
 
 

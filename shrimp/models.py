@@ -63,6 +63,7 @@ class TrayResult:
     size_per_kg: Optional[float] = None
     notices: List[str] = field(default_factory=list)
     included: List[int] = field(default_factory=list)
+    sd_length_mm: Optional[float] = None
 
 
 @dataclass
@@ -75,6 +76,7 @@ class SampleRecord:
     mean_length_mm: Optional[float]
     demo: bool
     photo_path: Optional[str]
+    sd_length_mm: Optional[float] = None
 
 
 @dataclass
@@ -125,3 +127,7 @@ class Dashboard:
     stall_threshold_mm_per_day: float
     harvest_threshold_per_kg: float
     min_measured: int
+    growth_se_mm_per_day: Optional[float]
+    stall_unclear: bool
+    days_needed: Optional[int]
+    shrimp_needed: Optional[int]

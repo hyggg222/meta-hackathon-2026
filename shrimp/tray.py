@@ -131,10 +131,22 @@ def summarize(
             size_per_kg=None,
             notices=[],
             included=[],
+            sd_length_mm=None,
         )
 
     n_measured = len(chosen)
     n_left_out = total - n_measured
+
+    chosen_shrimp = [analysis.shrimp[i] for i in chosen]
+    measured_lengths = [
+        s.length_mm for s in chosen_shrimp if s.length_mm is not None
+    ]
+    mean_len = float(np.mean(measured_lengths)) if measured_lengths else None
+    sd_len = (
+        float(np.std(measured_lengths, ddof=1))
+        if len(measured_lengths) >= 2
+        else None
+    )
 
     if analysis.scale_px_per_mm is None:
         return TrayResult(
@@ -148,13 +160,8 @@ def summarize(
             size_per_kg=None,
             notices=[],
             included=chosen,
+            sd_length_mm=sd_len,
         )
-
-    chosen_shrimp = [analysis.shrimp[i] for i in chosen]
-    measured_lengths = [
-        s.length_mm for s in chosen_shrimp if s.length_mm is not None
-    ]
-    mean_len = float(np.mean(measured_lengths)) if measured_lengths else None
 
     if n_measured < settings.min_measured:
         status = "too_few"
@@ -183,6 +190,7 @@ def summarize(
         size_per_kg=size_per_kg,
         notices=notices,
         included=chosen,
+        sd_length_mm=sd_len,
     )
 
 
