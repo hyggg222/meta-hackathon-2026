@@ -480,3 +480,27 @@ def test_analyses_routes_sync():
     for p in ("/api/analyses", "/api/analyses/{analysis_id}/summary", "/api/analyses/{analysis_id}/save"):
         route = next(r for r in app.routes if getattr(r, "path", None) == p)
         assert not inspect.iscoroutinefunction(route.endpoint)
+
+
+def test_settings_route_min_length():
+    # Settings routes return and update min length and reject invalid values
+    store = Store(":memory:")
+    service = make_test_service(store=store)
+    app = create_app(service)
+    client = TestClient(app)
+
+    get_resp = client.get("/api/settings")
+    assert get_resp.status_code == 200
+    assert get_resp.json()["min_length_mm"] == 50.0
+
+    put_resp = client.put("/api/settings", json={"min_length_mm": 40})
+    assert put_resp.status_code == 200
+    assert put_resp.json()["min_length_mm"] == 40.0
+    assert service.settings().min_length_mm == 40.0
+
+    original = service.settings()
+    for bad in (0, -1, "x", True, False, 1e9, 1000.1, float("nan"), float("inf"), None, 10**400):
+        resp = client.put("/api/settings", json={"min_length_mm": bad})
+        assert resp.status_code == 422
+        assert "error" in resp.json()
+        assert service.settings() == original
