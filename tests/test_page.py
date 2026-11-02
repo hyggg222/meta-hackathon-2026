@@ -37,22 +37,24 @@ def test_page_api_routes():
         if hasattr(route, "path") and hasattr(route, "methods"):
             route_methods.setdefault(route.path, set()).update(route.methods)
 
-    api_paths = set(re.findall(r"/api/[a-zA-Z0-9_\-/]+", html))
-    assert len(api_paths) > 0
+    raw_api_paths = set(re.findall(r"/api/(?:[a-zA-Z0-9_\-/]|\$\{[^}]+\})+", html))
+    assert len(raw_api_paths) > 0
 
+    api_paths = {re.sub(r"\$\{[^}]+\}", "{analysis_id}", p) for p in raw_api_paths}
     for path in api_paths:
         assert path in route_methods, f"Unknown API path: {path}"
 
     fetch_calls = re.findall(
-        r'fetch\(\s*["\'](/api/[^"\']+)["\'](?:\s*,\s*\{[^}]*method:\s*["\']([A-Z]+)["\'])?',
+        r'fetch\(\s*[`"\'](/api/[^`"\']+)[`"\'](?:\s*,\s*\{[^}]*method:\s*[`"\']([A-Z]+)[`"\'])?',
         html,
     )
     assert len(fetch_calls) > 0
     for path, method in fetch_calls:
         effective_method = method if method else "GET"
-        assert path in route_methods, f"Unknown path in fetch: {path}"
-        assert effective_method in route_methods[path], (
-            f"Method {effective_method} not allowed for {path}"
+        normalized_path = re.sub(r"\$\{[^}]+\}", "{analysis_id}", path)
+        assert normalized_path in route_methods, f"Unknown path in fetch: {normalized_path}"
+        assert effective_method in route_methods[normalized_path], (
+            f"Method {effective_method} not allowed for {normalized_path}"
         )
 
 
@@ -289,6 +291,104 @@ def test_page_review_nits():
     assert "outside the table range: no size per kg" in html
     assert "Outside the table range: no size per kg" not in html
     assert "The photo was saved, but the result could not be shown." in html
+
+
+def test_page_photo_routes_and_no_samples():
+    # The script posts to /api/analyses, summary, and save, and no longer posts to /api/samples
+    service = make_test_service()
+    app = create_app(service)
+    client = TestClient(app)
+
+    resp = client.get("/")
+    assert resp.status_code == 200
+    html = resp.text
+
+    assert "/api/samples" not in html
+    assert "/api/analyses" in html
+
+    fetch_calls = re.findall(
+        r'fetch\(\s*[`"\'](/api/[^`"\']+)[`"\'](?:\s*,\s*\{[^}]*method:\s*[`"\']([A-Z]+)[`"\'])?',
+        html,
+    )
+    posted_paths = {
+        re.sub(r"\$\{[^}]+\}", "{analysis_id}", path)
+        for path, method in fetch_calls
+        if method == "POST"
+    }
+    assert "/api/analyses" in posted_paths
+    assert "/api/analyses/{analysis_id}/summary" in posted_paths
+    assert "/api/analyses/{analysis_id}/save" in posted_paths
+    assert "/api/samples" not in posted_paths
+
+
+def test_page_photo_overlay_and_choice_elements():
+    # The script builds polygon from outline, polyline from path, aria-pressed, and checkbox rows
+    service = make_test_service()
+    app = create_app(service)
+    client = TestClient(app)
+
+    resp = client.get("/")
+    assert resp.status_code == 200
+    html = resp.text
+
+    assert "<polygon" in html
+    assert "outline" in html
+    assert "<polyline" in html
+    assert "path" in html
+    assert "aria-pressed" in html
+    assert 'type="checkbox"' in html
+
+
+def test_page_photo_labels_and_hint():
+    # Overlay has left out and cm labels, Measure photo, Save sample, and Tap a shrimp hint
+    service = make_test_service()
+    app = create_app(service)
+    client = TestClient(app)
+
+    resp = client.get("/")
+    assert resp.status_code == 200
+    html = resp.text
+
+    assert "left out" in html
+    assert " cm" in html
+    assert "Measure photo" in html
+    assert "Save sample" in html
+    assert "Tap a shrimp" in html
+
+
+def test_page_summary_in_flight_guard():
+    # Summary call has in-flight guard, request counter, and latest summary wins comment
+    service = make_test_service()
+    app = create_app(service)
+    client = TestClient(app)
+
+    resp = client.get("/")
+    assert resp.status_code == 200
+    html = resp.text
+
+    assert "// latest summary wins" in html
+    match = re.search(
+        r"// latest summary wins\s*\n\s*(?:const|let|var)\s+(\w+)",
+        html,
+    )
+    assert match is not None
+    var_name = match.group(1).lower()
+    assert "summary" in var_name or "request" in var_name
+
+
+def test_page_no_mean_computed_in_page():
+    # The page does not compute a mean; numbers come from the server
+    service = make_test_service()
+    app = create_app(service)
+    client = TestClient(app)
+
+    resp = client.get("/")
+    assert resp.status_code == 200
+    html = resp.text
+
+    assert "reduce(" not in html
+    assert not re.search(r"length_mm[\s\S]{0,100}/\s*(?:shrimp|count|items|included|n)", html)
+
 
 
 
