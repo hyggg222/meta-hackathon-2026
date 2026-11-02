@@ -1,0 +1,15 @@
+.git
+.venv
+.env
+data
+pics
+vids
+records
+docs-private
+node/node_modules
+**/__pycache__
+.pytest_cache
+.ruff_cache
+spike
+tests
+docs
