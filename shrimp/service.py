@@ -56,14 +56,11 @@ class Service:
             "ruler_mm": 10000,
             "card_mm": 10000,
             "stall_mm_per_day": 1000,
-            "harvest_per_kg": 100000,
-            "ration_pct": 20,
         }
         for f, max_val in limits.items():
             val = getattr(s, f)
             if not _is_positive_finite(val) or val > max_val:
                 raise ValueError(f"invalid {f}")
-        s.ration_pct = float(s.ration_pct)
         if (
             isinstance(s.feed_price_vnd, bool)
             or not isinstance(s.feed_price_vnd, int)

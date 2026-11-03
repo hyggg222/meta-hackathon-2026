@@ -160,12 +160,6 @@ def dashboard_reply(d: Dashboard) -> str:
     else:
         lines.append("Chưa đủ dữ liệu để so với lần trước.")
 
-    if d.at_harvest:
-        harvest_thresh_str = _format_num(d.harvest_threshold_per_kg)
-        lines.append(
-            f"Cỡ tôm đạt mức {harvest_thresh_str} con/kg bạn đặt (chỉ để tham khảo, bạn quyết định)."
-        )
-
     if d.value_per_kg_vnd is not None and d.latest_size_per_kg is not None:
         val_str = f"{d.value_per_kg_vnd:,}".replace(",", ".")
         lines.append(
@@ -325,8 +319,6 @@ def allowed_numbers_for_dashboard(d: Dashboard) -> List[float]:
     allowed: List[float] = [
         float(d.stall_threshold_mm_per_day),
         round(float(d.stall_threshold_mm_per_day), 2),
-        float(d.harvest_threshold_per_kg),
-        float(round(d.harvest_threshold_per_kg)),
         float(d.min_measured),
     ]
     if d.latest_length_mm is not None:

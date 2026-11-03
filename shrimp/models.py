@@ -26,9 +26,7 @@ class Settings:
     card_mm: float = 85.6
     feed_price_vnd: int = 45000
     stall_mm_per_day: float = 0.33
-    harvest_per_kg: float = 50.0
     min_measured: int = 5
-    ration_pct: float = 1.5
 
 
 @dataclass
@@ -122,14 +120,12 @@ class Dashboard:
     n_previous: Optional[int]
     days_between: Optional[int]
     stall: Optional[bool]
-    at_harvest: bool
     stall_day_cost_vnd: Optional[int]
     chart: List[ChartPoint]
     rows: List[SampleRow]
     notices: List[str]
     growth_mm_per_day: Optional[float]
     stall_threshold_mm_per_day: float
-    harvest_threshold_per_kg: float
     min_measured: int
     growth_se_mm_per_day: Optional[float]
     stall_unclear: bool

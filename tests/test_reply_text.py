@@ -56,8 +56,6 @@ def _make_dashboard(
     stall: Optional[bool] = None,
     growth_mm_per_day: Optional[float] = None,
     stall_threshold_mm_per_day: float = 0.33,
-    at_harvest: bool = False,
-    harvest_threshold_per_kg: float = 50.0,
     stall_day_cost_vnd: Optional[int] = None,
     value_per_kg_vnd: Optional[int] = None,
     next_class_per_kg: Optional[int] = None,
@@ -99,14 +97,12 @@ def _make_dashboard(
         n_previous=None,
         days_between=None,
         stall=stall,
-        at_harvest=at_harvest,
         stall_day_cost_vnd=stall_day_cost_vnd,
         chart=chart,
         rows=rows,
         notices=[],
         growth_mm_per_day=growth_mm_per_day,
         stall_threshold_mm_per_day=stall_threshold_mm_per_day,
-        harvest_threshold_per_kg=harvest_threshold_per_kg,
         min_measured=5,
         growth_se_mm_per_day=None,
         stall_unclear=False,
@@ -222,26 +218,22 @@ def test_dashboard_reply_empty():
     assert reply == "Chưa có lần đo nào. Gửi ảnh khay tôm để bắt đầu."
 
 
-def test_dashboard_reply_stall_and_harvest():
-    # Test stall states: True, False, None, and at_harvest True
+def test_dashboard_reply_stall_states():
+    # Test stall states: True, False, None
     d_stall_true = _make_dashboard(
         stall=True,
         growth_mm_per_day=0.20,
         stall_threshold_mm_per_day=0.33,
-        at_harvest=True,
-        harvest_threshold_per_kg=50.0,
         stall_day_cost_vnd=4500000,
     )
     reply_true = dashboard_reply(d_stall_true)
     assert "Lần đo mới nhất 02/11: tôm dài 9,5 cm, khoảng 70 con/kg." in reply_true
     assert "Tôm đang lớn chậm: khoảng 0.20 mm mỗi ngày, dưới mức 0.33 bạn đặt. Chỉ là gợi ý, bạn quyết định." in reply_true
-    assert "Cỡ tôm đạt mức 50 con/kg bạn đặt" in reply_true
     assert "Một ngày không lớn tốn thức ăn khoảng 4.500.000 đ." in reply_true
 
     d_stall_false = _make_dashboard(
         stall=False,
         growth_mm_per_day=0.45,
-        at_harvest=False,
     )
     reply_false = dashboard_reply(d_stall_false)
     assert "Tôm vẫn đang lớn: khoảng 0.45 mm mỗi ngày." in reply_false
@@ -251,7 +243,6 @@ def test_dashboard_reply_stall_and_harvest():
     d_stall_none = _make_dashboard(
         stall=None,
         growth_mm_per_day=None,
-        at_harvest=False,
     )
     reply_none = dashboard_reply(d_stall_none)
     assert "Chưa đủ dữ liệu để so với lần trước." in reply_none
@@ -260,7 +251,7 @@ def test_dashboard_reply_stall_and_harvest():
 def test_dashboard_reply_unclear_says_what_would_settle_it():
     # Noise: growth cannot be told from the threshold
     d = replace(
-        _make_dashboard(stall=None, growth_mm_per_day=0.33, at_harvest=False),
+        _make_dashboard(stall=None, growth_mm_per_day=0.33),
         stall_unclear=True,
         growth_se_mm_per_day=1.4907,
         days_needed=23,
@@ -323,9 +314,9 @@ def test_outputs_pass_check_reply():
 
     dashboards = [
         _make_dashboard(empty=True),
-        _make_dashboard(stall=True, growth_mm_per_day=0.20, at_harvest=True, stall_day_cost_vnd=4500000),
-        _make_dashboard(stall=False, growth_mm_per_day=0.45, at_harvest=False),
-        _make_dashboard(stall=None, growth_mm_per_day=None, at_harvest=False),
+        _make_dashboard(stall=True, growth_mm_per_day=0.20, stall_day_cost_vnd=4500000),
+        _make_dashboard(stall=False, growth_mm_per_day=0.45),
+        _make_dashboard(stall=None, growth_mm_per_day=None),
         _make_dashboard(latest_length_mm=None),
         _make_dashboard(latest_size_per_kg=None),
     ]
@@ -405,9 +396,9 @@ def test_no_text_contains_forbidden_words():
 
     dashboards = [
         _make_dashboard(empty=True),
-        _make_dashboard(stall=True, growth_mm_per_day=0.20, at_harvest=True, stall_day_cost_vnd=4500000),
-        _make_dashboard(stall=False, growth_mm_per_day=0.45, at_harvest=False),
-        _make_dashboard(stall=None, growth_mm_per_day=None, at_harvest=False),
+        _make_dashboard(stall=True, growth_mm_per_day=0.20, stall_day_cost_vnd=4500000),
+        _make_dashboard(stall=False, growth_mm_per_day=0.45),
+        _make_dashboard(stall=None, growth_mm_per_day=None),
     ]
     for d in dashboards:
         texts.append(dashboard_reply(d))

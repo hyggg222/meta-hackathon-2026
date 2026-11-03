@@ -9,7 +9,7 @@ from shrimp.models import (
     SampleRow,
     Settings,
 )
-from shrimp.pricing import breakeven_growth_mm_per_day, days_to_next_class
+from shrimp.pricing import RATION_PCT, breakeven_growth_mm_per_day, days_to_next_class
 
 Z_CONFIDENT: float = 1.645
 TREND_SAMPLES: int = 4
@@ -189,14 +189,12 @@ def build_dashboard(
             n_previous=None,
             days_between=None,
             stall=None,
-            at_harvest=False,
             stall_day_cost_vnd=None,
             chart=[],
             rows=[],
             notices=[],
             growth_mm_per_day=None,
             stall_threshold_mm_per_day=settings.stall_mm_per_day,
-            harvest_threshold_per_kg=settings.harvest_per_kg,
             min_measured=settings.min_measured,
             growth_se_mm_per_day=None,
             stall_unclear=False,
@@ -311,11 +309,6 @@ def build_dashboard(
             )
         )
 
-    at_harvest = (
-        latest_size_per_kg is not None
-        and latest_size_per_kg <= settings.harvest_per_kg
-    )
-
     qualifying_feeds = [f for f in feeds if f.day <= latest.day]
     feed_notice: Optional[str] = None
     stall_day_cost_vnd: Optional[int] = None
@@ -370,14 +363,12 @@ def build_dashboard(
         n_previous=n_previous,
         days_between=days_between,
         stall=stall,
-        at_harvest=at_harvest,
         stall_day_cost_vnd=stall_day_cost_vnd,
         chart=chart,
         rows=rows,
         notices=notices,
         growth_mm_per_day=growth_mm_per_day,
         stall_threshold_mm_per_day=settings.stall_mm_per_day,
-        harvest_threshold_per_kg=settings.harvest_per_kg,
         min_measured=settings.min_measured,
         growth_se_mm_per_day=growth_se_mm_per_day,
         stall_unclear=stall_unclear,
@@ -452,7 +443,7 @@ def _calc_pricing(
             latest_size_per_kg,
             feed_price_vnd,
             val_vnd,
-            settings.ration_pct,
+            RATION_PCT,
             table,
         )
 

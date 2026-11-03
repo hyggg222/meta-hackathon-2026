@@ -326,7 +326,7 @@ def test_settings_route_huge_numbers():
     original = service.settings()
 
     for val in (10**400, 1e30, 2**63):
-        for field_name in ("ruler_mm", "feed_price_vnd", "card_mm", "stall_mm_per_day", "harvest_per_kg", "min_measured"):
+        for field_name in ("ruler_mm", "feed_price_vnd", "card_mm", "stall_mm_per_day", "min_measured"):
             resp = client.put("/api/settings", json={field_name: val})
             assert resp.status_code == 422
             assert "error" in resp.json()
@@ -482,30 +482,6 @@ def test_analyses_routes_sync():
     for p in ("/api/analyses", "/api/analyses/{analysis_id}/summary", "/api/analyses/{analysis_id}/save"):
         route = next(r for r in app.routes if getattr(r, "path", None) == p)
         assert not inspect.iscoroutinefunction(route.endpoint)
-
-
-def test_settings_route_ration_pct():
-    # Settings routes return and update ration_pct and reject invalid values
-    store = Store(":memory:")
-    service = make_test_service(store=store)
-    app = create_app(service)
-    client = TestClient(app)
-
-    get_resp = client.get("/api/settings")
-    assert get_resp.status_code == 200
-    assert get_resp.json()["ration_pct"] == 1.5
-
-    put_resp = client.put("/api/settings", json={"ration_pct": 2.0})
-    assert put_resp.status_code == 200
-    assert put_resp.json()["ration_pct"] == 2.0
-    assert service.settings().ration_pct == 2.0
-
-    original = service.settings()
-    for bad in (0, -1, "x", True, False, 1e9, 20.1, float("nan"), float("inf"), None, 10**400):
-        resp = client.put("/api/settings", json={"ration_pct": bad})
-        assert resp.status_code == 422
-        assert "error" in resp.json()
-        assert service.settings() == original
 
 
 def test_samples_csv_route_empty():

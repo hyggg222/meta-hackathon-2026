@@ -193,7 +193,7 @@ def test_settings_validation():
     base = service.settings()
 
     invalid_thresholds = [0.0, -1.0, float("nan"), float("inf"), "abc", True]
-    fields = ["ruler_mm", "card_mm", "stall_mm_per_day", "harvest_per_kg", "feed_price_vnd"]
+    fields = ["ruler_mm", "card_mm", "stall_mm_per_day", "feed_price_vnd"]
 
     for f in fields:
         for val in invalid_thresholds:
@@ -283,7 +283,6 @@ def test_settings_maximums_and_huge_numbers():
         "ruler_mm": (10000.0, 10001.0),
         "card_mm": (10000.0, 10001.0),
         "stall_mm_per_day": (1000.0, 1001.0),
-        "harvest_per_kg": (100000.0, 100001.0),
         "feed_price_vnd": (1_000_000_000, 1_000_000_001),
     }
 
@@ -471,33 +470,6 @@ def test_service_lru_drops_ninth_analysis():
     for aid in ids[1:]:
         res = service.summary(aid, None)
         assert res is not None
-
-
-def test_service_ration_pct_validation():
-    # Save settings validates ration_pct threshold and corrupt value falls back
-    store = Store(":memory:")
-    service = Service(FakeSegmenter(), store, FakeTable())
-    base = service.settings()
-    assert base.ration_pct == 1.5
-
-    for ok_val in (0.1, 1.5, 20.0, 2):
-        s = Settings(**{**base.__dict__, "ration_pct": ok_val})
-        assert service.save_settings(s).ration_pct == float(ok_val)
-
-    current_base = service.settings()
-    for bad in (0, -1, 20.1, 100, 1e9, float("nan"), float("inf"), "x", True, False, None, 10**400):
-        s = Settings(**{**current_base.__dict__, "ration_pct": bad})
-        with pytest.raises(ValueError) as excinfo:
-            service.save_settings(s)
-        assert "ration_pct" in str(excinfo.value)
-        assert service.settings() == current_base
-
-    # Corrupt stored value falls back to default 1.5
-    with store._lock, store._conn:
-        store._conn.execute(
-            "INSERT OR REPLACE INTO settings (key, value) VALUES ('ration_pct', '\"corrupt\"')"
-        )
-    assert service.settings().ration_pct == 1.5
 
 
 def test_samples_csv():

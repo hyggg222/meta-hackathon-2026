@@ -89,7 +89,7 @@ def test_page_script_reads_dashboard_fields():
 
 
 def test_page_setup_form_fields():
-    # Setup form still has fields with ids for pond name, feed price and ration, using parseNumber(
+    # Setup form still has fields with ids for pond name, feed price, using parseNumber(
     service = make_test_service()
     app = create_app(service)
     client = TestClient(app)
@@ -97,12 +97,9 @@ def test_page_setup_form_fields():
     html = client.get("/").text
     assert 'id="setup-name"' in html
     assert 'id="setup-price"' in html
-    assert 'id="setup-ration"' in html
 
     assert "Tên ao" in html
     assert "Giá thức ăn mặc định (đồng mỗi kg)" in html
-    assert "Thức ăn mỗi ngày (phần trăm thể trọng)" in html
-    assert "Khoảng 1,5 ở cỡ 25 g. Chỉ dùng để tính, không ảnh hưởng gợi ý." in html
     assert "Lưu cài đặt" in html
 
     save_match = re.search(r"async\s+function\s+saveSetupHandler\s*\(\)\s*\{([\s\S]*?)\}", html)
@@ -246,7 +243,6 @@ def test_page_numbers_from_server():
     html = client.get("/").text
     assert "growth_mm_per_day" in html
     assert "stall_threshold_mm_per_day" in html
-    assert "harvest_threshold_per_kg" in html
     assert "change_length_mm / " not in html
     assert "/ d.days_between" not in html
 
@@ -339,3 +335,22 @@ def test_page_setup_has_no_ruler_card_or_min_length_fields():
 
     for gone in ("setup-ruler", "setup-card", "setup-min-length", "Con ngắn nhất"):
         assert gone not in html
+
+
+def test_page_setup_has_no_ration_or_reference_size_and_no_harvest_card():
+    # Neither the ration nor a reference size is asked, and no "reached size" card is shown
+    service = make_test_service()
+    html = TestClient(create_app(service)).get("/").text
+
+    for gone in ("setup-ration", "setup-harvest", "harvest-card", "at_harvest", "Cỡ tôm tham khảo"):
+        assert gone not in html
+
+
+def test_settings_have_no_ration_or_reference_size():
+    from dataclasses import fields
+
+    from shrimp.models import Settings
+
+    names = {f.name for f in fields(Settings)}
+    assert "ration_pct" not in names
+    assert "harvest_per_kg" not in names

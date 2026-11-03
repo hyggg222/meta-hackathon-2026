@@ -160,6 +160,10 @@ def days_to_next_class(
     return math.ceil(gain_g / adg_g)
 
 
+# feed ration, percent of body weight per day (one fixed value, not asked from the farmer)
+RATION_PCT = 1.5
+
+
 def breakeven_growth_mm_per_day(
     mean_length_mm: float,
     size_per_kg: float,

@@ -125,13 +125,6 @@ button, input, select {
   color: #FFFFFF;
   line-height: 1;
 }
-.harvest-card {
-  border-radius: 16px;
-  padding: 14px 18px;
-  font-size: 15px;
-  color: var(--ink);
-  line-height: 1.4;
-}
 
 /* Chips and Pills */
 .pill {
@@ -387,17 +380,8 @@ button, input, select {
         <input id="setup-stall" type="text" inputmode="decimal">
       </div>
       <div class="fld">
-        <label for="setup-harvest">Cỡ tôm tham khảo (con/kg)</label>
-        <input id="setup-harvest" type="text" inputmode="decimal">
-      </div>
-      <div class="fld">
         <label for="setup-min">Số con tối thiểu mỗi lần đo</label>
         <input id="setup-min" type="text" inputmode="decimal">
-      </div>
-      <div class="fld">
-        <label for="setup-ration">Thức ăn mỗi ngày (phần trăm thể trọng)</label>
-        <input id="setup-ration" type="text" inputmode="decimal">
-        <p class="hint">Khoảng 1,5 ở cỡ 25 g. Chỉ dùng để tính, không ảnh hưởng gợi ý.</p>
       </div>
       <button class="btn go" id="save-setup-btn" type="button">Lưu cài đặt</button>
       <div id="setup-form-err" role="alert" style="display:none"></div>
@@ -602,14 +586,8 @@ async function loadSettings() {
     const stallEl = document.getElementById("setup-stall");
     if (stallEl) stallEl.value = currentSettings.stall_mm_per_day !== undefined ? currentSettings.stall_mm_per_day : "";
 
-    const harvestEl = document.getElementById("setup-harvest");
-    if (harvestEl) harvestEl.value = currentSettings.harvest_per_kg !== undefined ? currentSettings.harvest_per_kg : "";
-
     const minEl = document.getElementById("setup-min");
     if (minEl) minEl.value = currentSettings.min_measured !== undefined ? currentSettings.min_measured : "";
-
-    const rationEl = document.getElementById("setup-ration");
-    if (rationEl) rationEl.value = currentSettings.ration_pct !== undefined ? currentSettings.ration_pct : "";
 
     refreshFeedDefaults();
   } catch (_) {}
@@ -706,12 +684,6 @@ async function loadDashboard() {
 
     const statusCardHtml = `<div class="card status-card"><div class="status-circle" style="background:${circleBg}">${circleIcon}</div><div style="flex:1"><div style="font-size:19px;font-weight:700;color:var(--ink);line-height:1.3;margin-bottom:4px">${statusTitle}</div><div style="font-size:15px;color:var(--muted);line-height:1.4">${statusBody}</div>${statusHint}</div></div>`;
 
-    // 3. Optional slim card if at_harvest
-    let harvestCardHtml = "";
-    if (d.at_harvest) {
-      harvestCardHtml = `<div class="card harvest-card">Tôm đã đạt cỡ ${d.harvest_threshold_per_kg} con/kg bạn đặt. Chỉ để bạn tham khảo, bạn quyết định.</div>`;
-    }
-
     // 4. Card "Các lần đo"
     const reversed = rows.slice().reverse();
     const rowsHtml = reversed.map((r, i) => {
@@ -746,7 +718,7 @@ async function loadDashboard() {
     // 5. Button-like link to /api/samples.csv
     const downloadLinkHtml = `<a href="/api/samples.csv" download class="btn-download"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span>Tải bảng (mở bằng Excel)</span></a>`;
 
-    target.innerHTML = latestCardHtml + statusCardHtml + harvestCardHtml + samplesCardHtml + downloadLinkHtml;
+    target.innerHTML = latestCardHtml + statusCardHtml + samplesCardHtml + downloadLinkHtml;
   } catch (_) {
     target.innerHTML = '<div class="card"><p class="err" role="alert">Không tải được dữ liệu.</p></div>';
   }
@@ -824,15 +796,11 @@ async function saveSetupHandler() {
   const nameVal = document.getElementById("setup-name").value;
   const priceInput = document.getElementById("setup-price");
   const stallInput = document.getElementById("setup-stall");
-  const harvestInput = document.getElementById("setup-harvest");
   const minInput = document.getElementById("setup-min");
-  const rationInput = document.getElementById("setup-ration");
 
   const price = parseNumber(priceInput.value, { integer: true });
   const stall = parseNumber(stallInput.value, { integer: false });
-  const harvest = parseNumber(harvestInput.value, { integer: false });
   const min = parseNumber(minInput.value, { integer: true });
-  const ration = parseNumber(rationInput.value, { integer: false });
 
   let hasError = false;
   if (price === null) {
@@ -843,16 +811,8 @@ async function saveSetupHandler() {
     setFieldError(stallInput, "Nhập số bình thường, ví dụ 100 hoặc 45000.");
     hasError = true;
   }
-  if (harvest === null) {
-    setFieldError(harvestInput, "Nhập số bình thường, ví dụ 100 hoặc 45000.");
-    hasError = true;
-  }
   if (min === null) {
     setFieldError(minInput, "Nhập số bình thường, ví dụ 100 hoặc 45000.");
-    hasError = true;
-  }
-  if (ration === null) {
-    setFieldError(rationInput, "Nhập số bình thường, ví dụ 100 hoặc 45000.");
     hasError = true;
   }
   if (hasError) return;
@@ -861,9 +821,7 @@ async function saveSetupHandler() {
     pond_name: nameVal,
     feed_price_vnd: price,
     stall_mm_per_day: stall,
-    harvest_per_kg: harvest,
-    min_measured: min,
-    ration_pct: ration
+    min_measured: min
   };
 
   try {

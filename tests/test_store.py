@@ -162,12 +162,12 @@ def test_settings_defaults():
 def test_settings_update():
     store = Store(":memory:")
     defaults = Settings()
-    modified = Settings(pond_name="North Pond", harvest_per_kg=45.0)
+    modified = Settings(pond_name="North Pond", stall_mm_per_day=0.5)
     store.save_settings(modified)
 
     loaded = store.load_settings(defaults)
     assert loaded.pond_name == "North Pond"
-    assert loaded.harvest_per_kg == 45.0
+    assert loaded.stall_mm_per_day == 0.5
     assert loaded.card_mm == 85.6
     assert loaded.ruler_mm == 150.0
 

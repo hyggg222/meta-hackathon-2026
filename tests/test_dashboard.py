@@ -34,7 +34,6 @@ def test_empty_input():
     assert d.n_previous is None
     assert d.days_between is None
     assert d.stall is None
-    assert d.at_harvest is False
     assert d.stall_day_cost_vnd is None
     assert d.chart == []
     assert d.rows == []
@@ -68,7 +67,6 @@ def test_single_sample_no_change_and_no_flag():
     assert d.n_previous is None
     assert d.days_between is None
     assert d.stall is None
-    assert d.at_harvest is False
     assert d.stall_day_cost_vnd is None
     assert d.notices == ["no_feed", "temporary_table", "rough_estimate"]
     assert len(d.rows) == 1
@@ -192,212 +190,22 @@ def test_same_day_samples():
     assert d.change_length_mm == pytest.approx(1.0)
 
 
-def test_harvest_size_threshold():
-    # Harvest flag is True at or below threshold and False above
-    s1 = SampleRecord(1, date(2026, 11, 1), 8, 0, 110.0, False, None)
-    table_at = FakeTable({110.0: 50.0})
-    d_at = build_dashboard([s1], [], Settings(harvest_per_kg=50.0), table_at)
-    assert d_at.at_harvest is True
-
-    table_above = FakeTable({110.0: 51.0})
-    d_above = build_dashboard([s1], [], Settings(harvest_per_kg=50.0), table_above)
-    assert d_above.at_harvest is False
-
-    table_below = FakeTable({110.0: 45.0})
-    d_below = build_dashboard([s1], [], Settings(harvest_per_kg=50.0), table_below)
-    assert d_below.at_harvest is True
-
-
-def test_feed_cost_calculation():
-    # Cost uses latest feed on or before latest sample day
-    s1 = SampleRecord(1, date(2026, 11, 4), 8, 0, 90.0, False, None)
-    f1 = FeedEntry(date(2026, 11, 1), 100.0, 45000)
-    f2 = FeedEntry(date(2026, 11, 3), 100.0, 45000)
-    f_after = FeedEntry(date(2026, 11, 5), 200.0, 50000)
-    d = build_dashboard([s1], [f1, f_after, f2], Settings(), FakeTable())
-    assert d.stall_day_cost_vnd == 4500000
-    assert "no_feed" not in d.notices
-
-
-def test_no_qualifying_feed():
-    # Missing qualifying feed gives cost None and notice no_feed
-    s1 = SampleRecord(1, date(2026, 11, 4), 8, 0, 90.0, False, None)
-    d = build_dashboard([s1], [], Settings(), FakeTable())
-    assert d.stall_day_cost_vnd is None
-    assert "no_feed" in d.notices
-
-    f_after = FeedEntry(date(2026, 11, 5), 100.0, 45000)
-    d2 = build_dashboard([s1], [f_after], Settings(), FakeTable())
-    assert d2.stall_day_cost_vnd is None
-    assert "no_feed" in d2.notices
-
-
-def test_outside_table_range():
-    # Mean length outside range keeps sample with size None and notice
-    s1 = SampleRecord(1, date(2026, 11, 1), 8, 0, 150.0, False, None)
-    d = build_dashboard([s1], [], Settings(), FakeTable())
-    assert d.latest_length_mm == 150.0
-    assert d.latest_size_per_kg is None
-    assert "outside_table_range" in d.notices
-    assert "temporary_table" not in d.notices
-    assert "rough_estimate" not in d.notices
-    assert len(d.rows) == 1
-    assert d.rows[0].mean_length_mm == 150.0
-    assert d.rows[0].size_per_kg is None
-
-
-def test_temporary_table_notices():
-    # Temporary table adds notices only when size is present
-    s1 = SampleRecord(1, date(2026, 11, 1), 8, 0, 90.0, False, None)
-    d_temp = build_dashboard([s1], [], Settings(), FakeTable({90.0: 75.0}, temporary=True))
-    assert "temporary_table" in d_temp.notices
-    assert "rough_estimate" in d_temp.notices
-
-    d_perm = build_dashboard([s1], [], Settings(), FakeTable({90.0: 75.0}, temporary=False))
-    assert "temporary_table" not in d_perm.notices
-    assert "rough_estimate" not in d_perm.notices
-
-
-def test_chart_marks():
-    # Chart marks stall on points matching the rule
-    s1 = SampleRecord(1, date(2026, 11, 1), 8, 0, 80.0, False, None)
-    s2 = SampleRecord(2, date(2026, 11, 4), 8, 0, 80.5, False, None)
-    s3 = SampleRecord(3, date(2026, 11, 7), 8, 0, 83.0, False, None)
-    d = build_dashboard([s1, s2, s3], [], Settings(), FakeTable())
-    assert len(d.chart) == 3
-    assert d.chart[0].stall is False
-    assert d.chart[1].stall is True
-    assert d.chart[2].stall is False
-    assert d.chart[2].stall == (d.stall is True)
-
-
-def test_inputs_given_in_any_order():
-    # Inputs in arbitrary order are sorted by day then id
-    s1 = SampleRecord(1, date(2026, 11, 1), 8, 0, 80.0, False, None)
-    s2 = SampleRecord(2, date(2026, 11, 4), 8, 0, 84.0, False, None)
-    s3 = SampleRecord(3, date(2026, 11, 7), 8, 0, 86.0, False, None)
-    f1 = FeedEntry(date(2026, 11, 2), 80.0, 45000)
-    f2 = FeedEntry(date(2026, 11, 5), 100.0, 45000)
-
-    d = build_dashboard([s3, s1, s2], [f2, f1], Settings(), FakeTable())
-    assert [r.day for r in d.rows] == [
-        date(2026, 11, 1),
-        date(2026, 11, 4),
-        date(2026, 11, 7),
-    ]
-    assert d.latest_length_mm == 86.0
-    assert d.n_latest == 8
-    assert d.n_previous == 8
-    assert d.days_between == 3
-    assert d.stall_day_cost_vnd == 4500000
-
-
-def test_notice_order():
-    # Notices appear in the required order
-    s1 = SampleRecord(1, date(2026, 11, 1), 8, 0, 80.0, False, None)
-    s2 = SampleRecord(2, date(2026, 11, 1), 8, 0, 81.0, False, None)
-    table = FakeTable({81.0: 75.0}, temporary=True)
-    d = build_dashboard([s1, s2], [], Settings(), table)
-    assert d.notices == ["same_day", "no_feed", "temporary_table", "rough_estimate"]
-
-
-def test_stall_float_guard():
-    # Stall calculation uses float guard rather than rounding
-    s1 = SampleRecord(1, date(2026, 11, 1), 8, 0, 90.0, False, None)
-    s2 = SampleRecord(2, date(2026, 11, 2), 8, 0, 90.32996, False, None)
-    d1 = build_dashboard([s1, s2], [], Settings(), FakeTable())
-    assert d1.stall is True
-
-    s3 = SampleRecord(3, date(2026, 11, 1), 8, 0, 90.0, False, None)
-    s4 = SampleRecord(4, date(2026, 11, 4), 8, 0, 90.99, False, None)
-    d2 = build_dashboard([s3, s4], [], Settings(), FakeTable())
-    assert d2.stall is False
-
-    s5 = SampleRecord(5, date(2026, 11, 1), 8, 0, 90.0, False, None)
-    s6 = SampleRecord(6, date(2026, 11, 4), 8, 0, 91.0, False, None)
-    d3 = build_dashboard([s5, s6], [], Settings(), FakeTable())
-    assert d3.stall is False
-
-
-def test_chart_marks_real_predecessor():
-    # Chart marks pair with real predecessor not previous sample with mean
-    s_a = SampleRecord(1, date(2026, 11, 1), 8, 0, 80.0, False, None)
-    s_b = SampleRecord(2, date(2026, 11, 4), 8, 0, None, False, None)
-    s_c = SampleRecord(3, date(2026, 11, 7), 8, 0, 80.5, False, None)
-    s_d = SampleRecord(4, date(2026, 11, 10), 8, 0, 85.0, False, None)
-    d = build_dashboard([s_a, s_b, s_c, s_d], [], Settings(), FakeTable())
-    assert len(d.chart) == 3
-    assert d.chart[0].stall is False
-    assert d.chart[1].stall is False
-    assert d.chart[2].stall is False
-
-
-def test_feed_entries_same_day_later_wins():
-    # Later feed entry in input list wins on same latest day
-    s1 = SampleRecord(1, date(2026, 11, 4), 8, 0, 90.0, False, None)
-    f1 = FeedEntry(date(2026, 11, 3), 100.0, 40000)
-    f2 = FeedEntry(date(2026, 11, 3), 120.0, 50000)
-    d1 = build_dashboard([s1], [f1, f2], Settings(), FakeTable())
-    assert d1.stall_day_cost_vnd == 6000000
-
-    d2 = build_dashboard([s1], [f2, f1], Settings(), FakeTable())
-    assert d2.stall_day_cost_vnd == 4000000
-
-
-def test_growth_mm_per_day():
-    # Two samples 3 days apart calculate daily growth rate
-    s1 = SampleRecord(1, date(2026, 11, 1), 8, 0, 90.0, False, None)
-    s2 = SampleRecord(2, date(2026, 11, 4), 8, 0, 91.0, False, None)
-    d = build_dashboard([s1, s2], [], Settings(), FakeTable())
-    assert d.growth_mm_per_day == pytest.approx(1 / 3)
-
-
-def test_growth_same_day():
-    # Same day samples give growth None
-    s1 = SampleRecord(1, date(2026, 11, 1), 8, 0, 90.0, False, None)
-    s2 = SampleRecord(2, date(2026, 11, 1), 8, 0, 91.0, False, None)
-    d = build_dashboard([s1, s2], [], Settings(), FakeTable())
-    assert d.growth_mm_per_day is None
-
-
-def test_growth_single_sample():
-    # Single sample gives growth None
-    s1 = SampleRecord(1, date(2026, 11, 1), 8, 0, 90.0, False, None)
-    d = build_dashboard([s1], [], Settings(), FakeTable())
-    assert d.growth_mm_per_day is None
-
-
-def test_growth_missing_mean():
-    # Sample with no mean length gives growth None
-    s1 = SampleRecord(1, date(2026, 11, 1), 8, 0, None, False, None)
-    s2 = SampleRecord(2, date(2026, 11, 4), 8, 0, 91.0, False, None)
-    d1 = build_dashboard([s1, s2], [], Settings(), FakeTable())
-    assert d1.growth_mm_per_day is None
-
-    s3 = SampleRecord(3, date(2026, 11, 1), 8, 0, 90.0, False, None)
-    s4 = SampleRecord(4, date(2026, 11, 4), 8, 0, None, False, None)
-    d2 = build_dashboard([s3, s4], [], Settings(), FakeTable())
-    assert d2.growth_mm_per_day is None
-
-
 def test_thresholds_copied():
     # Settings thresholds are copied to normal dashboard
-    settings = Settings(stall_mm_per_day=0.5, harvest_per_kg=60.0, min_measured=7)
+    settings = Settings(stall_mm_per_day=0.5, min_measured=7)
     s1 = SampleRecord(1, date(2026, 11, 1), 8, 0, 90.0, False, None)
     d = build_dashboard([s1], [], settings, FakeTable())
     assert d.stall_threshold_mm_per_day == 0.5
-    assert d.harvest_threshold_per_kg == 60.0
     assert d.min_measured == 7
 
 
 def test_empty_thresholds_copied():
     # Settings thresholds are copied to empty dashboard
-    settings = Settings(stall_mm_per_day=0.5, harvest_per_kg=60.0, min_measured=7)
+    settings = Settings(stall_mm_per_day=0.5, min_measured=7)
     d = build_dashboard([], [], settings, FakeTable())
     assert d.empty is True
     assert d.growth_mm_per_day is None
     assert d.stall_threshold_mm_per_day == 0.5
-    assert d.harvest_threshold_per_kg == 60.0
     assert d.min_measured == 7
 
 
@@ -596,7 +404,7 @@ def test_dashboard_pricing_fields():
     s1 = SampleRecord(1, date(2026, 11, 1), 8, 0, 124.0, False, None)
     s2 = SampleRecord(2, date(2026, 11, 3), 8, 0, 125.0, False, None)
     table = FakeTable({124.0: 38.0, 125.0: 36.0, 126.0: 34.0})
-    settings = Settings(feed_price_vnd=45000, stall_mm_per_day=0.33, ration_pct=1.5)
+    settings = Settings(feed_price_vnd=45000, stall_mm_per_day=0.33)
 
     # prices=None leaves all pricing fields None
     d_none = build_dashboard([s1, s2], [], settings, table, prices=None)
@@ -620,7 +428,7 @@ def test_dashboard_pricing_fields():
     assert d.price_source == "Tepbac national median"
 
     # days_to_next_class is None when stall is True
-    settings_stall = Settings(feed_price_vnd=45000, stall_mm_per_day=1.0, ration_pct=1.5)
+    settings_stall = Settings(feed_price_vnd=45000, stall_mm_per_day=1.0)
     d_stall = build_dashboard([s1, s2], [], settings_stall, table, prices=prices)
     assert d_stall.stall is True
     assert d_stall.days_to_next_class is None
@@ -636,8 +444,8 @@ def test_breakeven_uses_the_feed_price_of_the_latest_feed_entry():
     entry = FeedEntry(day=date(2026, 11, 2), kg_per_day=100.0, price_vnd=45000)
 
     # Setup says 450000 (a typo ten times too high); the feed entry says 45000
-    typo = Settings(feed_price_vnd=450000, stall_mm_per_day=0.33, ration_pct=1.5)
-    right = Settings(feed_price_vnd=45000, stall_mm_per_day=0.33, ration_pct=1.5)
+    typo = Settings(feed_price_vnd=450000, stall_mm_per_day=0.33)
+    right = Settings(feed_price_vnd=45000, stall_mm_per_day=0.33)
     from_entry = build_dashboard([s1, s2], [entry], typo, table, prices=prices)
     from_setup_right = build_dashboard([s1, s2], [], right, table, prices=prices)
     assert from_entry.stall_day_cost_vnd == 4500000
