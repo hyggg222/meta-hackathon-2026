@@ -1,8 +1,9 @@
-# Vietnamese reply texts and guard for shrimp measurement
+# Reply texts and the guard for shrimp measurement
 import re
 from typing import Iterable, List, Optional
 import unicodedata
 
+from shrimp.messages import money, num, t
 from shrimp.models import Dashboard, TrayResult
 
 FORBIDDEN_PHRASES = [
@@ -44,62 +45,50 @@ def _format_num(val: float) -> str:
 def template_reply(
     tray: TrayResult, min_measured: int, saved: Optional[bool] = None
 ) -> str:
-    # Build Vietnamese reply text for tray analysis result
+    # Build the reply text for a tray analysis result (wording comes from the message files)
     if tray.status == "too_few":
-        crowded_sentence = "Ảnh có nhiều tôm chồng nhau. Xếp tôm trải ra rồi chụp lại sẽ đo đúng hơn."
-        first_line = f"Chỉ có {tray.n_measured} con được tính, cần ít nhất {min_measured} con. Chưa lưu."
+        first_line = t("photo.too_few", n=tray.n_measured, min=min_measured)
         if "crowded" in tray.notices:
-            return f"{first_line}\n{crowded_sentence}"
-        else:
-            return f'{first_line}\nXếp tôm không chạm nhau rồi chụp lại, hoặc gõ "chọn 3" để thêm con.'
+            return f"{first_line}\n{t('photo.crowded')}"
+        return f"{first_line}\n{t('photo.too_few_hint')}"
 
     if tray.status == "no_reference":
-        return (
-            "Không thấy thước hoặc thẻ trong ảnh nên chưa tính được mm. "
-            "Đặt thước cạnh tôm rồi chụp lại."
-        )
+        return t("photo.no_reference")
     if tray.status == "no_shrimp":
-        return (
-            "Không thấy con tôm nào trong ảnh. "
-            "Xếp tôm nằm phẳng trên nền sáng rồi chụp lại."
-        )
+        return t("photo.no_shrimp")
 
     if saved is True:
-        return "Đã lưu mẫu."
+        return t("photo.saved")
     if saved is False and tray.status == "ok":
-        return "Chưa lưu."
+        return t("photo.not_saved")
 
     lines: List[str] = []
     if tray.n_left_out > 0:
-        lines.append(f"Đo được {tray.n_measured} con (bỏ {tray.n_left_out} con)")
+        lines.append(t("photo.count_left_out", n=tray.n_measured, k=tray.n_left_out))
     else:
-        lines.append(f"Đo được {tray.n_measured} con")
+        lines.append(t("photo.count", n=tray.n_measured))
 
-    cm_str = ""
-    if tray.mean_length_mm is not None:
-        cm_val = tray.mean_length_mm / 10.0
-        cm_str = f"{cm_val:.1f}".replace(".", ",")
+    cm_str = num(tray.mean_length_mm / 10.0) if tray.mean_length_mm is not None else ""
 
     if tray.size_per_kg is not None:
-        size_val = round(tray.size_per_kg)
-        lines.append(f"Dài trung bình {cm_str} cm · khoảng {size_val} con/kg")
+        lines.append(t("photo.size", cm=cm_str, size=round(tray.size_per_kg)))
     else:
-        lines.append(f"Dài trung bình {cm_str} cm · cỡ nằm ngoài bảng (60 đến 140 mm)")
+        lines.append(t("photo.size_outside", cm=cm_str))
 
     if "temporary_table" in tray.notices or "rough_estimate" in tray.notices:
-        lines.append("Ước lượng thô, có thể lệch 20%.")
+        lines.append(t("photo.rough"))
 
     if "crowded" in tray.notices:
         lines.append("")
-        lines.append("Ảnh có nhiều tôm chồng nhau. Xếp tôm trải ra rồi chụp lại sẽ đo đúng hơn.")
+        lines.append(t("photo.crowded"))
 
     return "\n".join(lines)
 
 
 def dashboard_reply(d: Dashboard) -> str:
-    # Build Vietnamese reply text for dashboard status
+    # Build the status text from the dashboard (wording comes from the message files)
     if d.empty:
-        return "Chưa có lần đo nào. Gửi ảnh khay tôm để bắt đầu."
+        return t("status.empty")
 
     lines: List[str] = []
 
@@ -120,69 +109,61 @@ def dashboard_reply(d: Dashboard) -> str:
             else:
                 date_str = date_val
 
-    prefix = f"Lần đo mới nhất {date_str}:" if date_str else "Lần đo mới nhất:"
-
-    cm_str = None
+    parts: List[str] = []
     if d.latest_length_mm is not None:
-        cm_val = d.latest_length_mm / 10.0
-        cm_str = f"tôm dài {cm_val:.1f}".replace(".", ",") + " cm"
+        parts.append(t("status.part_length", cm=num(d.latest_length_mm / 10.0)))
+    if d.latest_size_per_kg is not None:
+        parts.append(t("status.part_size", size=round(d.latest_size_per_kg)))
+    data = ", ".join(parts)
 
-    size_str = (
-        f"khoảng {round(d.latest_size_per_kg)} con/kg"
-        if d.latest_size_per_kg is not None
-        else None
-    )
-
-    if cm_str is not None and size_str is not None:
-        lines.append(f"{prefix} {cm_str}, {size_str}.")
-    elif cm_str is not None:
-        lines.append(f"{prefix} {cm_str}.")
-    elif size_str is not None:
-        lines.append(f"{prefix} {size_str}.")
+    if date_str and data:
+        lines.append(t("status.latest_date_data", date=date_str, data=data))
+    elif data:
+        lines.append(t("status.latest_data", data=data))
+    elif date_str:
+        lines.append(t("status.latest_date", date=date_str))
     else:
-        if date_str:
-            lines.append(f"Lần đo mới nhất {date_str}.")
-        else:
-            lines.append("Lần đo mới nhất.")
+        lines.append(t("status.latest"))
 
+    growth_val = d.growth_mm_per_day if d.growth_mm_per_day is not None else 0.0
     if d.stall is True:
-        growth_val = d.growth_mm_per_day if d.growth_mm_per_day is not None else 0.0
-        thresh_str = _format_num(d.stall_threshold_mm_per_day)
         lines.append(
-            f"Tôm đang lớn chậm: khoảng {growth_val:.2f} mm mỗi ngày, "
-            f"dưới mức {thresh_str} bạn đặt. Chỉ là gợi ý, bạn quyết định."
+            t(
+                "status.slow",
+                growth=f"{growth_val:.2f}",
+                threshold=_format_num(d.stall_threshold_mm_per_day),
+            )
         )
     elif d.stall is False:
-        growth_val = d.growth_mm_per_day if d.growth_mm_per_day is not None else 0.0
-        lines.append(f"Tôm vẫn đang lớn: khoảng {growth_val:.2f} mm mỗi ngày.")
+        lines.append(t("status.growing", growth=f"{growth_val:.2f}"))
     elif d.stall_unclear:
-        lines.append("Chưa xác định được: kích thước tôm dao động lên xuống, cần đo nhiều mẫu.")
+        lines.append(t("status.unclear"))
     else:
-        lines.append("Chưa đủ dữ liệu để so với lần trước.")
+        lines.append(t("status.not_enough"))
 
     if d.value_per_kg_vnd is not None and d.latest_size_per_kg is not None:
-        val_str = f"{d.value_per_kg_vnd:,}".replace(",", ".")
         lines.append(
-            f"Ở cỡ {round(d.latest_size_per_kg)} con/kg, giá khoảng {val_str} đ/kg (bảng giá mặc định, bạn có thể khác)."
+            t("status.price", size=round(d.latest_size_per_kg), price=money(d.value_per_kg_vnd))
         )
 
     if d.next_class_per_kg is not None and d.next_class_gain_pct is not None:
         days_text = ""
         if d.days_to_next_class is not None:
-            days_text = f" (còn khoảng {d.days_to_next_class} ngày nếu tôm lớn như vừa đo, rất thô)"
-        gain_str = _format_num(d.next_class_gain_pct)
+            days_text = t("status.next_class_days", days=d.days_to_next_class)
         lines.append(
-            f"Bậc cỡ {d.next_class_per_kg} con/kg thường được giá hơn khoảng {gain_str}%{days_text}."
+            t(
+                "status.next_class",
+                size=d.next_class_per_kg,
+                gain=_format_num(d.next_class_gain_pct),
+                days=days_text,
+            )
         )
 
     if d.breakeven_mm_per_day is not None:
-        lines.append(
-            f"Thức ăn chỉ hòa vốn nếu tôm lớn trên khoảng {d.breakeven_mm_per_day:.2f} mm mỗi ngày (chưa tính điện, công, rủi ro)."
-        )
+        lines.append(t("status.breakeven", mm=f"{d.breakeven_mm_per_day:.2f}"))
 
     if d.stall_day_cost_vnd is not None:
-        cost_str = f"{d.stall_day_cost_vnd:,}".replace(",", ".")
-        lines.append(f"Một ngày không lớn tốn thức ăn khoảng {cost_str} đ.")
+        lines.append(t("status.stall_cost", cost=money(d.stall_day_cost_vnd)))
 
     return "\n".join(lines)
 

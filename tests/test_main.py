@@ -12,7 +12,7 @@ import numpy as np
 import pytest
 
 import shrimp.main
-from shrimp.conversation import HELP_TEXT
+from shrimp.messages import t as message
 from shrimp.main import build, read_setting
 from tests.conftest import FakeSegmenter
 
@@ -308,7 +308,7 @@ def test_signed_post_text_message(
 
     assert _wait_until(lambda: len(transport.sent_texts) > 0)
     assert transport.sent_texts[0][0] == "user_allowed"
-    assert HELP_TEXT in transport.sent_texts[0][1]
+    assert message("help.text") in transport.sent_texts[0][1]
 
     # Message from sender not in allow-list
     unallowed_payload = {

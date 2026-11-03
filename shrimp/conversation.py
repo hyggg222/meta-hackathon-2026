@@ -9,43 +9,27 @@ import time
 from typing import Any, Callable, Dict, List, Optional, Protocol, Tuple
 import unicodedata
 
+from shrimp.messages import money, t
 from shrimp.models import AnalysisNotFound, Dashboard, SegmentationError, TrayResult
 
 logger = logging.getLogger(__name__)
 
-YES_WORDS = {"co", "yes", "ok", "luu", "dong y", "y"}
-CANCEL_WORDS = {"huy", "cancel", "thoi"}
+YES_WORDS = {"co", "yes", "ok", "luu", "dong y", "y", "save"}
+CANCEL_WORDS = {"huy", "cancel", "thoi", "discard"}
 STATUS_WORDS = {"tinh hinh", "status", "dashboard", "ket qua"}
 
 HELP_WORDS = {"huong dan", "help", "menu", "tro giup"}
-ADD_WORDS = {"chon", "them", "add"}
-REMOVE_WORDS = {"bo", "xoa", "remove"}
+ADD_WORDS = {"chon", "them", "add", "choose", "select"}
+REMOVE_WORDS = {"bo", "xoa", "remove", "drop"}
 ALL_WORDS = {"het", "tat ca", "tatca", "all"}
-LEFT_OUT_WORDS = {"xem loai", "loai", "con bi loai"}
+LEFT_OUT_WORDS = {"xem loai", "loai", "con bi loai", "show left out", "left out"}
 
 SETUP_WORDS = {"cai dat", "setup", "thiet lap"}
-KEEP_WORDS = {"giu", "giu nguyen"}
+KEEP_WORDS = {"giu", "giu nguyen", "keep"}
 PRICE_MIN, PRICE_MAX = 1000, 1_000_000
 MAX_NAME_LENGTH = 100
 PRICE_ANSWER = re.compile(r"^(\d+)(k)?\s*(d|vnd|dong)?$")
 
-NO_PENDING_TEXT ='Bạn gửi ảnh khay tôm trước nhé, mình sẽ đo rồi bạn trả lời "có" để lưu.'
-HELP_TEXT = (
-    "Cách dùng\n"
-    "1. Gửi 1 ảnh khay tôm để đo.\n"
-    '2. Nhấn "có" để lưu mẫu.\n'
-    '3. Gõ "chọn 1 3" để thêm con.\n'
-    '4. Gõ "bỏ 1 3" để bớt con.\n'
-    "5. Gõ 1 3 5 để chỉ tính các con này.\n"
-    '6. Gõ "xem loại" để xem các con bị loại.\n'
-    '7. Gõ "hủy" để bỏ kết quả vừa đo.\n'
-    '8. Gõ "tình hình" để xem biểu đồ các lần đo.\n'
-    '9. Gõ "cài đặt" để đổi tên ao và giá thức ăn.\n'
-    '10. Gõ "hướng dẫn" để xem lại trợ giúp.'
-)
-
-
-SORRY_TEXT = "Có lỗi khi xử lý, bạn thử lại giúp mình nhé."
 
 
 class IncomingLike(Protocol):
@@ -84,11 +68,6 @@ class SetupState:
     updated_at: float
 
 
-def _money(value: int) -> str:
-    # 45000 -> "45.000"
-    return f"{value:,}".replace(",", ".")
-
-
 def _parse_price(text: str) -> Optional[int]:
     # "45000", "45.000", "45k", "45,000 đ" -> 45000; anything else or out of range -> None
     m = PRICE_ANSWER.match(_normalize(text))
@@ -111,16 +90,16 @@ def _normalize(text: str) -> str:
 def _quick_replies_for_tray(tray: TrayResult) -> Optional[List[Tuple[str, str]]]:
     # Return quick-reply button pairs based on tray result status and left out shrimp
     if tray.status == "ok":
-        buttons = [("Lưu mẫu", "có")]
+        buttons = [(t("button.save_sample"), "có")]
         if tray.n_left_out > 0:
-            buttons.append(("Xem con bị loại", "xem loại"))
-        buttons.append(("Hủy", "hủy"))
+            buttons.append((t("button.show_left_out"), "xem loại"))
+        buttons.append((t("button.cancel"), "hủy"))
         return buttons
     elif tray.status == "too_few":
         buttons = []
         if tray.n_left_out > 0:
-            buttons.append(("Xem con bị loại", "xem loại"))
-        buttons.append(("Hủy", "hủy"))
+            buttons.append((t("button.show_left_out"), "xem loại"))
+        buttons.append((t("button.cancel"), "hủy"))
         return buttons
     return None
 
@@ -199,8 +178,8 @@ class Conversation:
         self._set_setup(sender_id, SetupState("name", None, None, 0.0))
         self._safe_send_text(
             sender_id,
-            f"Tên ao là gì? (hiện là {current})",
-            quick_replies=[(("Giữ " + current)[:20], "giữ")],
+            t("setup.ask_name", name=current),
+            quick_replies=[(t("button.keep", name=current)[:20], "giữ")],
         )
 
     def _handle_setup(self, sender_id: str, raw_text: str, state: SetupState) -> None:
@@ -208,7 +187,7 @@ class Conversation:
         norm = _normalize(raw_text)
         if norm in CANCEL_WORDS:
             self._drop_setup(sender_id)
-            self._safe_send_text(sender_id, "Đã hủy. Cài đặt vẫn như cũ.")
+            self._safe_send_text(sender_id, t("setup.cancelled"))
             return
 
         current = self._service.settings()
@@ -216,7 +195,7 @@ class Conversation:
             name = current.pond_name if norm in KEEP_WORDS else raw_text.strip()
             if len(name) > MAX_NAME_LENGTH:
                 self._safe_send_text(
-                    sender_id, f"Tên ao hãy ngắn hơn {MAX_NAME_LENGTH} ký tự. Tên ao là gì?"
+                    sender_id, t("setup.name_too_long", max=MAX_NAME_LENGTH)
                 )
                 return
             state.name = name
@@ -224,7 +203,7 @@ class Conversation:
             self._set_setup(sender_id, state)
             self._safe_send_text(
                 sender_id,
-                f"Giá thức ăn mỗi kg là bao nhiêu đồng? Ví dụ 45000 (hiện là {_money(current.feed_price_vnd)}).",
+                t("setup.ask_price", price=money(current.feed_price_vnd)),
             )
             return
 
@@ -233,7 +212,7 @@ class Conversation:
             if price is None:
                 self._safe_send_text(
                     sender_id,
-                    f"Giá thức ăn phải là số từ {_money(PRICE_MIN)} đến {_money(PRICE_MAX)} đồng mỗi kg. Ví dụ 45000.",
+                    t("setup.bad_price", min=money(PRICE_MIN), max=money(PRICE_MAX)),
                 )
                 return
             state.price = price
@@ -241,8 +220,8 @@ class Conversation:
             self._set_setup(sender_id, state)
             self._safe_send_text(
                 sender_id,
-                f"Ao: {state.name}\nGiá thức ăn: {_money(price)} đ mỗi kg\nLưu cài đặt này?",
-                quick_replies=[("Lưu", "có"), ("Hủy", "hủy")],
+                t("setup.confirm", name=state.name, price=money(price)),
+                quick_replies=[(t("button.save"), "có"), (t("button.cancel"), "hủy")],
             )
             return
 
@@ -253,12 +232,14 @@ class Conversation:
             self._drop_setup(sender_id)
             self._safe_send_text(
                 sender_id,
-                f"Đã lưu: {state.name}, giá thức ăn {_money(state.price)} đ mỗi kg.",
+                t("setup.saved", name=state.name, price=money(state.price)),
             )
             return
 
         self._safe_send_text(
-            sender_id, "Bấm Lưu hoặc Hủy nhé.", quick_replies=[("Lưu", "có"), ("Hủy", "hủy")]
+            sender_id,
+            t("setup.confirm_hint"),
+            quick_replies=[(t("button.save"), "có"), (t("button.cancel"), "hủy")],
         )
 
     def _safe_send_text(
@@ -288,7 +269,7 @@ class Conversation:
         except Exception:
             logger.exception("Unexpected error in conversation handle")
             # the farmer always gets an answer, never silence
-            self._safe_send_text(incoming.sender_id, SORRY_TEXT)
+            self._safe_send_text(incoming.sender_id, t("misc.sorry"))
 
     def _apply_choice(self, sender_id: str, pending: PendingAnalysis, include: List[int]) -> None:
         # Recompute the result for exactly these shrimp, resend photo and text, remember the choice
@@ -296,7 +277,7 @@ class Conversation:
             tray = self._service.summary(pending.analysis_id, include)
         except AnalysisNotFound:
             self._drop_pending(sender_id)
-            self._safe_send_text(sender_id, "Ảnh này đã hết hạn, bạn gửi lại giúp mình nhé.")
+            self._safe_send_text(sender_id, t("misc.expired"))
             return
 
         try:
@@ -319,24 +300,23 @@ class Conversation:
         # Second photo: only the shrimp that are not counted, numbered, so the farmer can add one
         pending = self._get_pending(sender_id)
         if pending is None:
-            self._safe_send_text(sender_id, NO_PENDING_TEXT)
+            self._safe_send_text(sender_id, t("misc.no_pending"))
             return
         counted = set(pending.tray.included)
         left_out = [s.index + 1 for s in pending.tray.shrimp if s.index not in counted]
         if not left_out:
-            self._safe_send_text(sender_id, "Không có con nào bị loại.")
+            self._safe_send_text(sender_id, t("left_out.none"))
             return
         if self._render_left_out is None:
-            self._safe_send_text(sender_id, SORRY_TEXT)
+            self._safe_send_text(sender_id, t("misc.sorry"))
             return
         jpeg = self._render_left_out(pending.photo, pending.tray)
         self._safe_send_image(sender_id, jpeg)
         example = " ".join(str(n) for n in left_out[:2])
         self._safe_send_text(
             sender_id,
-            "Đây là các con đang bị loại (màu cam), kèm độ dài tính bằng cm. "
-            f'Gõ "chọn {example}" để thêm con vào kết quả.',
-            quick_replies=[("Thêm tất cả", "chọn hết"), ("Hủy", "hủy")],
+            t("left_out.caption", example=example),
+            quick_replies=[(t("button.add_all"), "chọn hết"), (t("button.cancel"), "hủy")],
         )
 
     def _handle_sender(self, incoming: IncomingLike) -> None:
@@ -351,18 +331,18 @@ class Conversation:
                 photo = self._transport.download(url)
             except Exception:
                 logger.exception("Download failure for sender %s", sender_id)
-                self._safe_send_text(sender_id, "Chưa tải được ảnh. Bạn gửi lại giúp mình nhé.")
+                self._safe_send_text(sender_id, t("misc.download_failed"))
                 return
 
             try:
                 analysis_id, tray = self._service.analyze(photo)
             except SegmentationError:
                 logger.exception("SegmentationError for sender %s", sender_id)
-                self._safe_send_text(sender_id, "Chưa xử lý được ảnh này. Bạn chụp lại giúp mình nhé.")
+                self._safe_send_text(sender_id, t("misc.cannot_process"))
                 return
             except Exception:
                 logger.exception("Analyze failure for sender %s", sender_id)
-                self._safe_send_text(sender_id, "Chưa xử lý được ảnh này. Bạn chụp lại giúp mình nhé.")
+                self._safe_send_text(sender_id, t("misc.cannot_process"))
                 return
 
             try:
@@ -391,7 +371,7 @@ class Conversation:
         raw = incoming.text
         if raw is None or not raw.strip():
             self._safe_send_text(
-                sender_id, HELP_TEXT, quick_replies=[("Tình hình", "tình hình")]
+                sender_id, t("help.text"), quick_replies=[(t("button.status"), "tình hình")]
             )
             return
 
@@ -411,13 +391,13 @@ class Conversation:
         if all(c in "0123456789 ,." for c in raw_text):
             pending = self._get_pending(sender_id)
             if pending is None:
-                self._safe_send_text(sender_id, NO_PENDING_TEXT)
+                self._safe_send_text(sender_id, t("misc.no_pending"))
                 return
 
             nums = [int(x) for x in re.findall(r"\d+", raw_text)]
             num_shrimp = len(pending.tray.shrimp)
             if not nums or any(n < 1 or n > num_shrimp for n in nums):
-                self._safe_send_text(sender_id, f"Số con phải từ 1 đến {num_shrimp}. Ví dụ: 1 3 5.")
+                self._safe_send_text(sender_id, t("choose.bad_number_list", n=num_shrimp))
                 return
 
             self._apply_choice(sender_id, pending, sorted(set(n - 1 for n in nums)))
@@ -429,7 +409,7 @@ class Conversation:
         if command in ADD_WORDS or command in REMOVE_WORDS:
             pending = self._get_pending(sender_id)
             if pending is None:
-                self._safe_send_text(sender_id, NO_PENDING_TEXT)
+                self._safe_send_text(sender_id, t("misc.no_pending"))
                 return
             rest = parts[1] if len(parts) > 1 else ""
             num_shrimp = len(pending.tray.shrimp)
@@ -440,7 +420,7 @@ class Conversation:
                 if not nums or any(n < 1 or n > num_shrimp for n in nums):
                     self._safe_send_text(
                         sender_id,
-                        f"Số con phải từ 1 đến {num_shrimp}. Ví dụ: chọn 1 3 hoặc bỏ 2.",
+                        t("choose.bad_number_cmd", n=num_shrimp),
                     )
                     return
                 picked = set(n - 1 for n in nums)
@@ -454,14 +434,14 @@ class Conversation:
         if norm in YES_WORDS:
             pending = self._get_pending(sender_id)
             if pending is None:
-                self._safe_send_text(sender_id, NO_PENDING_TEXT)
+                self._safe_send_text(sender_id, t("misc.no_pending"))
                 return
 
             try:
                 tray = self._service.save(pending.analysis_id, pending.include, date.today())
             except AnalysisNotFound:
                 self._drop_pending(sender_id)
-                self._safe_send_text(sender_id, "Ảnh này đã hết hạn, bạn gửi lại giúp mình nhé.")
+                self._safe_send_text(sender_id, t("misc.expired"))
                 return
 
             saved = (tray.status == "ok")
@@ -471,7 +451,7 @@ class Conversation:
                 self._safe_send_text(
                     sender_id,
                     text,
-                    quick_replies=[("Tình hình", "tình hình"), ("Hướng dẫn", "hướng dẫn")],
+                    quick_replies=[(t("button.status"), "tình hình"), (t("button.help"), "hướng dẫn")],
                 )
                 self._drop_pending(sender_id)
             else:
@@ -483,7 +463,7 @@ class Conversation:
 
         if norm in HELP_WORDS:
             self._safe_send_text(
-                sender_id, HELP_TEXT, quick_replies=[("Tình hình", "tình hình")]
+                sender_id, t("help.text"), quick_replies=[(t("button.status"), "tình hình")]
             )
             return
 
@@ -493,18 +473,18 @@ class Conversation:
 
         if norm in CANCEL_WORDS:
             self._drop_pending(sender_id)
-            self._safe_send_text(sender_id, "Đã bỏ kết quả vừa rồi.")
+            self._safe_send_text(sender_id, t("misc.cancelled"))
             return
 
         if norm in STATUS_WORDS:
             dash = self._service.dashboard()
             status_text = self._write_status(dash)
             if self.dashboard_url:
-                status_text = f"{status_text}\nXem biểu đồ: {self.dashboard_url}"
+                status_text = f"{status_text}\n{t('status.chart_link', link=self.dashboard_url)}"
             self._safe_send_text(sender_id, status_text)
             return
 
         # Anything else
         self._safe_send_text(
-            sender_id, HELP_TEXT, quick_replies=[("Tình hình", "tình hình")]
+            sender_id, t("help.text"), quick_replies=[(t("button.status"), "tình hình")]
         )

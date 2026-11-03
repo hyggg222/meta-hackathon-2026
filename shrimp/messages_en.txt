@@ -1,0 +1,227 @@
+;; Bot messages, English (for the demo). Edit the text right here, then restart the server.
+;; "=== name" starts a message. The lines below it are its text (it may run over several lines).
+;; Lines starting with ;; are notes, the bot ignores them.
+;; Words in { } are numbers the bot fills in: keep them, or drop them, but do not add new ones.
+;; Do not rename the "=== name" lines. Messenger buttons are 20 characters at most.
+
+;; ===== After a photo: the bot sends the numbered picture, then these lines joined into one message =====
+
+;; Line 1 when some shrimp are left out. {n} counted, {k} left out.
+=== photo.count_left_out
+Measured {n} shrimp ({k} left out)
+
+;; Line 1 when none are left out.
+=== photo.count
+Measured {n} shrimp
+
+;; Line 2. {cm} average length (cm), {size} shrimp per kg.
+=== photo.size
+Average length {cm} cm · about {size} shrimp/kg
+
+;; Line 2 when the size is outside the size table.
+=== photo.size_outside
+Average length {cm} cm · size is outside the table (60 to 140 mm)
+
+;; Added when the temporary size table or a rough estimate is used.
+=== photo.rough
+Rough estimate, may be off by 20%.
+
+;; Added when many shrimp overlap (also used in the "too few" message below).
+=== photo.crowded
+Many shrimp overlap in the photo. Spread them out and retake it for a more accurate measurement.
+
+;; Line 1 when fewer shrimp are counted than the minimum. {n} counted, {min} the minimum.
+=== photo.too_few
+Only {n} shrimp counted, at least {min} needed. Not saved.
+
+;; Line 2 of the "too few" message (when the photo is not crowded).
+=== photo.too_few_hint
+Lay the shrimp so they do not touch and retake the photo, or type "choose 3" to add one.
+
+=== photo.no_reference
+I can't see a ruler or card in the photo, so I can't work out mm. Place a ruler next to the shrimp and retake it.
+
+=== photo.no_shrimp
+I can't see any shrimp in the photo. Lay them flat on a light background and retake it.
+
+;; After tapping Save sample.
+=== photo.saved
+Sample saved.
+
+;; Save was tapped but the result cannot be saved yet.
+=== photo.not_saved
+Not saved.
+
+;; ===== Choosing shrimp =====
+
+;; When the shrimp numbers are wrong (for example "1 9" with only 6 shrimp). {n} shrimp in the photo.
+=== choose.bad_number_list
+Shrimp numbers must be from 1 to {n}. Example: 1 3 5.
+
+;; When "choose" or "remove" comes with wrong numbers.
+=== choose.bad_number_cmd
+Shrimp numbers must be from 1 to {n}. Example: choose 1 3 or remove 2.
+
+=== left_out.none
+No shrimp are left out.
+
+;; Sent after the picture of the left-out shrimp (orange). {example} looks like "1 3".
+=== left_out.caption
+These shrimp are left out (orange), with their length in cm. Type "choose {example}" to add them to the result.
+
+;; ===== General =====
+
+;; A number or "yes" arrives when no photo is waiting.
+=== misc.no_pending
+Send a photo of the shrimp tray first. I will measure it, then reply "yes" to save.
+
+;; "cancel" while a result is waiting.
+=== misc.cancelled
+Discarded the last result.
+
+;; The photo waited too long (30 minutes) and was dropped.
+=== misc.expired
+That photo has expired, please send it again.
+
+=== misc.download_failed
+Could not download the photo. Please send it again.
+
+;; The segmentation model could not process the photo.
+=== misc.cannot_process
+Could not process this photo. Please retake it.
+
+;; Unexpected error.
+=== misc.sorry
+Something went wrong, please try again.
+
+;; ===== "Status": these lines are joined into one message, a line shows only when there is data for it =====
+
+=== status.empty
+No measurements yet. Send a photo of the shrimp tray to start.
+
+;; First line. {date} the day (for example 02/11), {data} the length and size parts below.
+=== status.latest_date_data
+Latest measurement {date}: {data}.
+
+=== status.latest_data
+Latest measurement: {data}.
+
+=== status.latest_date
+Latest measurement {date}.
+
+=== status.latest
+Latest measurement.
+
+;; Two pieces put into {data}, separated by a comma.
+=== status.part_length
+average length {cm} cm
+
+=== status.part_size
+about {size} shrimp/kg
+
+;; Slow growth. {growth} mm per day, {threshold} the limit the farmer set.
+=== status.slow
+Shrimp are growing slowly: about {growth} mm per day, below the {threshold} you set. This is only a hint, you decide.
+
+=== status.growing
+Shrimp are still growing: about {growth} mm per day.
+
+=== status.unclear
+Cannot tell yet: shrimp size varies up and down, more samples are needed.
+
+=== status.not_enough
+Not enough data to compare with the last measurement.
+
+;; {size} shrimp/kg, {price} VND per kg.
+=== status.price
+At {size} shrimp/kg, the price is about {price} VND/kg (default price table, yours may differ).
+
+;; {size} the next size class, {gain} percent better price, {days} is the "about ... days" text below (may be empty).
+=== status.next_class
+The {size} shrimp/kg class usually sells for about {gain}% more{days}.
+
+=== status.next_class_days
+ (about {days} days left if the shrimp grow as just measured, very rough)
+
+=== status.breakeven
+Feed only breaks even if shrimp grow more than about {mm} mm per day (power, labour and risk not counted).
+
+=== status.stall_cost
+One day without growth costs about {cost} VND in feed.
+
+;; Last line if a dashboard link is configured.
+=== status.chart_link
+See the chart: {link}
+
+;; ===== Setup =====
+
+;; First question. {name} the current pond name.
+=== setup.ask_name
+What is the pond name? (now {name})
+
+=== setup.name_too_long
+Please use a name shorter than {max} characters. What is the pond name?
+
+;; {price} the current feed price.
+=== setup.ask_price
+What is the feed price per kg, in VND? Example 45000 (now {price}).
+
+=== setup.bad_price
+The feed price must be a number from {min} to {max} VND per kg. Example 45000.
+
+=== setup.confirm
+Pond: {name}
+Feed price: {price} VND per kg
+Save these settings?
+
+=== setup.confirm_hint
+Tap Save or Cancel.
+
+=== setup.saved
+Saved: {name}, feed price {price} VND per kg.
+
+=== setup.cancelled
+Cancelled. Settings are unchanged.
+
+;; ===== Help =====
+
+=== help.text
+How to use
+1. Send one photo of the shrimp tray to measure it.
+2. Tap "yes" to save the sample.
+3. Type "choose 1 3" to add shrimp.
+4. Type "remove 1 3" to take shrimp out.
+5. Type 1 3 5 to count only these shrimp.
+6. Type "show left out" to see the shrimp that are left out.
+7. Type "cancel" to discard the last result.
+8. Type "status" to see the measurements so far.
+9. Type "setup" to change the pond name and feed price.
+10. Type "help" to see this again.
+
+;; ===== Buttons (20 characters at most) =====
+
+=== button.save_sample
+Save sample
+
+=== button.show_left_out
+Show left out
+
+=== button.cancel
+Cancel
+
+=== button.add_all
+Add all
+
+=== button.status
+Status
+
+=== button.help
+Help
+
+;; The Save button when confirming the setup.
+=== button.save
+Save
+
+;; {name} the current pond name; cut to 20 characters if longer.
+=== button.keep
+Keep {name}

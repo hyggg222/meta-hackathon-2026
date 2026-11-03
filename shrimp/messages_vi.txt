@@ -1,0 +1,227 @@
+;; Tin nhắn của bot, tiếng Việt. Sửa chữ ngay trong file này rồi khởi động lại server.
+;; "=== tên" bắt đầu một tin. Các dòng bên dưới là nội dung (được viết nhiều dòng).
+;; Dòng bắt đầu bằng ;; là ghi chú, bot bỏ qua.
+;; Chữ trong { } là số bot tự điền: giữ nguyên, hoặc bỏ đi, nhưng đừng thêm cái mới.
+;; Không đổi các dòng "=== tên". Nút bấm Messenger tối đa 20 ký tự.
+
+;; ===== Sau khi gửi ảnh: bot gửi ảnh có đánh số, rồi các dòng dưới đây nối thành một tin =====
+
+;; Dòng 1 khi có con bị loại. {n} số con tính, {k} số con bị loại.
+=== photo.count_left_out
+Đo được {n} con (bỏ {k} con)
+
+;; Dòng 1 khi không con nào bị loại.
+=== photo.count
+Đo được {n} con
+
+;; Dòng 2. {cm} chiều dài trung bình (cm), {size} số con mỗi kg.
+=== photo.size
+Dài trung bình {cm} cm · khoảng {size} con/kg
+
+;; Dòng 2 khi cỡ nằm ngoài bảng cỡ.
+=== photo.size_outside
+Dài trung bình {cm} cm · cỡ nằm ngoài bảng (60 đến 140 mm)
+
+;; Thêm khi dùng bảng cỡ tạm hoặc ước lượng thô.
+=== photo.rough
+Ước lượng thô, có thể lệch 20%.
+
+;; Thêm khi ảnh có nhiều tôm chồng nhau (và dùng cho tin "ít con" bên dưới).
+=== photo.crowded
+Ảnh có nhiều tôm chồng nhau. Xếp tôm trải ra rồi chụp lại sẽ đo đúng hơn.
+
+;; Dòng 1 khi số con được tính ít hơn mức tối thiểu. {n} số con, {min} mức tối thiểu.
+=== photo.too_few
+Chỉ có {n} con được tính, cần ít nhất {min} con. Chưa lưu.
+
+;; Dòng 2 của tin "ít con" (khi ảnh không bị chồng nhau).
+=== photo.too_few_hint
+Xếp tôm không chạm nhau rồi chụp lại, hoặc gõ "chọn 3" để thêm con.
+
+=== photo.no_reference
+Không thấy thước hoặc thẻ trong ảnh nên chưa tính được mm. Đặt thước cạnh tôm rồi chụp lại.
+
+=== photo.no_shrimp
+Không thấy con tôm nào trong ảnh. Xếp tôm nằm phẳng trên nền sáng rồi chụp lại.
+
+;; Sau khi bấm Lưu mẫu.
+=== photo.saved
+Đã lưu mẫu.
+
+;; Bấm Lưu nhưng chưa đủ điều kiện để lưu.
+=== photo.not_saved
+Chưa lưu.
+
+;; ===== Chọn con =====
+
+;; Khi gõ số con sai (ví dụ gõ "1 9" mà chỉ có 6 con). {n} số con trong ảnh.
+=== choose.bad_number_list
+Số con phải từ 1 đến {n}. Ví dụ: 1 3 5.
+
+;; Khi gõ "chọn" hoặc "bỏ" kèm số sai.
+=== choose.bad_number_cmd
+Số con phải từ 1 đến {n}. Ví dụ: chọn 1 3 hoặc bỏ 2.
+
+=== left_out.none
+Không có con nào bị loại.
+
+;; Gửi sau ảnh các con bị loại (màu cam). {example} ví dụ như "1 3".
+=== left_out.caption
+Đây là các con đang bị loại (màu cam), kèm độ dài tính bằng cm. Gõ "chọn {example}" để thêm con vào kết quả.
+
+;; ===== Chung =====
+
+;; Gõ số hoặc "có" khi chưa có ảnh nào đang chờ.
+=== misc.no_pending
+Bạn gửi ảnh khay tôm trước nhé, mình sẽ đo rồi bạn trả lời "có" để lưu.
+
+;; Gõ "hủy" khi đang có kết quả.
+=== misc.cancelled
+Đã bỏ kết quả vừa rồi.
+
+;; Ảnh đã chờ quá lâu (30 phút) nên bị xóa.
+=== misc.expired
+Ảnh này đã hết hạn, bạn gửi lại giúp mình nhé.
+
+=== misc.download_failed
+Chưa tải được ảnh. Bạn gửi lại giúp mình nhé.
+
+;; Bộ nhận diện không xử lý được ảnh.
+=== misc.cannot_process
+Chưa xử lý được ảnh này. Bạn chụp lại giúp mình nhé.
+
+;; Lỗi bất ngờ.
+=== misc.sorry
+Có lỗi khi xử lý, bạn thử lại giúp mình nhé.
+
+;; ===== "Tình hình": các dòng nối thành một tin, dòng nào đủ dữ liệu mới hiện =====
+
+=== status.empty
+Chưa có lần đo nào. Gửi ảnh khay tôm để bắt đầu.
+
+;; Dòng đầu. {date} ngày (ví dụ 02/11), {data} là phần chiều dài và cỡ bên dưới.
+=== status.latest_date_data
+Lần đo mới nhất {date}: {data}.
+
+=== status.latest_data
+Lần đo mới nhất: {data}.
+
+=== status.latest_date
+Lần đo mới nhất {date}.
+
+=== status.latest
+Lần đo mới nhất.
+
+;; Hai mẩu ghép vào {data}, cách nhau bằng dấu phẩy.
+=== status.part_length
+tôm dài {cm} cm
+
+=== status.part_size
+khoảng {size} con/kg
+
+;; Tôm lớn chậm. {growth} mm mỗi ngày, {threshold} ngưỡng người nuôi đặt.
+=== status.slow
+Tôm đang lớn chậm: khoảng {growth} mm mỗi ngày, dưới mức {threshold} bạn đặt. Chỉ là gợi ý, bạn quyết định.
+
+=== status.growing
+Tôm vẫn đang lớn: khoảng {growth} mm mỗi ngày.
+
+=== status.unclear
+Chưa xác định được: kích thước tôm dao động lên xuống, cần đo nhiều mẫu.
+
+=== status.not_enough
+Chưa đủ dữ liệu để so với lần trước.
+
+;; {size} con/kg, {price} đồng mỗi kg.
+=== status.price
+Ở cỡ {size} con/kg, giá khoảng {price} đ/kg (bảng giá mặc định, bạn có thể khác).
+
+;; {size} bậc cỡ kế, {gain} phần trăm hơn giá, {days} là câu "còn khoảng ... ngày" bên dưới (có thể trống).
+=== status.next_class
+Bậc cỡ {size} con/kg thường được giá hơn khoảng {gain}%{days}.
+
+=== status.next_class_days
+ (còn khoảng {days} ngày nếu tôm lớn như vừa đo, rất thô)
+
+=== status.breakeven
+Thức ăn chỉ hòa vốn nếu tôm lớn trên khoảng {mm} mm mỗi ngày (chưa tính điện, công, rủi ro).
+
+=== status.stall_cost
+Một ngày không lớn tốn thức ăn khoảng {cost} đ.
+
+;; Dòng cuối nếu đã cấu hình link dashboard.
+=== status.chart_link
+Xem biểu đồ: {link}
+
+;; ===== Cài đặt =====
+
+;; Câu hỏi đầu tiên. {name} tên ao hiện tại.
+=== setup.ask_name
+Tên ao là gì? (hiện là {name})
+
+=== setup.name_too_long
+Tên ao hãy ngắn hơn {max} ký tự. Tên ao là gì?
+
+;; {price} giá thức ăn hiện tại.
+=== setup.ask_price
+Giá thức ăn mỗi kg là bao nhiêu đồng? Ví dụ 45000 (hiện là {price}).
+
+=== setup.bad_price
+Giá thức ăn phải là số từ {min} đến {max} đồng mỗi kg. Ví dụ 45000.
+
+=== setup.confirm
+Ao: {name}
+Giá thức ăn: {price} đ mỗi kg
+Lưu cài đặt này?
+
+=== setup.confirm_hint
+Bấm Lưu hoặc Hủy nhé.
+
+=== setup.saved
+Đã lưu: {name}, giá thức ăn {price} đ mỗi kg.
+
+=== setup.cancelled
+Đã hủy. Cài đặt vẫn như cũ.
+
+;; ===== Hướng dẫn =====
+
+=== help.text
+Cách dùng
+1. Gửi 1 ảnh khay tôm để đo.
+2. Nhấn "có" để lưu mẫu.
+3. Gõ "chọn 1 3" để thêm con.
+4. Gõ "bỏ 1 3" để bớt con.
+5. Gõ 1 3 5 để chỉ tính các con này.
+6. Gõ "xem loại" để xem các con bị loại.
+7. Gõ "hủy" để bỏ kết quả vừa đo.
+8. Gõ "tình hình" để xem biểu đồ các lần đo.
+9. Gõ "cài đặt" để đổi tên ao và giá thức ăn.
+10. Gõ "hướng dẫn" để xem lại trợ giúp.
+
+;; ===== Nút bấm (tối đa 20 ký tự) =====
+
+=== button.save_sample
+Lưu mẫu
+
+=== button.show_left_out
+Xem con bị loại
+
+=== button.cancel
+Hủy
+
+=== button.add_all
+Thêm tất cả
+
+=== button.status
+Tình hình
+
+=== button.help
+Hướng dẫn
+
+;; Nút Lưu ở bước xác nhận cài đặt.
+=== button.save
+Lưu
+
+;; {name} tên ao hiện tại; nếu dài quá 20 ký tự thì bị cắt.
+=== button.keep
+Giữ {name}

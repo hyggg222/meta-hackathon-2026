@@ -9,6 +9,7 @@ from fastapi import FastAPI
 
 from shrimp.app import create_app
 from shrimp.conversation import Conversation
+from shrimp.messages import use as use_language
 from shrimp.messenger import GraphTransport, MessengerConfig, create_messenger_router
 from shrimp.render import render_reply
 from shrimp.reply_text import dashboard_reply, template_reply
@@ -67,6 +68,9 @@ def build(
     # Build FastAPI app with service and optional Messenger bot router
     _show_app_logs()
     repo_root = root if root is not None else Path(__file__).resolve().parent.parent
+    # BOT_LANG=en makes the bot speak English (for the demo); the default is Vietnamese
+    language = (read_setting("BOT_LANG", root=repo_root, env=env) or "vi").strip().lower()
+    use_language(language)
     api_key = read_setting("META_API_KEY", root=repo_root, env=env)
 
     if not api_key:
@@ -125,8 +129,11 @@ def build(
         write_reply = template_reply
         write_status = dashboard_reply
         if read_setting("SPARK_REPLIES", root=repo_root, env=env) == "1":
-            spark = SparkWriter(api_key)
-            write_status = spark.write_status
+            if language == "vi":
+                spark = SparkWriter(api_key)
+                write_status = spark.write_status
+            else:
+                logger.info("SPARK_REPLIES is Vietnamese only; the %s bot uses the plain status text", language)
         conversation = Conversation(
             service,
             transport,

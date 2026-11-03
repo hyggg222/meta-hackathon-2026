@@ -6,12 +6,16 @@ from typing import Any, List, Optional, Tuple
 import numpy as np
 import pytest
 
-from shrimp.conversation import HELP_TEXT, Conversation
+from shrimp.conversation import Conversation
+from shrimp.messages import t as message
+
 from shrimp.models import Dashboard, SegmentationError, TrayResult
 from shrimp.store import Store
 from tests.conftest import FakeSegmenter
 from tests.test_app import make_test_service
 from tests.test_service import FakeTable
+
+HELP_TEXT = message("help.text")
 
 
 @dataclass
