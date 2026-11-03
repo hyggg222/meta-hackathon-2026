@@ -1,5 +1,5 @@
 # Conversation state management and messenger bot command dispatch
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 import logging
 import re
@@ -23,7 +23,13 @@ REMOVE_WORDS = {"bo", "xoa", "remove"}
 ALL_WORDS = {"het", "tat ca", "tatca", "all"}
 LEFT_OUT_WORDS = {"xem loai", "loai", "con bi loai"}
 
-NO_PENDING_TEXT = 'Bạn gửi ảnh khay tôm trước nhé, mình sẽ đo rồi bạn trả lời "có" để lưu.'
+SETUP_WORDS = {"cai dat", "setup", "thiet lap"}
+KEEP_WORDS = {"giu", "giu nguyen"}
+PRICE_MIN, PRICE_MAX = 1000, 1_000_000
+MAX_NAME_LENGTH = 100
+PRICE_ANSWER = re.compile(r"^(\d+)(k)?\s*(d|vnd|dong)?$")
+
+NO_PENDING_TEXT ='Bạn gửi ảnh khay tôm trước nhé, mình sẽ đo rồi bạn trả lời "có" để lưu.'
 HELP_TEXT = (
     "Cách dùng\n"
     "1. Gửi 1 ảnh khay tôm để đo.\n"
@@ -34,7 +40,8 @@ HELP_TEXT = (
     '6. Gõ "xem loại" để xem các con bị loại.\n'
     '7. Gõ "hủy" để bỏ kết quả vừa đo.\n'
     '8. Gõ "tình hình" để xem biểu đồ các lần đo.\n'
-    '9. Gõ "hướng dẫn" để xem lại trợ giúp.'
+    '9. Gõ "cài đặt" để đổi tên ao và giá thức ăn.\n'
+    '10. Gõ "hướng dẫn" để xem lại trợ giúp.'
 )
 
 
@@ -66,6 +73,29 @@ class PendingAnalysis:
     include: Optional[List[int]]
     tray: TrayResult
     updated_at: float
+
+
+@dataclass
+class SetupState:
+    # Where the farmer is in the "cài đặt" questions
+    step: str  # "name", "price" or "confirm"
+    name: Optional[str]
+    price: Optional[int]
+    updated_at: float
+
+
+def _money(value: int) -> str:
+    # 45000 -> "45.000"
+    return f"{value:,}".replace(",", ".")
+
+
+def _parse_price(text: str) -> Optional[int]:
+    # "45000", "45.000", "45k", "45,000 đ" -> 45000; anything else or out of range -> None
+    m = PRICE_ANSWER.match(_normalize(text))
+    if m is None:
+        return None
+    value = int(m.group(1)) * (1000 if m.group(2) else 1)
+    return value if PRICE_MIN <= value <= PRICE_MAX else None
 
 
 def _normalize(text: str) -> str:
@@ -120,6 +150,7 @@ class Conversation:
         self._clock = clock
         self._lock = threading.Lock()
         self._pending: Dict[str, PendingAnalysis] = {}
+        self._setup: Dict[str, SetupState] = {}
         self._sender_locks: Dict[str, threading.Lock] = {}
 
     def _get_sender_lock(self, sender_id: str) -> threading.Lock:
@@ -144,6 +175,91 @@ class Conversation:
     def _drop_pending(self, sender_id: str) -> None:
         with self._lock:
             self._pending.pop(sender_id, None)
+
+    def _get_setup(self, sender_id: str) -> Optional[SetupState]:
+        with self._lock:
+            state = self._setup.get(sender_id)
+            if state is not None and self._clock() - state.updated_at >= self._ttl_seconds:
+                del self._setup[sender_id]
+                return None
+            return state
+
+    def _set_setup(self, sender_id: str, state: SetupState) -> None:
+        state.updated_at = self._clock()
+        with self._lock:
+            self._setup[sender_id] = state
+
+    def _drop_setup(self, sender_id: str) -> None:
+        with self._lock:
+            self._setup.pop(sender_id, None)
+
+    def _start_setup(self, sender_id: str) -> None:
+        # First question: the pond name, with a button to keep the current one
+        current = self._service.settings().pond_name
+        self._set_setup(sender_id, SetupState("name", None, None, 0.0))
+        self._safe_send_text(
+            sender_id,
+            f"Tên ao là gì? (hiện là {current})",
+            quick_replies=[(("Giữ " + current)[:20], "giữ")],
+        )
+
+    def _handle_setup(self, sender_id: str, raw_text: str, state: SetupState) -> None:
+        # One answer per message; nothing is saved until the farmer confirms
+        norm = _normalize(raw_text)
+        if norm in CANCEL_WORDS:
+            self._drop_setup(sender_id)
+            self._safe_send_text(sender_id, "Đã hủy. Cài đặt vẫn như cũ.")
+            return
+
+        current = self._service.settings()
+        if state.step == "name":
+            name = current.pond_name if norm in KEEP_WORDS else raw_text.strip()
+            if len(name) > MAX_NAME_LENGTH:
+                self._safe_send_text(
+                    sender_id, f"Tên ao hãy ngắn hơn {MAX_NAME_LENGTH} ký tự. Tên ao là gì?"
+                )
+                return
+            state.name = name
+            state.step = "price"
+            self._set_setup(sender_id, state)
+            self._safe_send_text(
+                sender_id,
+                f"Giá thức ăn mỗi kg là bao nhiêu đồng? Ví dụ 45000 (hiện là {_money(current.feed_price_vnd)}).",
+            )
+            return
+
+        if state.step == "price":
+            price = _parse_price(raw_text)
+            if price is None:
+                self._safe_send_text(
+                    sender_id,
+                    f"Giá thức ăn phải là số từ {_money(PRICE_MIN)} đến {_money(PRICE_MAX)} đồng mỗi kg. Ví dụ 45000.",
+                )
+                return
+            state.price = price
+            state.step = "confirm"
+            self._set_setup(sender_id, state)
+            self._safe_send_text(
+                sender_id,
+                f"Ao: {state.name}\nGiá thức ăn: {_money(price)} đ mỗi kg\nLưu cài đặt này?",
+                quick_replies=[("Lưu", "có"), ("Hủy", "hủy")],
+            )
+            return
+
+        if norm in YES_WORDS and state.name is not None and state.price is not None:
+            self._service.save_settings(
+                replace(current, pond_name=state.name, feed_price_vnd=state.price)
+            )
+            self._drop_setup(sender_id)
+            self._safe_send_text(
+                sender_id,
+                f"Đã lưu: {state.name}, giá thức ăn {_money(state.price)} đ mỗi kg.",
+            )
+            return
+
+        self._safe_send_text(
+            sender_id, "Bấm Lưu hoặc Hủy nhé.", quick_replies=[("Lưu", "có"), ("Hủy", "hủy")]
+        )
 
     def _safe_send_text(
         self,
@@ -229,6 +345,7 @@ class Conversation:
         # 1. Photo message
         if incoming.image_urls:
             self._drop_pending(sender_id)
+            self._drop_setup(sender_id)
             url = incoming.image_urls[0]
             try:
                 photo = self._transport.download(url)
@@ -279,6 +396,16 @@ class Conversation:
             return
 
         raw_text = raw.strip()
+
+        # "cài đặt" starts the questions; while they run, every answer belongs to them
+        if _normalize(raw_text) in SETUP_WORDS:
+            self._drop_pending(sender_id)
+            self._start_setup(sender_id)
+            return
+        setup = self._get_setup(sender_id)
+        if setup is not None:
+            self._handle_setup(sender_id, raw_text, setup)
+            return
 
         # Numbers
         if all(c in "0123456789 ,." for c in raw_text):

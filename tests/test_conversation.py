@@ -688,8 +688,8 @@ def test_help_text_lists_every_function():
     # The guide names each thing the farmer can do, one per numbered line
     lines = [ln for ln in HELP_TEXT.splitlines() if ln.strip()]
     assert lines[0] == "Cách dùng"
-    numbered = [ln for ln in lines if ln[:2] in ("1.", "2.", "3.", "4.", "5.", "6.", "7.", "8.", "9.")]
-    assert len(numbered) == 9
+    numbered = [ln for ln in lines if ln.split(".")[0].isdigit()]
+    assert len(numbered) == 10
     for needle in (
         "ảnh",
         '"có"',
@@ -699,6 +699,7 @@ def test_help_text_lists_every_function():
         "1 3 5",
         '"hủy"',
         '"tình hình"',
+        '"cài đặt"',
         '"hướng dẫn"',
     ):
         assert any(needle in ln for ln in numbered), needle
