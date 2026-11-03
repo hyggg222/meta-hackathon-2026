@@ -383,14 +383,6 @@ button, input, select {
         <input id="setup-price" type="text" inputmode="decimal">
       </div>
       <div class="fld">
-        <label for="setup-ruler">Chiều dài thước (mm)</label>
-        <input id="setup-ruler" type="text" inputmode="decimal">
-      </div>
-      <div class="fld">
-        <label for="setup-card">Chiều dài thẻ tham chiếu (mm)</label>
-        <input id="setup-card" type="text" inputmode="decimal">
-      </div>
-      <div class="fld">
         <label for="setup-stall">Ngưỡng "tôm lớn chậm" (mm mỗi ngày)</label>
         <input id="setup-stall" type="text" inputmode="decimal">
       </div>
@@ -401,11 +393,6 @@ button, input, select {
       <div class="fld">
         <label for="setup-min">Số con tối thiểu mỗi lần đo</label>
         <input id="setup-min" type="text" inputmode="decimal">
-      </div>
-      <div class="fld">
-        <label for="setup-min-length">Con ngắn nhất được tính (mm)</label>
-        <input id="setup-min-length" type="text" inputmode="decimal">
-        <p class="hint">Con ngắn hơn bị coi là mảnh vụn và bị loại.</p>
       </div>
       <div class="fld">
         <label for="setup-ration">Thức ăn mỗi ngày (phần trăm thể trọng)</label>
@@ -612,12 +599,6 @@ async function loadSettings() {
     const priceEl = document.getElementById("setup-price");
     if (priceEl) priceEl.value = currentSettings.feed_price_vnd !== undefined ? currentSettings.feed_price_vnd : "";
 
-    const rulerEl = document.getElementById("setup-ruler");
-    if (rulerEl) rulerEl.value = currentSettings.ruler_mm !== undefined ? currentSettings.ruler_mm : "";
-
-    const cardEl = document.getElementById("setup-card");
-    if (cardEl) cardEl.value = currentSettings.card_mm !== undefined ? currentSettings.card_mm : "";
-
     const stallEl = document.getElementById("setup-stall");
     if (stallEl) stallEl.value = currentSettings.stall_mm_per_day !== undefined ? currentSettings.stall_mm_per_day : "";
 
@@ -626,9 +607,6 @@ async function loadSettings() {
 
     const minEl = document.getElementById("setup-min");
     if (minEl) minEl.value = currentSettings.min_measured !== undefined ? currentSettings.min_measured : "";
-
-    const minLenEl = document.getElementById("setup-min-length");
-    if (minLenEl) minLenEl.value = currentSettings.min_length_mm !== undefined ? currentSettings.min_length_mm : "";
 
     const rationEl = document.getElementById("setup-ration");
     if (rationEl) rationEl.value = currentSettings.ration_pct !== undefined ? currentSettings.ration_pct : "";
@@ -845,34 +823,20 @@ async function saveSetupHandler() {
 
   const nameVal = document.getElementById("setup-name").value;
   const priceInput = document.getElementById("setup-price");
-  const rulerInput = document.getElementById("setup-ruler");
-  const cardInput = document.getElementById("setup-card");
   const stallInput = document.getElementById("setup-stall");
   const harvestInput = document.getElementById("setup-harvest");
   const minInput = document.getElementById("setup-min");
-  const minLengthInput = document.getElementById("setup-min-length");
   const rationInput = document.getElementById("setup-ration");
 
   const price = parseNumber(priceInput.value, { integer: true });
-  const ruler = parseNumber(rulerInput.value, { integer: false });
-  const card = cardInput ? parseNumber(cardInput.value, { integer: false }) : 85.6;
   const stall = parseNumber(stallInput.value, { integer: false });
   const harvest = parseNumber(harvestInput.value, { integer: false });
   const min = parseNumber(minInput.value, { integer: true });
-  const minLength = parseNumber(minLengthInput.value, { integer: false });
   const ration = parseNumber(rationInput.value, { integer: false });
 
   let hasError = false;
   if (price === null) {
     setFieldError(priceInput, "Nhập số bình thường, ví dụ 100 hoặc 45000.");
-    hasError = true;
-  }
-  if (ruler === null) {
-    setFieldError(rulerInput, "Nhập số bình thường, ví dụ 100 hoặc 45000.");
-    hasError = true;
-  }
-  if (cardInput && card === null) {
-    setFieldError(cardInput, "Nhập số bình thường, ví dụ 100 hoặc 45000.");
     hasError = true;
   }
   if (stall === null) {
@@ -887,10 +851,6 @@ async function saveSetupHandler() {
     setFieldError(minInput, "Nhập số bình thường, ví dụ 100 hoặc 45000.");
     hasError = true;
   }
-  if (minLength === null) {
-    setFieldError(minLengthInput, "Nhập số bình thường, ví dụ 100 hoặc 45000.");
-    hasError = true;
-  }
   if (ration === null) {
     setFieldError(rationInput, "Nhập số bình thường, ví dụ 100 hoặc 45000.");
     hasError = true;
@@ -900,12 +860,9 @@ async function saveSetupHandler() {
   const payload = {
     pond_name: nameVal,
     feed_price_vnd: price,
-    ruler_mm: ruler,
-    card_mm: card,
     stall_mm_per_day: stall,
     harvest_per_kg: harvest,
     min_measured: min,
-    min_length_mm: minLength,
     ration_pct: ration
   };
 

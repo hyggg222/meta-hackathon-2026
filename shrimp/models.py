@@ -28,7 +28,6 @@ class Settings:
     stall_mm_per_day: float = 0.33
     harvest_per_kg: float = 50.0
     min_measured: int = 5
-    min_length_mm: float = 50.0
     ration_pct: float = 1.5
 
 

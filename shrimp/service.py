@@ -57,7 +57,6 @@ class Service:
             "card_mm": 10000,
             "stall_mm_per_day": 1000,
             "harvest_per_kg": 100000,
-            "min_length_mm": 1000,
             "ration_pct": 20,
         }
         for f, max_val in limits.items():

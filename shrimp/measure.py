@@ -13,7 +13,7 @@ from shrimp.models import ShrimpMeasure
 @dataclass
 class OverlapRule:
     # Rule parameters for shrimp overlap detection
-    touch_px: float = 3.0
+    touch_px: float = 1.0
     edge_px: float = 2.0
 
 

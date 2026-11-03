@@ -147,6 +147,19 @@ def test_overlap_touching_ends():
     assert res_far[1].overlapped is False
 
 
+def test_overlap_default_flags_only_real_contact():
+    # Ends 3 px apart are two separate shrimp, ends 1 px apart still count as touching
+    s1 = make_straight_shrimp(50, 150, 100, r=6)
+    apart = make_straight_shrimp(165, 265, 100, r=6)
+    res_apart = measure([s1, apart], px_per_mm=2.0)
+    assert res_apart[0].overlapped is False
+    assert res_apart[1].overlapped is False
+
+    touching = make_straight_shrimp(163, 263, 100, r=6)
+    res_touch = measure([s1, touching], px_per_mm=2.0)
+    assert res_touch[0].overlapped is True
+
+
 def test_overlap_image_border():
     # Shrimp touching border with end is overlapped; shrimp 30 px away is not
     s_edge = make_straight_shrimp(6, 120, 100, r=6)

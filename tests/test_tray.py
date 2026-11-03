@@ -327,23 +327,6 @@ def test_summarize_bad_indices(fake_photo: bytes):
             summarize(analysis, bad, Settings(), None)
 
 
-def test_tray_fragment_excluded(fake_photo: bytes):
-    # Fragment under min length is left out of default choice
-    ruler = make_rect_mask(30, 450, 20, 20, shape=(800, 800))
-    frag = make_capsule_shrimp(50, 127, 100, r=6, shape=(800, 800))
-    s1 = make_capsule_shrimp(50, 307, 180, r=6, shape=(800, 800))
-    s2 = make_capsule_shrimp(50, 307, 260, r=6, shape=(800, 800))
-    s3 = make_capsule_shrimp(50, 307, 340, r=6, shape=(800, 800))
-    s4 = make_capsule_shrimp(50, 307, 420, r=6, shape=(800, 800))
-    seg = FakeSegmenter({"ruler": [ruler], "shrimp": [frag, s1, s2, s3, s4]})
-    res = analyze_tray(fake_photo, Settings(), None, seg)
-    assert res.n_measured == 4
-    assert res.n_left_out == 1
-    assert 0 not in res.included
-    assert res.included == [1, 2, 3, 4]
-    assert res.mean_length_mm == pytest.approx(90.0, abs=1.0)
-
-
 def test_tray_fragment_included_manually(fake_photo: bytes):
     # Manual include list counts fragment regardless of length
     ruler = make_rect_mask(30, 450, 20, 20, shape=(800, 800))
@@ -361,32 +344,21 @@ def test_tray_fragment_included_manually(fake_photo: bytes):
     assert res.included == [0, 1, 2, 3, 4]
 
 
-def test_tray_min_length_threshold(fake_photo: bytes):
-    # Fragment counts when min length is lower or equal to length
+def test_tray_short_shrimp_is_counted_by_default(fake_photo: bytes):
+    # No minimum length: a short whole shrimp is counted like any other
     ruler = make_rect_mask(30, 450, 20, 20, shape=(800, 800))
-    frag = make_capsule_shrimp(50, 127, 100, r=6, shape=(800, 800))
+    short = make_capsule_shrimp(50, 127, 100, r=6, shape=(800, 800))
     s1 = make_capsule_shrimp(50, 307, 180, r=6, shape=(800, 800))
     s2 = make_capsule_shrimp(50, 307, 260, r=6, shape=(800, 800))
     s3 = make_capsule_shrimp(50, 307, 340, r=6, shape=(800, 800))
     s4 = make_capsule_shrimp(50, 307, 420, r=6, shape=(800, 800))
-    seg = FakeSegmenter({"ruler": [ruler], "shrimp": [frag, s1, s2, s3, s4]})
+    seg = FakeSegmenter({"ruler": [ruler], "shrimp": [short, s1, s2, s3, s4]})
     analysis = analyze_shrimp(fake_photo, Settings(), seg)
+    assert abs(analysis.shrimp[0].length_mm - 30.0) < 1.0
 
-    res20 = summarize(analysis, None, Settings(min_length_mm=20.0), None)
-    assert res20.n_measured == 5
-    assert 0 in res20.included
-
-    frag_len = analysis.shrimp[0].length_mm
-    assert frag_len is not None
-    assert abs(frag_len - 30.0) < 1.0
-
-    res_exact = summarize(analysis, None, Settings(min_length_mm=frag_len), None)
-    assert res_exact.n_measured == 5
-    assert 0 in res_exact.included
-
-    res_above = summarize(analysis, None, Settings(min_length_mm=frag_len + 0.1), None)
-    assert res_above.n_measured == 4
-    assert 0 not in res_above.included
+    res = summarize(analysis, None, Settings(), None)
+    assert res.n_measured == 5
+    assert 0 in res.included
 
 
 def test_tray_no_reference_length(fake_photo: bytes):
@@ -407,7 +379,7 @@ def test_tray_no_reference_length(fake_photo: bytes):
 
 def test_summarize_sd_length():
     # Chosen lengths give sample standard deviation with ddof=1, None for < 2 shrimp
-    settings = Settings(min_measured=1, min_length_mm=50.0)
+    settings = Settings(min_measured=1)
     shrimp = [
         ShrimpMeasure(index=0, length_px=160.0, length_mm=80.0, overlapped=False, path=[]),
         ShrimpMeasure(index=1, length_px=180.0, length_mm=90.0, overlapped=False, path=[]),
@@ -428,7 +400,7 @@ def test_summarize_sd_length():
 
 def test_summarize_merged_shrimp():
     # Merged shrimp is excluded by default, but counted when include list names it
-    settings = Settings(min_measured=1, min_length_mm=50.0)
+    settings = Settings(min_measured=1)
     shrimp = [
         ShrimpMeasure(index=0, length_px=200.0, length_mm=100.0, overlapped=False, path=[], merged=False),
         ShrimpMeasure(index=1, length_px=200.0, length_mm=100.0, overlapped=False, path=[], merged=False),
@@ -470,7 +442,7 @@ def test_shrimp_are_numbered_top_to_bottom_then_left_to_right(fake_photo: bytes)
 
 def test_summarize_partial_piece_is_left_out_by_default():
     # A piece of a shrimp is excluded by default, but counted when the include list names it
-    settings = Settings(min_measured=1, min_length_mm=50.0)
+    settings = Settings(min_measured=1)
     shrimp = [
         ShrimpMeasure(index=0, length_px=200.0, length_mm=100.0, overlapped=False, path=[]),
         ShrimpMeasure(index=1, length_px=200.0, length_mm=100.0, overlapped=False, path=[]),
@@ -489,7 +461,7 @@ def test_summarize_partial_piece_is_left_out_by_default():
 
 def test_crowded_notice_tray():
     # Tray of 10 masks with 6 left out is crowded; 3 left out is not; < 8 masks is not; explicit include does not change notice
-    settings = Settings(min_measured=1, min_length_mm=50.0)
+    settings = Settings(min_measured=1)
 
     # 10 masks where 6 touch each other (overlapped)
     shrimp_10_crowded = [

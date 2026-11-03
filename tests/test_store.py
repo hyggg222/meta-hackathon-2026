@@ -384,21 +384,6 @@ def test_seed_demo_preserves_real_feed():
     assert feeds[0] == real_feed
 
 
-# Verify corrupt or missing min_length_mm falls back to default.
-def test_corrupt_min_length_falls_back():
-    store = Store(":memory:")
-    defaults = Settings()
-    assert store.load_settings(defaults).min_length_mm == 50.0
-
-    for bad in ('"corrupt"', "true", "[1, 2]", "{}", "null"):
-        store._conn.execute(
-            "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
-            ("min_length_mm", bad),
-        )
-        store._conn.commit()
-        assert store.load_settings(defaults).min_length_mm == 50.0
-
-
 # Verify round trip of sd_length_mm.
 def test_sample_sd_length_round_trip():
     store = Store(":memory:")

@@ -89,7 +89,7 @@ def test_page_script_reads_dashboard_fields():
 
 
 def test_page_setup_form_fields():
-    # Setup form still has fields with ids for pond name, feed price, min length and ration, using parseNumber(
+    # Setup form still has fields with ids for pond name, feed price and ration, using parseNumber(
     service = make_test_service()
     app = create_app(service)
     client = TestClient(app)
@@ -97,13 +97,10 @@ def test_page_setup_form_fields():
     html = client.get("/").text
     assert 'id="setup-name"' in html
     assert 'id="setup-price"' in html
-    assert 'id="setup-min-length"' in html
     assert 'id="setup-ration"' in html
 
     assert "Tên ao" in html
     assert "Giá thức ăn mặc định (đồng mỗi kg)" in html
-    assert "Con ngắn nhất được tính (mm)" in html
-    assert "Con ngắn hơn bị coi là mảnh vụn và bị loại." in html
     assert "Thức ăn mỗi ngày (phần trăm thể trọng)" in html
     assert "Khoảng 1,5 ở cỡ 25 g. Chỉ dùng để tính, không ảnh hưởng gợi ý." in html
     assert "Lưu cài đặt" in html
@@ -333,3 +330,12 @@ def test_page_change_pill_comes_from_the_server_and_out_of_range_is_explained():
     assert "change_length_mm" in html
     assert "r.mean_length_mm - prevRow.mean_length_mm" not in html
     assert "Bảng cỡ chỉ tính từ 60 đến 140 mm" in html
+
+
+def test_page_setup_has_no_ruler_card_or_min_length_fields():
+    # The farmer is not asked for the ruler or card length, or for a shortest shrimp
+    service = make_test_service()
+    html = TestClient(create_app(service)).get("/").text
+
+    for gone in ("setup-ruler", "setup-card", "setup-min-length", "Con ngắn nhất"):
+        assert gone not in html

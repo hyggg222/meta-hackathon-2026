@@ -122,7 +122,6 @@ def summarize(
         if not s.overlapped
         and not s.merged
         and not s.partial
-        and (s.length_mm is None or s.length_mm >= settings.min_length_mm)
     ]
     if include is None:
         chosen = default_chosen
