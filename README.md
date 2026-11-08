@@ -17,13 +17,6 @@ The farmer can reply "có" to save the sample, or type the numbers of the shrimp
 - **Muse Spark 1.3** writes the reply text from the structured result. Every number in its text must appear in the result, words that tell the farmer to harvest or sell are refused, and any failure falls back to a fixed Vietnamese template.
 - Rules live in code, never in a language model: the length table, thresholds, the slow-growth hint and the cost of a day without growth are plain Python with tests.
 
-## Honest limits
-- One pond only: samples, feed entries and all settings are shared. Several ponds (each with its own name, stocking date, feed and thresholds, picked in the bot with a command such as "ao 2") is the next step and is not built.
-- Evidence is one farmer's call and market shrimp laid flat; the farmer was not farming during the build, so there are no pond photos.
-- The size table is a temporary public length-weight formula (Chow and Sandifer 1991), labelled "temporary table, not the CP table" on screen; it can be off by 20% or more.
-- The dashboard history in the demo is demo data and is labelled as such. Measured error against hand measurements is in `docs/results/error-table.md` when present (n stated there).
-- The slow-growth hint is noisy: the spread of one tray's mean length can exceed 0.33 mm a day over 3 days. It is information only.
-
 ## Run it
 Python 3.8 and Node 22.
 
