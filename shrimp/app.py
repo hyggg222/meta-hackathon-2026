@@ -13,7 +13,6 @@ MAX_UPLOAD_BYTES = 15 * 1024 * 1024
 
 
 def _to_json_dict(obj: Any) -> Any:
-    # Convert dataclass instance and dates recursively to json-serializable dict
     def _convert(v: Any) -> Any:
         if isinstance(v, (date, datetime)):
             return v.isoformat()
